@@ -140,11 +140,6 @@ export class Simctl implements Robot {
 		return result;
 	}
 
-	// Example usage
-	// const inputText = `your iOS app data here`;
-	// const parsedData = parseIOSAppData(inputText);
-	// console.log(JSON.stringify(parsedData, null, 2));
-
 	public async listApps(): Promise<string[]> {
 		const text = this.simctl("listapps", this.simulatorUuid).toString();
 		const apps = this.parseIOSAppData(text);
@@ -179,9 +174,9 @@ export class Simctl implements Robot {
 	public async swipe(direction: SwipeDirection) {
 		await this.withinSession(async (port, sessionId) => {
 
-			let x0 = 200;
+			const x0 = 200;
 			let y0 = 600;
-			let x1 = 200;
+			const x1 = 200;
 			let y1 = 200;
 
 			if (direction === "up") {
