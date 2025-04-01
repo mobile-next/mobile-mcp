@@ -32,13 +32,14 @@ describe("android", () => {
 	});
 
 	it("should be able to open a url", async () => {
+		await android.adb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
 		await android.openUrl("https://www.example.com");
 	});
 
 	it("should be able to list elements on screen", async () => {
+		await android.adb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
 		await android.openUrl("https://www.example.com");
 		const elements = await android.getElementsOnScreen();
-		console.dir(elements);
 
 		const foundTitle = elements.find(element => element.text.includes("This domain is for use in illustrative examples in documents"));
 		assert.ok(foundTitle);

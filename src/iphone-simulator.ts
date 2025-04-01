@@ -1,5 +1,5 @@
 import { execFileSync, execSync } from "child_process";
-import { Dimensions, Robot, SwipeDirection } from "./robot";
+import { Button, Dimensions, Robot, SwipeDirection } from "./robot";
 
 export interface Simulator {
 	name: string;
@@ -25,14 +25,30 @@ interface SourceTree {
 	value: SourceTreeElement;
 }
 
+
+interface AppInfo {
+	ApplicationType: string;
+	Bundle: string;
+	CFBundleDisplayName: string;
+	CFBundleExecutable: string;
+	CFBundleIdentifier: string;
+	CFBundleName: string;
+	CFBundleVersion: string;
+	DataContainer: string;
+	GroupContainers: Record<string, string>;
+	Path: string;
+	SBAppTags: string[];
+}
+
+
 export class Simctl implements Robot {
 	constructor(private readonly simulatorUuid: string) {
 	}
 
-	private async simctl(command: string, ...args: string[]): Promise<Buffer> {
+	private simctl(...args: string[]): Buffer {
 		return execFileSync(
 			"xcrun",
-			["simctl", command, this.simulatorUuid, ...args],
+			["simctl", ...args],
 			{ maxBuffer: 1024 * 1024 * 4 });
 	}
 
@@ -41,19 +57,97 @@ export class Simctl implements Robot {
 	}
 
 	public async openUrl(url: string) {
-		return this.simctl("openurl", this.simulatorUuid, url);
+		this.simctl("openurl", this.simulatorUuid, url);
 	}
 
 	public async launchApp(packageName: string) {
-		return this.simctl("launch", this.simulatorUuid, packageName);
+		this.simctl("launch", this.simulatorUuid, packageName);
 	}
 
 	public async terminateApp(packageName: string) {
-		return this.simctl("terminate", this.simulatorUuid, packageName);
+		this.simctl("terminate", this.simulatorUuid, packageName);
 	}
 
-	public async listApps() {
-		return this.simctl("listapps", this.simulatorUuid);
+	private parseIOSAppData(inputText: string): Array<AppInfo> {
+		const result: Array<AppInfo> = [];
+
+		// Remove leading and trailing characters if needed
+		const cleanText = inputText.trim();
+
+		// Extract each app section
+		const appRegex = /"([^"]+)"\s+=\s+\{([^}]+)\};/g;
+		let appMatch;
+
+		while ((appMatch = appRegex.exec(cleanText)) !== null) {
+			const bundleId = appMatch[1];
+			const appContent = appMatch[2];
+
+			const appInfo: Partial<AppInfo> = {
+				GroupContainers: {},
+				SBAppTags: []
+			};
+
+			// Parse simple key-value pairs
+			const keyValueRegex = /\s+(\w+)\s+=\s+([^;]+);/g;
+			let keyValueMatch;
+
+			while ((keyValueMatch = keyValueRegex.exec(appContent)) !== null) {
+				const key = keyValueMatch[1];
+				let value = keyValueMatch[2].trim();
+
+				// Handle quoted string values
+				if (value.startsWith('"') && value.endsWith('"')) {
+					value = value.substring(1, value.length - 1);
+				}
+
+				if (key !== "GroupContainers" && key !== "SBAppTags") {
+					(appInfo as any)[key] = value;
+				}
+			}
+
+			// Parse GroupContainers
+			const groupContainersMatch = appContent.match(/GroupContainers\s+=\s+\{([^}]+)\};/);
+			if (groupContainersMatch) {
+				const groupContainersContent = groupContainersMatch[1];
+				const groupRegex = /"([^"]+)"\s+=\s+"([^"]+)"/g;
+				let groupMatch;
+
+				while ((groupMatch = groupRegex.exec(groupContainersContent)) !== null) {
+					const groupId = groupMatch[1];
+					const groupPath = groupMatch[2];
+					appInfo.GroupContainers![groupId] = groupPath;
+				}
+			}
+
+			// Parse SBAppTags
+			const sbAppTagsMatch = appContent.match(/SBAppTags\s+=\s+\(\s*(.*?)\s*\);/);
+			if (sbAppTagsMatch) {
+				const tagsContent = sbAppTagsMatch[1].trim();
+				if (tagsContent) {
+					const tagRegex = /"([^"]+)"/g;
+					let tagMatch;
+
+					while ((tagMatch = tagRegex.exec(tagsContent)) !== null) {
+						appInfo.SBAppTags!.push(tagMatch[1]);
+					}
+				}
+			}
+
+			result.push(appInfo as AppInfo);
+		}
+
+		return result;
+	}
+
+	// Example usage
+	// const inputText = `your iOS app data here`;
+	// const parsedData = parseIOSAppData(inputText);
+	// console.log(JSON.stringify(parsedData, null, 2));
+
+	public async listApps(): Promise<string[]> {
+		const text = this.simctl("listapps", this.simulatorUuid).toString();
+		const apps = this.parseIOSAppData(text);
+		return apps.map(app => app.CFBundleIdentifier);
 	}
 
 	public async getScreenSize(): Promise<Dimensions> {
@@ -62,20 +156,16 @@ export class Simctl implements Robot {
 			const response = await fetch(url);
 			const json = await response.json();
 			return {
-				width: json.value.width, 
+				width: json.value.width,
 				height: json.value.height
 			};
 		});
 	}
 
-	public getElementsOnScreen(): any[] {
-		return [];
-	}
-
 	public async sendKeys(keys: string) {
 		await this.withinSession(async (port, sessionId) => {
 			const url = `http://localhost:${port}/session/${sessionId}/wda/keys`;
-			const response = await fetch(url, {
+			await fetch(url, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -83,24 +173,24 @@ export class Simctl implements Robot {
 				body: JSON.stringify({ value: [keys] }),
 			});
 		});
-	};
-	
+	}
+
 	public async swipe(direction: SwipeDirection) {
 		await this.withinSession(async (port, sessionId) => {
-	
+
 			let x0 = 200;
 			let y0 = 600;
 			let x1 = 200;
 			let y1 = 200;
-	
+
 			if (direction === "up") {
 				const tmp = y0;
 				y0 = y1;
 				y1 = tmp;
 			}
-	
+
 			const url = `http://localhost:${port}/session/${sessionId}/actions`;
-			const response = await fetch(url, {
+			await fetch(url, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -122,15 +212,13 @@ export class Simctl implements Robot {
 					]
 				}),
 			});
-	
-			return response.json();
 		});
-	};
-	
-	private async tap(x: number, y: number) {
+	}
+
+	public async tap(x: number, y: number) {
 		await this.withinSession(async (port, sessionId) => {
 			const url = `http://localhost:${port}/session/${sessionId}/actions`;
-			const response = await fetch(url, {
+			await fetch(url, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -151,12 +239,43 @@ export class Simctl implements Robot {
 					]
 				}),
 			});
-	
+		});
+	}
+
+	public async pressButton(button: Button) {
+		const _map = {
+			"HOME": "home",
+			"VOLUME_UP": "volumeup",
+			"VOLUME_DOWN": "volumedown",
+		};
+
+		if (button === "ENTER") {
+			await this.sendKeys("\n");
+			return;
+		}
+
+		// Type assertion to check if button is a key of _map
+		if (!(button in _map)) {
+			throw new Error(`Button "${button}" is not supported`);
+		}
+
+		await this.withinSession(async (port, sessionId) => {
+			const url = `http://localhost:${port}/session/${sessionId}/wda/pressButton`;
+			const response = await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					name: button,
+				}),
+			});
+
 			return response.json();
 		});
-	};
+	}
 
-	private async createSession = async (port: number) {
+	private async createSession(port: number) {
 		const url = `http://localhost:${port}/session`;
 		const response = await fetch(url, {
 			method: "POST",
@@ -165,29 +284,70 @@ export class Simctl implements Robot {
 			},
 			body: JSON.stringify({ capabilities: { alwaysMatch: { platformName: "iOS" } } }),
 		});
-	
+
 		const json = await response.json();
 		return json.value.sessionId;
-	};
-	
-	private async deleteSession = async (port: number, sessionId: string) {
+	}
+
+	private async deleteSession(port: number, sessionId: string) {
 		const url = `http://localhost:${port}/session/${sessionId}`;
 		const response = await fetch(url, { method: "DELETE" });
 		return response.json();
-	};
-	
-	private async withinSession(fn: (port: number,sessionId: string) => Promise<any>)  {
+	}
+
+	private async withinSession(fn: (port: number, sessionId: string) => Promise<any>) {
 		const port = 8100;
 		const sessionId = await this.createSession(port);
 		const result = await fn(port, sessionId);
 		await this.deleteSession(port, sessionId);
 		return result;
-	};
+	}
+
+	private filterSourceElements(source: SourceTreeElement): Array<any> {
+
+		const output: any[] = [];
+
+		console.error("gilm " + JSON.stringify(source));
+		if (source.type === "TextField" || source.type === "Button" || source.type === "Switch") {
+			output.push({
+				type: source.type,
+				label: source.label,
+				name: source.name,
+				rect: {
+					x0: source.rect.x,
+					y0: source.rect.y,
+					x1: source.rect.x + source.rect.width,
+					y1: source.rect.y + source.rect.height,
+				},
+			});
+		}
+
+		if (source.children) {
+			for (const child of source.children) {
+				output.push(...this.filterSourceElements(child));
+			}
+		}
+
+		return output;
+	}
+
+	public async getPageSource(): Promise<SourceTree> {
+		const port = 8100;
+		const url = `http://localhost:${port}/source/?format=json`;
+		const response = await fetch(url);
+		const json = await response.json();
+		return json as SourceTree;
+	}
+
+	public async getElementsOnScreen(): Promise<any[]> {
+		const source = await this.getPageSource();
+		return this.filterSourceElements(source.value);
+	}
 }
 
 export class SimctlManager {
 
-	public getConnectedDevices(): Simulator[] {
+	public listBootedSimulators(): Simulator[] {
 		return execSync(`xcrun simctl list devices`)
 			.toString()
 			.split("\n")
@@ -212,56 +372,4 @@ export class SimctlManager {
 		return new Simctl(uuid);
 	}
 }
-
-
-export const filterSourceElements = (source: SourceTreeElement): Array<any> => {
-
-	const output: any[] = [];
-
-	if (source.type === "TextField") {
-		output.push({
-			type: "TextField",
-			label: source.label,
-			name: source.name,
-			rect: {
-				x0: source.rect.x,
-				y0: source.rect.y,
-				x1: source.rect.x + source.rect.width,
-				y1: source.rect.y + source.rect.height,
-			},
-		});
-	}
-
-	if (source.children) {
-		for (const child of source.children) {
-			output.push(...filterSourceElements(child));
-		}
-	}
-
-	return output;
-};
-
-export const getPageSource = async (port: number): Promise<SourceTree> => {
-	const url = `http://localhost:${port}/source/?format=json`;
-	const response = await fetch(url);
-	const json = await response.json();
-	return json as SourceTree;
-};
-
-export const pressHomeButton = async (port: number) => {
-	await withinSession(port, async sessionId => {
-		const url = `http://localhost:${port}/session/${sessionId}/wda/pressButton`;
-		const response = await fetch(url, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				name: "home",
-			}),
-		});
-
-		return response.json();
-	});
-};
 

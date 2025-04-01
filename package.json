@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc && chmod +x lib/index.js",
     "lint": "eslint .",
-    "test": "mocha",
+    "test": "mocha --require ts-node/register test/*.ts",
     "watch": "tsc --watch",
     "clean": "rm -rf lib"
   },

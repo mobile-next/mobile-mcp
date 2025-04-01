@@ -1,13 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
-
-import { execSync } from "child_process";
-import { error, trace } from "./logger";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
-import { AndroidRobot, getElementsOnScreen, getScreenSize, listApps, swipe, takeScreenshot } from "./android";
-
 import sharp from "sharp";
-import { filterSourceElements, getPageSource, getScreenshot, iosGetScreenSize, iosOpenUrl, iosSwipe, launchApp, pressHomeButton, sendKeys, tap } from "./iphone-simulator";
+
+import { error, trace } from "./logger";
+import { AndroidRobot } from "./android";
+import { Simctl, SimctlManager } from "./iphone-simulator";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -46,29 +44,28 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
-	const robot = new AndroidRobot();
+	// const robot = new AndroidRobot();
+	const simulatorManager = new SimctlManager();
+	const robot = simulatorManager.getSimulator(simulatorManager.listBootedSimulators()[0].name);
 
 	tool(
 		"list_apps_on_device",
 		"List all apps on device",
 		{},
 		async ({}) => {
-			const result = listApps();
+			const result = await robot.listApps();
 			return `Found these packages on device: ${result.join(",")}`;
 		}
 	);
 
 	tool(
 		"launch_app",
-		"Launch an app on mobile device",
+		"Launch an app on mobile device. Use this to open a specific app. You can find the package name of the app by calling list_apps_on_device.",
 		{
 			packageName: z.string().describe("The package name of the app to launch"),
 		},
 		async ({ packageName }) => {
-			// execSync(`adb shell monkey -p "${packageName}" -c android.intent.category.LAUNCHER 1`);
-
-			launchApp("iPhone 16", packageName);
-
+			await robot.launchApp(packageName);
 			return `Launched app ${packageName}`;
 		}
 	);
@@ -90,9 +87,8 @@ export const createMcpServer = (): McpServer => {
 		"Get the screen size of the mobile device in pixels",
 		{},
 		async ({}) => {
-			// const screenSize = getScreenSize();
-			const screenSize = await iosGetScreenSize(8100);
-			return `Screen size is ${screenSize[0]}x${screenSize[1]} pixels`;
+			const screenSize = await robot.getScreenSize();
+			return `Screen size is ${screenSize.width}x${screenSize.height} pixels`;
 		}
 	);
 
@@ -104,13 +100,10 @@ export const createMcpServer = (): McpServer => {
 			y: z.number().describe("The y coordinate to click between 0 and 1"),
 		},
 		async ({ x, y }) => {
-			const screenSize = await iosGetScreenSize(8100);
-			// const screenSize = getScreenSize();
-			const x0 = Math.floor(screenSize[0] * x);
-			const y0 = Math.floor(screenSize[1] * y);
-			// execSync(`adb shell input tap ${x0} ${y0}`);
-			tap(8100, x0, y0);
-
+			const screenSize = await robot.getScreenSize();
+			const x0 = Math.floor(screenSize.width * x);
+			const y0 = Math.floor(screenSize.height * y);
+			await robot.tap(x0, y0);
 			return `Clicked on screen at coordinates: ${x}, ${y}`;
 		}
 	);
@@ -121,19 +114,28 @@ export const createMcpServer = (): McpServer => {
 		{
 		},
 		async ({}) => {
-			// const elements = getElementsOnScreen();
-			const screenSize = await iosGetScreenSize(8100);
-			const pageSource = await getPageSource(8100);
-			const elements = filterSourceElements(pageSource.value);
+			const screenSize = await robot.getScreenSize();
+			console.error("gilm screenSize " + JSON.stringify(screenSize));
+			const elements = await robot.getElementsOnScreen();
+			console.error("gilm !!elements " + JSON.stringify(elements));
 
+			const result = [];
 			for (let i = 0; i < elements.length; i++) {
-				elements[i].rect.x0 = Math.floor(elements[i].rect.x0 / screenSize[0]);
-				elements[i].rect.y0 = Math.floor(elements[i].rect.y0 / screenSize[1]);
-				elements[i].rect.x1 = Math.floor(elements[i].rect.x1 / screenSize[0]);
-				elements[i].rect.y1 = Math.floor(elements[i].rect.y1 / screenSize[1]);
+				elements[i].rect.x0 = elements[i].rect.x0 / screenSize.width;
+				elements[i].rect.y0 = elements[i].rect.y0 / screenSize.height;
+				elements[i].rect.x1 = elements[i].rect.x1 / screenSize.width;
+				elements[i].rect.y1 = elements[i].rect.y1 / screenSize.height;
+				console.error("gilm elements " + JSON.stringify(elements[i]));
+				result.push({
+					text: elements[i].label,
+					coordinates: {
+						x: (elements[i].rect.x0 + elements[i].rect.x1) / 2,
+						y: (elements[i].rect.y0 + elements[i].rect.y1) / 2,
+					}
+				});
 			}
 
-			return `Found these elements on screen: ${JSON.stringify(elements)}`;
+			return `Found these elements on screen: ${JSON.stringify(result)}`;
 		}
 	);
 
@@ -141,11 +143,10 @@ export const createMcpServer = (): McpServer => {
 		"press_button",
 		"Press a button on device",
 		{
-			button: z.string().describe("The button to press. Supported buttons: KEYCODE_BACK, KEYCODE_HOME, KEYCODE_MENU, KEYCODE_VOLUME_UP, KEYCODE_VOLUME_DOWN, KEYCODE_ENTER"),
+			button: z.string().describe("The button to press. Supported buttons: BACK, HOME, VOLUME_UP, VOLUME_DOWN, ENTER"),
 		},
 		async ({ button }) => {
-			// execSync(`adb shell input keyevent ${button}`);
-			pressHomeButton(8100);
+			robot.pressButton(button);
 			return `Pressed the button: ${button}`;
 		}
 	);
@@ -169,7 +170,6 @@ export const createMcpServer = (): McpServer => {
 			direction: z.enum(["up", "down"]).describe("The direction to swipe"),
 		},
 		async ({ direction }) => {
-			// swipe(direction);
 			robot.swipe(direction);
 			return `Swiped ${direction} on screen`;
 		}
@@ -193,8 +193,7 @@ export const createMcpServer = (): McpServer => {
 		{},
 		async ({}) => {
 			try {
-				// const screenshot = await takeScreenshot();
-				const screenshot = getScreenshot("iPhone 16");
+				const screenshot = await robot.getScreenshot();
 
 				// Scale down the screenshot by 50%
 				const image = sharp(screenshot);
@@ -230,4 +229,3 @@ export const createMcpServer = (): McpServer => {
 
 	return server;
 };
-

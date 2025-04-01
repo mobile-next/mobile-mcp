@@ -1,6 +1,7 @@
 import { execFileSync, execSync } from "child_process";
 import * as xml from "fast-xml-parser";
-import { Bounds, Dimensions, ElementCoordinates, Robot, SwipeDirection } from "./robot";
+import { Bounds, Button, Dimensions, ElementCoordinates, Robot, SwipeDirection } from "./robot";
+import path from "path";
 
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
@@ -32,7 +33,13 @@ export class AndroidRobot implements Robot {
 	}
 
 	public adb(args: string[]): Buffer {
-		return execFileSync("adb", args, { maxBuffer: 1024 * 1024 * 4 });
+
+		let executable = "adb";
+		if (process.env.ANDROID_HOME) {
+			executable = path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
+		}
+
+		return execFileSync(executable, args, { maxBuffer: 1024 * 1024 * 4 });
 	}
 
 	public async listApps(): Promise<string[]> {
@@ -45,6 +52,10 @@ export class AndroidRobot implements Robot {
 			.filter((value, index, self) => self.indexOf(value) === index);
 
 		return result;
+	}
+
+	public async launchApp(packageName: string): Promise<void> {
+		this.adb(["shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1"]);
 	}
 
 	public async swipe(direction: SwipeDirection): Promise<void> {
@@ -128,7 +139,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<any[]> {
-		const dump = execSync(`adb exec-out uiautomator dump /dev/tty`);
+		const dump = this.adb(["exec-out", "uiautomator", "dump", "/dev/tty"]);
 
 		const parser = new xml.XMLParser({
 			ignoreAttributes: false,
@@ -155,6 +166,26 @@ export class AndroidRobot implements Robot {
 		// adb shell requires some escaping
 		const _text = text.replace(/ /g, "\\ ");
 		this.adb(["shell", "input", "text", _text]);
+	}
+
+	public async pressButton(button: Button) {
+		const _map = {
+			"BACK": "KEYCODE_BACK",
+			"HOME": "KEYCODE_HOME",
+			"VOLUME_UP": "KEYCODE_VOLUME_UP",
+			"VOLUME_DOWN": "KEYCODE_VOLUME_DOWN",
+			"ENTER": "KEYCODE_ENTER",
+		};
+
+		if (!_map[button]) {
+			throw new Error(`Button "${button}" is not supported`);
+		}
+
+		this.adb(["shell", "input", "keyevent", _map[button]]);
+	}
+
+	public async tap(x: number, y: number): Promise<void> {
+		this.adb(["shell", "input", "tap", `${x}`, `${y}`]);
 	}
 }
 
