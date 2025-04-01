@@ -4,8 +4,8 @@ import { z, ZodRawShape, ZodTypeAny } from "zod";
 import sharp from "sharp";
 
 import { error, trace } from "./logger";
-import { AndroidRobot } from "./android";
-import { Simctl, SimctlManager } from "./iphone-simulator";
+// import { AndroidRobot } from "./android";
+import { SimctlManager } from "./iphone-simulator";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");

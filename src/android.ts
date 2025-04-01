@@ -152,7 +152,7 @@ export class AndroidRobot implements Robot {
 		const screenSize = await this.getScreenSize();
 		const elements = this.collectElements(hierarchy.node, screenSize);
 		return elements;
-	};
+	}
 
 	public async terminateApp(packageName: string): Promise<void> {
 		this.adb(["shell", "am", "force-stop", packageName]);

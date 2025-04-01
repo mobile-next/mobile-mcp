@@ -4,6 +4,7 @@ import { Button, Dimensions, Robot, SwipeDirection } from "./robot";
 export interface Simulator {
 	name: string;
 	uuid: string;
+	state: string;
 }
 
 interface SourceTreeElement {
@@ -79,7 +80,7 @@ export class Simctl implements Robot {
 		let appMatch;
 
 		while ((appMatch = appRegex.exec(cleanText)) !== null) {
-			const bundleId = appMatch[1];
+			// const bundleId = appMatch[1];
 			const appContent = appMatch[2];
 
 			const appInfo: Partial<AppInfo> = {
@@ -87,7 +88,7 @@ export class Simctl implements Robot {
 				SBAppTags: []
 			};
 
-			// Parse simple key-value pairs
+			// parse simple key-value pairs
 			const keyValueRegex = /\s+(\w+)\s+=\s+([^;]+);/g;
 			let keyValueMatch;
 
@@ -105,7 +106,7 @@ export class Simctl implements Robot {
 				}
 			}
 
-			// Parse GroupContainers
+			// parse GroupContainers
 			const groupContainersMatch = appContent.match(/GroupContainers\s+=\s+\{([^}]+)\};/);
 			if (groupContainersMatch) {
 				const groupContainersContent = groupContainersMatch[1];
@@ -119,7 +120,7 @@ export class Simctl implements Robot {
 				}
 			}
 
-			// Parse SBAppTags
+			// parse SBAppTags
 			const sbAppTagsMatch = appContent.match(/SBAppTags\s+=\s+\(\s*(.*?)\s*\);/);
 			if (sbAppTagsMatch) {
 				const tagsContent = sbAppTagsMatch[1].trim();
@@ -308,7 +309,7 @@ export class Simctl implements Robot {
 		const output: any[] = [];
 
 		console.error("gilm " + JSON.stringify(source));
-		if (source.type === "TextField" || source.type === "Button" || source.type === "Switch") {
+		if (["TextField", "Button", "Switch"].includes(source.type)) {
 			output.push({
 				type: source.type,
 				label: source.label,
@@ -347,29 +348,38 @@ export class Simctl implements Robot {
 
 export class SimctlManager {
 
-	public listBootedSimulators(): Simulator[] {
+	private parseSimulator(line: string): Simulator | null {
+		// extract device name and UUID from the line
+		const match = line.match(/(.*?)\s+\(([\w-]+)\)\s+\((\w+)\)/);
+		if (!match) {
+			return null;
+		}
+
+		const deviceName = match[1].trim();
+		const deviceUuid = match[2];
+		const deviceState = match[3];
+
+		return {
+			name: deviceName,
+			uuid: deviceUuid,
+			state: deviceState,
+		};
+	}
+
+	public listSimulators(): Simulator[] {
 		return execSync(`xcrun simctl list devices`)
 			.toString()
 			.split("\n")
-			.map(line => {
-				// extract device name and UUID from the line
-				const match = line.match(/(.*?)\s+\(([\w-]+)\)\s+\(Booted\)/);
-				if (!match) {
-					return null;
-				}
+			.map(line => this.parseSimulator(line))
+			.filter(simulator => simulator !== null);
+	}
 
-				const deviceName = match[1].trim();
-				const deviceUuid = match[2];
-				return {
-					name: deviceName,
-					uuid: deviceUuid,
-				};
-			})
-			.filter(line => line !== null);
+	public listBootedSimulators(): Simulator[] {
+		return this.listSimulators()
+			.filter(simulator => simulator.state === "Booted");
 	}
 
 	public getSimulator(uuid: string): Simctl {
 		return new Simctl(uuid);
 	}
 }
-
