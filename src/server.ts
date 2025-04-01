@@ -4,9 +4,10 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { execSync } from "child_process";
 import { error, trace } from "./logger";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
-import { getElementsOnScreen, getScreenSize, listApps, swipe, takeScreenshot } from "./android";
+import { AndroidRobot, getElementsOnScreen, getScreenSize, listApps, swipe, takeScreenshot } from "./android";
 
 import sharp from "sharp";
+import { filterSourceElements, getPageSource, getScreenshot, iosGetScreenSize, iosOpenUrl, iosSwipe, launchApp, pressHomeButton, sendKeys, tap } from "./iphone-simulator";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -45,6 +46,8 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
+	const robot = new AndroidRobot();
+
 	tool(
 		"list_apps_on_device",
 		"List all apps on device",
@@ -62,7 +65,10 @@ export const createMcpServer = (): McpServer => {
 			packageName: z.string().describe("The package name of the app to launch"),
 		},
 		async ({ packageName }) => {
-			execSync(`adb shell monkey -p "${packageName}" -c android.intent.category.LAUNCHER 1`);
+			// execSync(`adb shell monkey -p "${packageName}" -c android.intent.category.LAUNCHER 1`);
+
+			launchApp("iPhone 16", packageName);
+
 			return `Launched app ${packageName}`;
 		}
 	);
@@ -74,7 +80,7 @@ export const createMcpServer = (): McpServer => {
 			packageName: z.string().describe("The package name of the app to terminate"),
 		},
 		async ({ packageName }) => {
-			execSync(`adb shell am force-stop "${packageName}"`);
+			robot.terminateApp(packageName);
 			return `Terminated app ${packageName}`;
 		}
 	);
@@ -84,7 +90,8 @@ export const createMcpServer = (): McpServer => {
 		"Get the screen size of the mobile device in pixels",
 		{},
 		async ({}) => {
-			const screenSize = getScreenSize();
+			// const screenSize = getScreenSize();
+			const screenSize = await iosGetScreenSize(8100);
 			return `Screen size is ${screenSize[0]}x${screenSize[1]} pixels`;
 		}
 	);
@@ -97,10 +104,13 @@ export const createMcpServer = (): McpServer => {
 			y: z.number().describe("The y coordinate to click between 0 and 1"),
 		},
 		async ({ x, y }) => {
-			const screenSize = getScreenSize();
+			const screenSize = await iosGetScreenSize(8100);
+			// const screenSize = getScreenSize();
 			const x0 = Math.floor(screenSize[0] * x);
 			const y0 = Math.floor(screenSize[1] * y);
-			execSync(`adb shell input tap ${x0} ${y0}`);
+			// execSync(`adb shell input tap ${x0} ${y0}`);
+			tap(8100, x0, y0);
+
 			return `Clicked on screen at coordinates: ${x}, ${y}`;
 		}
 	);
@@ -111,7 +121,18 @@ export const createMcpServer = (): McpServer => {
 		{
 		},
 		async ({}) => {
-			const elements = getElementsOnScreen();
+			// const elements = getElementsOnScreen();
+			const screenSize = await iosGetScreenSize(8100);
+			const pageSource = await getPageSource(8100);
+			const elements = filterSourceElements(pageSource.value);
+
+			for (let i = 0; i < elements.length; i++) {
+				elements[i].rect.x0 = Math.floor(elements[i].rect.x0 / screenSize[0]);
+				elements[i].rect.y0 = Math.floor(elements[i].rect.y0 / screenSize[1]);
+				elements[i].rect.x1 = Math.floor(elements[i].rect.x1 / screenSize[0]);
+				elements[i].rect.y1 = Math.floor(elements[i].rect.y1 / screenSize[1]);
+			}
+
 			return `Found these elements on screen: ${JSON.stringify(elements)}`;
 		}
 	);
@@ -123,7 +144,8 @@ export const createMcpServer = (): McpServer => {
 			button: z.string().describe("The button to press. Supported buttons: KEYCODE_BACK, KEYCODE_HOME, KEYCODE_MENU, KEYCODE_VOLUME_UP, KEYCODE_VOLUME_DOWN, KEYCODE_ENTER"),
 		},
 		async ({ button }) => {
-			execSync(`adb shell input keyevent ${button}`);
+			// execSync(`adb shell input keyevent ${button}`);
+			pressHomeButton(8100);
 			return `Pressed the button: ${button}`;
 		}
 	);
@@ -135,7 +157,7 @@ export const createMcpServer = (): McpServer => {
 			url: z.string().describe("The URL to open"),
 		},
 		async ({ url }) => {
-			execSync(`adb shell am start -a android.intent.action.VIEW -d "${url}"`);
+			robot.openUrl(url);
 			return `Opened URL: ${url}`;
 		}
 	);
@@ -147,7 +169,8 @@ export const createMcpServer = (): McpServer => {
 			direction: z.enum(["up", "down"]).describe("The direction to swipe"),
 		},
 		async ({ direction }) => {
-			swipe(direction);
+			// swipe(direction);
+			robot.swipe(direction);
 			return `Swiped ${direction} on screen`;
 		}
 	);
@@ -159,8 +182,7 @@ export const createMcpServer = (): McpServer => {
 			text: z.string().describe("The text to type"),
 		},
 		async ({ text }) => {
-			const _text = text.replace(/ /g, "\\ ");
-			execSync(`adb shell input text "${_text}"`);
+			robot.sendKeys(text);
 			return `Typed text: ${text}`;
 		}
 	);
@@ -171,7 +193,8 @@ export const createMcpServer = (): McpServer => {
 		{},
 		async ({}) => {
 			try {
-				const screenshot = await takeScreenshot();
+				// const screenshot = await takeScreenshot();
+				const screenshot = getScreenshot("iPhone 16");
 
 				// Scale down the screenshot by 50%
 				const image = sharp(screenshot);
@@ -207,3 +230,4 @@ export const createMcpServer = (): McpServer => {
 
 	return server;
 };
+

@@ -1,17 +1,161 @@
-import { execSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import * as xml from "fast-xml-parser";
-import { readFileSync, unlinkSync } from "fs";
+import { Bounds, Dimensions, ElementCoordinates, Robot, SwipeDirection } from "./robot";
 
-interface Bounds {
-	left: number;
-	top: number;
-	right: number;
-	bottom: number;
+interface UiAutomatorXmlNode {
+	node: UiAutomatorXmlNode[];
+	text?: string;
+	bounds?: string;
+	"content-desc"?: string;
 }
 
-interface ElementCoordinates {
-	x: number,
-	y: number;
+interface UiAutomatorXml {
+	hierarchy: {
+		node: UiAutomatorXmlNode;
+	};
+}
+
+export class AndroidRobot implements Robot {
+
+	public async getScreenSize(): Promise<Dimensions> {
+		const screenSize = execSync("adb shell wm size")
+			.toString()
+			.split(" ")
+			.pop();
+
+		if (!screenSize) {
+			throw new Error("Failed to get screen size");
+		}
+
+		const [width, height] = screenSize.split("x").map(Number);
+		return { width, height };
+	}
+
+	public adb(args: string[]): Buffer {
+		return execFileSync("adb", args, { maxBuffer: 1024 * 1024 * 4 });
+	}
+
+	public async listApps(): Promise<string[]> {
+		const result = this.adb(["shell", "cmd", "package", "query-activities", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER"])
+			.toString()
+			.split("\n")
+			.map(line => line.trim())
+			.filter(line => line.startsWith("packageName="))
+			.map(line => line.substring("packageName=".length))
+			.filter((value, index, self) => self.indexOf(value) === index);
+
+		return result;
+	}
+
+	public async swipe(direction: SwipeDirection): Promise<void> {
+		const screenSize = await this.getScreenSize();
+		const centerX = screenSize.width >> 1;
+		// const centerY = screenSize[1] >> 1;
+
+		let x0, y0, x1, y1: number;
+
+		switch (direction) {
+			case "up":
+				x0 = x1 = centerX;
+				y0 = Math.floor(screenSize.height * 0.80);
+				y1 = Math.floor(screenSize.height * 0.20);
+				break;
+			case "down":
+				x0 = x1 = centerX;
+				y0 = Math.floor(screenSize.height * 0.20);
+				y1 = Math.floor(screenSize.height * 0.80);
+				break;
+			default:
+				throw new Error(`Swipe direction "${direction}" is not supported`);
+		}
+
+		this.adb(["shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000"]);
+	}
+
+	public async getScreenshot(): Promise<Buffer> {
+		return this.adb(["shell", "screencap", "-p"]);
+	}
+
+	private collectElements(node: UiAutomatorXmlNode, screenSize: Dimensions): any[] {
+		const elements: any[] = [];
+
+		const getCoordinates = (element: UiAutomatorXmlNode): Bounds => {
+			const bounds = String(element.bounds);
+
+			const [, left, top, right, bottom] = bounds.match(/^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/)?.map(Number) || [];
+			return { left, top, right, bottom };
+		};
+
+		const getCenter = (coordinates: Bounds): ElementCoordinates => {
+			return {
+				x: Math.floor((coordinates.left + coordinates.right) / 2),
+				y: Math.floor((coordinates.top + coordinates.bottom) / 2),
+			};
+		};
+
+		const normalizeCoordinates = (coordinates: ElementCoordinates, screenSize: Dimensions): ElementCoordinates => {
+			return {
+				x: Number((coordinates.x / screenSize.width).toFixed(3)),
+				y: Number((coordinates.y / screenSize.height).toFixed(3)),
+			};
+		};
+
+		if (node.node) {
+			if (Array.isArray(node.node)) {
+				for (const childNode of node.node) {
+					elements.push(...this.collectElements(childNode, screenSize));
+				}
+			} else {
+				elements.push(...this.collectElements(node.node, screenSize));
+			}
+		}
+
+		if (node.text) {
+			elements.push({
+				"text": node.text,
+				"coordinates": normalizeCoordinates(getCenter(getCoordinates(node)), screenSize),
+			});
+		}
+
+		if (node["content-desc"]) {
+			elements.push({
+				"text": node["content-desc"],
+				"coordinates": normalizeCoordinates(getCenter(getCoordinates(node)), screenSize),
+			});
+		}
+
+		return elements;
+	}
+
+	public async getElementsOnScreen(): Promise<any[]> {
+		const dump = execSync(`adb exec-out uiautomator dump /dev/tty`);
+
+		const parser = new xml.XMLParser({
+			ignoreAttributes: false,
+			attributeNamePrefix: ""
+		});
+
+		const parsedXml = parser.parse(dump) as UiAutomatorXml;
+		const hierarchy = parsedXml.hierarchy;
+
+		const screenSize = await this.getScreenSize();
+		const elements = this.collectElements(hierarchy.node, screenSize);
+		return elements;
+	};
+
+	public async terminateApp(packageName: string): Promise<void> {
+		this.adb(["shell", "am", "force-stop", packageName]);
+	}
+
+	public async openUrl(url: string): Promise<void> {
+		this.adb(["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url]);
+	}
+
+	public async sendKeys(text: string): Promise<void> {
+		// adb shell requires some escaping
+		const _text = text.replace(/ /g, "\\ ");
+		this.adb(["shell", "input", "text", _text]);
+	}
 }
 
 export const getConnectedDevices = (): string[] => {
@@ -29,140 +173,4 @@ export const resolveLaunchableActivities = (packageName: string): string[] => {
 		.map(line => line.trim())
 		.filter(line => line.startsWith("name="))
 		.map(line => line.substring("name=".length));
-};
-
-export const getScreenSize = (): [number, number] => {
-	const screenSize = execSync("adb shell wm size")
-		.toString()
-		.split(" ")
-		.pop();
-
-	if (!screenSize) {
-		throw new Error("Failed to get screen size");
-	}
-
-	const [width, height] = screenSize.split("x").map(Number);
-	return [width, height];
-};
-
-const collectElements = (node: any, screenSize: [number, number]): any[] => {
-	const elements: any[] = [];
-
-	const getCoordinates = (element: any): Bounds => {
-		const bounds = String(element.bounds);
-
-		const [, left, top, right, bottom] = bounds.match(/^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/)?.map(Number) || [];
-		return { left, top, right, bottom };
-	};
-
-	const getCenter = (coordinates: Bounds): ElementCoordinates => {
-		return {
-			x: Math.floor((coordinates.left + coordinates.right) / 2),
-			y: Math.floor((coordinates.top + coordinates.bottom) / 2),
-		};
-	};
-
-	const normalizeCoordinates = (coordinates: ElementCoordinates, screenSize: [number, number]): ElementCoordinates => {
-		return {
-			x: Number((coordinates.x / screenSize[0]).toFixed(3)),
-			y: Number((coordinates.y / screenSize[1]).toFixed(3)),
-		};
-	};
-
-	if (node.node) {
-		if (Array.isArray(node.node)) {
-			for (const childNode of node.node) {
-				elements.push(...collectElements(childNode, screenSize));
-			}
-		} else {
-			elements.push(...collectElements(node.node, screenSize));
-		}
-	}
-
-	if (node.text) {
-		elements.push({
-			"text": node.text,
-			"coordinates": normalizeCoordinates(getCenter(getCoordinates(node)), screenSize),
-		});
-	}
-
-	if (node["content-desc"]) {
-		elements.push({
-			"text": node["content-desc"],
-			"coordinates": normalizeCoordinates(getCenter(getCoordinates(node)), screenSize),
-		});
-	}
-
-	return elements;
-};
-
-export const getElementsOnScreen = (): any[] => {
-	const dump = execSync(`adb exec-out uiautomator dump /dev/tty`);
-
-	const parser = new xml.XMLParser({
-		ignoreAttributes: false,
-		attributeNamePrefix: ""
-	});
-
-	const parsedXml = parser.parse(dump);
-	const hierarchy = parsedXml.hierarchy;
-
-	const screenSize = getScreenSize();
-	const elements = collectElements(hierarchy, screenSize);
-	return elements;
-};
-
-export const swipe = (direction: "up" | "down" | "left" | "right") => {
-
-	const screenSize = getScreenSize();
-	const centerX = screenSize[0] >> 1;
-	// const centerY = screenSize[1] >> 1;
-
-	let x0, y0, x1, y1: number;
-
-	switch (direction) {
-		case "up":
-			x0 = x1 = centerX;
-			y0 = Math.floor(screenSize[1] * 0.80);
-			y1 = Math.floor(screenSize[1] * 0.20);
-			break;
-		case "down":
-			x0 = x1 = centerX;
-			y0 = Math.floor(screenSize[1] * 0.20);
-			y1 = Math.floor(screenSize[1] * 0.80);
-			break;
-		default:
-			throw new Error(`Swipe direction "${direction}" is not supported`);
-	}
-
-	execSync(`adb shell input swipe ${x0} ${y0} ${x1} ${y1} 1000`);
-};
-
-export const takeScreenshot = async (): Promise<Buffer> => {
-	const randomFilename = `screenshot-${Date.now()}.png`;
-
-	// take screenshot and save on device
-	const remoteFilename = `/sdcard/Download/${randomFilename}`;
-	execSync(`adb shell screencap -p ${remoteFilename}`);
-
-	// pull the file locally
-	const localFilename = `/tmp/${randomFilename}`;
-	execSync(`adb pull ${remoteFilename} ${localFilename}`);
-	execSync(`adb shell rm ${remoteFilename}`);
-
-	const screenshot = readFileSync(localFilename);
-	unlinkSync(localFilename);
-	return screenshot;
-};
-
-export const listApps = (): string[] => {
-	const result = execSync(`adb shell cmd package query-activities -a android.intent.action.MAIN -c android.intent.category.LAUNCHER`)
-		.toString()
-		.split("\n")
-		.map(line => line.trim())
-		.filter(line => line.startsWith("packageName="))
-		.map(line => line.substring("packageName=".length))
-		.filter((value, index, self) => self.indexOf(value) === index);
-
-	return result;
 };
