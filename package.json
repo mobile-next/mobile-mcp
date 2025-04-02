@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "test": "mocha --require ts-node/register test/*.ts",
     "watch": "tsc --watch",
-    "clean": "rm -rf lib"
+    "clean": "rm -rf lib",
+    "prepare": "husky"
   },
   "files": [
     "lib"
