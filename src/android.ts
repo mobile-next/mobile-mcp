@@ -63,7 +63,7 @@ export class AndroidRobot implements Robot {
 		const centerX = screenSize.width >> 1;
 		// const centerY = screenSize[1] >> 1;
 
-		let x0, y0, x1, y1: number;
+		let x0: number, y0: number, x1: number, y1: number;
 
 		switch (direction) {
 			case "up":
@@ -195,13 +195,4 @@ export const getConnectedDevices = (): string[] => {
 		.split("\n")
 		.filter(line => !line.startsWith("List of devices attached"))
 		.filter(line => line.trim() !== "");
-};
-
-export const resolveLaunchableActivities = (packageName: string): string[] => {
-	return execSync(`adb shell cmd package resolve-activity ${packageName}`)
-		.toString()
-		.split("\n")
-		.map(line => line.trim())
-		.filter(line => line.startsWith("name="))
-		.map(line => line.substring("name=".length));
 };
