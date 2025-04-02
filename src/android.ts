@@ -39,7 +39,10 @@ export class AndroidRobot implements Robot {
 			executable = path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
 		}
 
-		return execFileSync(executable, args, { maxBuffer: 1024 * 1024 * 4 });
+		return execFileSync(executable, args, {
+			maxBuffer: 1024 * 1024 * 4,
+			timeout: 30000,
+		});
 	}
 
 	public async listApps(): Promise<string[]> {
