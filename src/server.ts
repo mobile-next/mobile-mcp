@@ -6,6 +6,8 @@ import sharp from "sharp";
 import { error, trace } from "./logger";
 // import { AndroidRobot } from "./android";
 import { SimctlManager } from "./iphone-simulator";
+import { AndroidRobot, getConnectedDevices } from "./android";
+import { Robot } from "./robot";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -46,13 +48,49 @@ export const createMcpServer = (): McpServer => {
 
 	// const robot = new AndroidRobot();
 	const simulatorManager = new SimctlManager();
-	const robot = simulatorManager.getSimulator(simulatorManager.listBootedSimulators()[0].name);
+	// const robot = simulatorManager.getSimulator(simulatorManager.listBootedSimulators()[0].name);
+	let robot: Robot | null = null;
+
+	tool(
+		"list_available_devices",
+		"List all available devices. This includes both physical devices and simulators.	",
+		{},
+		async ({}) => {
+			const devices = await simulatorManager.listBootedSimulators();
+			const simulatorNames = devices.map(d => d.name);
+			const androidDevices = getConnectedDevices();
+			return `Found these iOS simulators: ${simulatorNames.join(".")} and Android devices: ${androidDevices.join(",")}`;
+		}
+	);
+
+	tool(
+		"use_device",
+		"Select a device to use. This can be a simulator or an Android device. Use the list_available_devices tool to get a list of available devices.",
+		{
+			device: z.string().describe("The name of the device to select"),
+			deviceType: z.enum(["simulator", "android"]).describe("The type of device to select"),
+		},
+		async ({ device, deviceType }) => {
+			console.log(device, deviceType);
+			if (deviceType === "simulator") {
+				robot = simulatorManager.getSimulator(device);
+			} else {
+				robot = new AndroidRobot(); // TODO: device);
+			}
+
+			return `Selected device: ${device} (${deviceType})`;
+		}
+	);
 
 	tool(
 		"list_apps_on_device",
 		"List all apps on device",
 		{},
 		async ({}) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			const result = await robot.listApps();
 			return `Found these packages on device: ${result.join(",")}`;
 		}
@@ -65,6 +103,10 @@ export const createMcpServer = (): McpServer => {
 			packageName: z.string().describe("The package name of the app to launch"),
 		},
 		async ({ packageName }) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			await robot.launchApp(packageName);
 			return `Launched app ${packageName}`;
 		}
@@ -77,7 +119,11 @@ export const createMcpServer = (): McpServer => {
 			packageName: z.string().describe("The package name of the app to terminate"),
 		},
 		async ({ packageName }) => {
-			robot.terminateApp(packageName);
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
+			await robot.terminateApp(packageName);
 			return `Terminated app ${packageName}`;
 		}
 	);
@@ -87,6 +133,10 @@ export const createMcpServer = (): McpServer => {
 		"Get the screen size of the mobile device in pixels",
 		{},
 		async ({}) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			const screenSize = await robot.getScreenSize();
 			return `Screen size is ${screenSize.width}x${screenSize.height} pixels`;
 		}
@@ -100,6 +150,10 @@ export const createMcpServer = (): McpServer => {
 			y: z.number().describe("The y coordinate to click between 0 and 1"),
 		},
 		async ({ x, y }) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			const screenSize = await robot.getScreenSize();
 			const x0 = Math.floor(screenSize.width * x);
 			const y0 = Math.floor(screenSize.height * y);
@@ -114,6 +168,10 @@ export const createMcpServer = (): McpServer => {
 		{
 		},
 		async ({}) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			const screenSize = await robot.getScreenSize();
 			console.error("gilm screenSize " + JSON.stringify(screenSize));
 			const elements = await robot.getElementsOnScreen();
@@ -146,6 +204,10 @@ export const createMcpServer = (): McpServer => {
 			button: z.string().describe("The button to press. Supported buttons: BACK, HOME, VOLUME_UP, VOLUME_DOWN, ENTER"),
 		},
 		async ({ button }) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			robot.pressButton(button);
 			return `Pressed the button: ${button}`;
 		}
@@ -158,6 +220,10 @@ export const createMcpServer = (): McpServer => {
 			url: z.string().describe("The URL to open"),
 		},
 		async ({ url }) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			robot.openUrl(url);
 			return `Opened URL: ${url}`;
 		}
@@ -170,6 +236,10 @@ export const createMcpServer = (): McpServer => {
 			direction: z.enum(["up", "down"]).describe("The direction to swipe"),
 		},
 		async ({ direction }) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			robot.swipe(direction);
 			return `Swiped ${direction} on screen`;
 		}
@@ -182,6 +252,10 @@ export const createMcpServer = (): McpServer => {
 			text: z.string().describe("The text to type"),
 		},
 		async ({ text }) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			robot.sendKeys(text);
 			return `Typed text: ${text}`;
 		}
@@ -192,6 +266,10 @@ export const createMcpServer = (): McpServer => {
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 		{},
 		async ({}) => {
+			if (!robot) {
+				throw new Error("No device selected");
+			}
+
 			try {
 				const screenshot = await robot.getScreenshot();
 

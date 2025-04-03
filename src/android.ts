@@ -197,5 +197,6 @@ export const getConnectedDevices = (): string[] => {
 		.toString()
 		.split("\n")
 		.filter(line => !line.startsWith("List of devices attached"))
-		.filter(line => line.trim() !== "");
+		.filter(line => line.trim() !== "")
+		.map(line => line.split("\t")[0]);
 };
