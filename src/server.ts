@@ -4,9 +4,7 @@ import { z, ZodRawShape, ZodTypeAny } from "zod";
 import sharp from "sharp";
 
 import { error, trace } from "./logger";
-// import { AndroidRobot } from "./android";
-import { SimctlManager } from "./iphone-simulator";
-import { AndroidRobot, getConnectedDevices } from "./android";
+import { AndroidRobot } from "./android";
 import { Robot } from "./robot";
 
 const getAgentVersion = (): string => {
@@ -46,41 +44,7 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
-	// const robot = new AndroidRobot();
-	const simulatorManager = new SimctlManager();
-	// const robot = simulatorManager.getSimulator(simulatorManager.listBootedSimulators()[0].name);
-	let robot: Robot | null = null;
-
-	tool(
-		"list_available_devices",
-		"List all available devices. This includes both physical devices and simulators.	",
-		{},
-		async ({}) => {
-			const devices = await simulatorManager.listBootedSimulators();
-			const simulatorNames = devices.map(d => d.name);
-			const androidDevices = getConnectedDevices();
-			return `Found these iOS simulators: ${simulatorNames.join(".")} and Android devices: ${androidDevices.join(",")}`;
-		}
-	);
-
-	tool(
-		"use_device",
-		"Select a device to use. This can be a simulator or an Android device. Use the list_available_devices tool to get a list of available devices.",
-		{
-			device: z.string().describe("The name of the device to select"),
-			deviceType: z.enum(["simulator", "android"]).describe("The type of device to select"),
-		},
-		async ({ device, deviceType }) => {
-			console.log(device, deviceType);
-			if (deviceType === "simulator") {
-				robot = simulatorManager.getSimulator(device);
-			} else {
-				robot = new AndroidRobot(); // TODO: device);
-			}
-
-			return `Selected device: ${device} (${deviceType})`;
-		}
-	);
+	const robot: Robot = new AndroidRobot();
 
 	tool(
 		"list_apps_on_device",
@@ -173,9 +137,7 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			const screenSize = await robot.getScreenSize();
-			console.error("gilm screenSize " + JSON.stringify(screenSize));
 			const elements = await robot.getElementsOnScreen();
-			console.error("gilm !!elements " + JSON.stringify(elements));
 
 			const result = [];
 			for (let i = 0; i < elements.length; i++) {
@@ -183,7 +145,6 @@ export const createMcpServer = (): McpServer => {
 				elements[i].rect.y0 = elements[i].rect.y0 / screenSize.height;
 				elements[i].rect.x1 = elements[i].rect.x1 / screenSize.width;
 				elements[i].rect.y1 = elements[i].rect.y1 / screenSize.height;
-				console.error("gilm elements " + JSON.stringify(elements[i]));
 				result.push({
 					text: elements[i].label,
 					coordinates: {

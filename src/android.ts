@@ -1,7 +1,6 @@
 import { execFileSync, execSync } from "child_process";
 import * as xml from "fast-xml-parser";
 import { Bounds, Button, Dimensions, ElementCoordinates, Robot, SwipeDirection } from "./robot";
-import path from "path";
 
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
@@ -33,13 +32,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public adb(args: string[]): Buffer {
-
-		let executable = "adb";
-		if (process.env.ANDROID_HOME) {
-			executable = path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
-		}
-
-		return execFileSync(executable, args, {
+		return execFileSync("adb", args, {
 			maxBuffer: 1024 * 1024 * 4,
 			timeout: 30000,
 		});
