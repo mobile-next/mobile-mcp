@@ -53,12 +53,12 @@ export class WebDriverAgent {
 
 	public async getScreenSize() {
 		return this.withinSession(async sessionUrl => {
-			const url = `${sessionUrl}/window/size`;
+			const url = `${sessionUrl}/wda/screen`;
 			const response = await fetch(url);
 			const json = await response.json();
 			return {
-				width: json.value.width,
-				height: json.value.height
+				width: json.value.screenSize.width * json.value.scale,
+				height: json.value.screenSize.height * json.value.scale,
 			};
 		});
 	}

@@ -7,6 +7,7 @@ import { error, trace } from "./logger";
 import { AndroidRobot, getConnectedDevices } from "./android";
 import { Robot } from "./robot";
 import { SimctlManager } from "./iphone-simulator";
+import { IosManager, IosRobot } from "./ios";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -50,13 +51,15 @@ export const createMcpServer = (): McpServer => {
 
 	tool(
 		"list_available_devices",
-		"List all available devices. This includes both physical devices and simulators.",
+		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
 		{},
 		async ({}) => {
+			const iosManager = new IosManager();
 			const devices = await simulatorManager.listBootedSimulators();
 			const simulatorNames = devices.map(d => d.name);
 			const androidDevices = getConnectedDevices();
-			return `Found these iOS simulators: [${simulatorNames.join(".")}] and Android devices: [${androidDevices.join(",")}]`;
+			const iosDevices = await iosManager.listDevices();
+			return `Found these iOS simulators: [${simulatorNames.join(".")}], iOS devices: [${iosDevices.join(",")}] and Android devices: [${androidDevices.join(",")}]`;
 		}
 	);
 
@@ -65,14 +68,20 @@ export const createMcpServer = (): McpServer => {
 		"Select a device to use. This can be a simulator or an Android device. Use the list_available_devices tool to get a list of available devices.",
 		{
 			device: z.string().describe("The name of the device to select"),
-			deviceType: z.enum(["simulator", "android"]).describe("The type of device to select"),
+			deviceType: z.enum(["simulator", "ios", "android"]).describe("The type of device to select"),
 		},
 		async ({ device, deviceType }) => {
 			console.log(device, deviceType);
-			if (deviceType === "simulator") {
-				robot = simulatorManager.getSimulator(device);
-			} else {
-				robot = new AndroidRobot(); // TODO: device);
+			switch (deviceType) {
+				case "simulator":
+					robot = simulatorManager.getSimulator(device);
+					break;
+				case "ios":
+					robot = new IosRobot(device);
+					break;
+				case "android":
+					robot = new AndroidRobot(device);
+					break;
 			}
 
 			return `Selected device: ${device} (${deviceType})`;
