@@ -4,9 +4,9 @@ import { z, ZodRawShape, ZodTypeAny } from "zod";
 import sharp from "sharp";
 
 import { error, trace } from "./logger";
-// import { AndroidRobot } from "./android";
+import { AndroidRobot, getConnectedDevices } from "./android";
 import { Robot } from "./robot";
-import { IosRobot } from "./ios";
+import { SimctlManager } from "./iphone-simulator";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -45,7 +45,39 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
-	const robot: Robot = new IosRobot("4C07ED7E-AE81-412E-8AA9-1061EED59DFA");
+	let robot: Robot | null;
+	const simulatorManager = new SimctlManager();
+
+	tool(
+		"list_available_devices",
+		"List all available devices. This includes both physical devices and simulators.",
+		{},
+		async ({}) => {
+			const devices = await simulatorManager.listBootedSimulators();
+			const simulatorNames = devices.map(d => d.name);
+			const androidDevices = getConnectedDevices();
+			return `Found these iOS simulators: [${simulatorNames.join(".")}] and Android devices: [${androidDevices.join(",")}]`;
+		}
+	);
+
+	tool(
+		"use_device",
+		"Select a device to use. This can be a simulator or an Android device. Use the list_available_devices tool to get a list of available devices.",
+		{
+			device: z.string().describe("The name of the device to select"),
+			deviceType: z.enum(["simulator", "android"]).describe("The type of device to select"),
+		},
+		async ({ device, deviceType }) => {
+			console.log(device, deviceType);
+			if (deviceType === "simulator") {
+				robot = simulatorManager.getSimulator(device);
+			} else {
+				robot = new AndroidRobot(); // TODO: device);
+			}
+
+			return `Selected device: ${device} (${deviceType})`;
+		}
+	);
 
 	tool(
 		"mobile_list_apps",
