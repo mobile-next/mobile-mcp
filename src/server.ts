@@ -4,8 +4,9 @@ import { z, ZodRawShape, ZodTypeAny } from "zod";
 import sharp from "sharp";
 
 import { error, trace } from "./logger";
-import { AndroidRobot } from "./android";
+// import { AndroidRobot } from "./android";
 import { Robot } from "./robot";
+import { IosRobot } from "./ios";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -44,7 +45,7 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
-	const robot: Robot = new AndroidRobot();
+	const robot: Robot = new IosRobot("4C07ED7E-AE81-412E-8AA9-1061EED59DFA");
 
 	tool(
 		"mobile_list_apps",
