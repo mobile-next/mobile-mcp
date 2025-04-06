@@ -1,10 +1,17 @@
-
 import assert from "assert";
-import { AndroidRobot } from "../src/android";
+
 import sharp from "sharp";
 
+import { AndroidRobot, getConnectedDevices } from "../src/android";
+
 describe("android", () => {
-	const android = new AndroidRobot();
+
+	const devices = getConnectedDevices();
+	if (devices.length === 0) {
+		throw new Error("No Android devices found");
+	}
+
+	const android = new AndroidRobot(devices[0]);
 
 	it("should be able to get the screen size", async () => {
 		const screenSize = await android.getScreenSize();
@@ -32,12 +39,12 @@ describe("android", () => {
 	});
 
 	it("should be able to open a url", async () => {
-		await android.adb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
+		await android.adb("shell", "input", "keyevent", "KEYCODE_HOME");
 		await android.openUrl("https://www.example.com");
 	});
 
 	it("should be able to list elements on screen", async () => {
-		await android.adb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
+		await android.adb("shell", "input", "keyevent", "KEYCODE_HOME");
 		await android.openUrl("https://www.example.com");
 		const elements = await android.getElementsOnScreen();
 

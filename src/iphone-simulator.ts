@@ -1,6 +1,7 @@
 import { execFileSync, execSync } from "child_process";
-import { Button, Dimensions, Robot, SwipeDirection } from "./robot";
+
 import { WebDriverAgent } from "./webdriver-agent";
+import { Button, Dimensions, Robot, SwipeDirection } from "./robot";
 
 export interface Simulator {
 	name: string;
@@ -22,20 +23,25 @@ interface AppInfo {
 	SBAppTags: string[];
 }
 
+const TIMEOUT = 30000;
+const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
 
 export class Simctl implements Robot {
 
-	private readonly webDriverAgent: WebDriverAgent;
+	private readonly wda: WebDriverAgent;
 
 	constructor(private readonly simulatorUuid: string) {
-		this.webDriverAgent = new WebDriverAgent("localhost", 8100);
+		this.wda = new WebDriverAgent("localhost", 8100);
 	}
 
 	private simctl(...args: string[]): Buffer {
 		return execFileSync(
 			"xcrun",
 			["simctl", ...args],
-			{ maxBuffer: 1024 * 1024 * 4 }
+			{
+				timeout: TIMEOUT,
+				maxBuffer: MAX_BUFFER_SIZE,
+			}
 		);
 	}
 
@@ -44,7 +50,8 @@ export class Simctl implements Robot {
 	}
 
 	public async openUrl(url: string) {
-		this.simctl("openurl", this.simulatorUuid, url);
+		await this.wda.openUrl(url);
+		// alternative: this.simctl("openurl", this.simulatorUuid, url);
 	}
 
 	public async launchApp(packageName: string) {
@@ -133,63 +140,27 @@ export class Simctl implements Robot {
 	}
 
 	public async getScreenSize(): Promise<Dimensions> {
-		return this.webDriverAgent.getScreenSize();
+		return this.wda.getScreenSize();
 	}
 
 	public async sendKeys(keys: string) {
-		return this.webDriverAgent.sendKeys(keys);
+		return this.wda.sendKeys(keys);
 	}
 
 	public async swipe(direction: SwipeDirection) {
-		await this.webDriverAgent.withinSession(async sessionUrl => {
-
-			const x0 = 200;
-			let y0 = 600;
-			const x1 = 200;
-			let y1 = 200;
-
-			if (direction === "up") {
-				const tmp = y0;
-				y0 = y1;
-				y1 = tmp;
-			}
-
-			const url = `${sessionUrl}/actions`;
-			await fetch(url, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					actions: [
-						{
-							type: "pointer",
-							id: "finger1",
-							parameters: { pointerType: "touch" },
-							actions: [
-								{ type: "pointerMove", duration: 0, x: x0, y: y0 },
-								{ type: "pointerDown", button: 0 },
-								{ type: "pointerMove", duration: 0, x: x1, y: y1 },
-								{ type: "pause", duration: 1000 },
-								{ type: "pointerUp", button: 0 }
-							]
-						}
-					]
-				}),
-			});
-		});
+		return this.wda.swipe(direction);
 	}
 
 	public async tap(x: number, y: number) {
-		await this.webDriverAgent.tap(x, y);
+		return this.wda.tap(x, y);
 	}
 
 	public async pressButton(button: Button) {
-		await this.webDriverAgent.pressButton(button);
+		await this.wda.pressButton(button);
 	}
 
 	public async getElementsOnScreen(): Promise<any[]> {
-		return await this.webDriverAgent.getElementsOnScreen();
+		return await this.wda.getElementsOnScreen();
 	}
 }
 

@@ -1,3 +1,4 @@
+import { SwipeDirection } from "./robot";
 
 interface SourceTreeElement {
 	type: string;
@@ -173,5 +174,54 @@ export class WebDriverAgent {
 	public async getElementsOnScreen(): Promise<any[]> {
 		const source = await this.getPageSource();
 		return this.filterSourceElements(source.value);
+	}
+
+	public async openUrl(url: string): Promise<void> {
+		await this.withinSession(async sessionUrl => {
+			await fetch(`${sessionUrl}/url`, {
+				method: "POST",
+				body: JSON.stringify({ url }),
+			});
+		});
+	}
+
+	public async swipe(direction: SwipeDirection) {
+		await this.withinSession(async sessionUrl => {
+
+			const x0 = 200;
+			let y0 = 600;
+			const x1 = 200;
+			let y1 = 200;
+
+			if (direction === "up") {
+				const tmp = y0;
+				y0 = y1;
+				y1 = tmp;
+			}
+
+			const url = `${sessionUrl}/actions`;
+			await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					actions: [
+						{
+							type: "pointer",
+							id: "finger1",
+							parameters: { pointerType: "touch" },
+							actions: [
+								{ type: "pointerMove", duration: 0, x: x0, y: y0 },
+								{ type: "pointerDown", button: 0 },
+								{ type: "pointerMove", duration: 0, x: x1, y: y1 },
+								{ type: "pause", duration: 1000 },
+								{ type: "pointerUp", button: 0 }
+							]
+						}
+					]
+				}),
+			});
+		});
 	}
 }

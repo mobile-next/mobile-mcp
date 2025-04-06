@@ -1,4 +1,5 @@
 import assert from "assert";
+
 import { SimctlManager } from "../src/iphone-simulator";
 
 describe("ios", () => {

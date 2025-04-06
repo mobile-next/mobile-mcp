@@ -1,8 +1,17 @@
 
 import { readFileSync, unlinkSync } from "fs";
-import { Button, Dimensions, Robot, SwipeDirection } from "./robot";
-import { execFileSync, execSync } from "child_process";
+import { execFileSync } from "child_process";
+
 import { WebDriverAgent } from "./webdriver-agent";
+import { Button, Dimensions, Robot, SwipeDirection } from "./robot";
+
+interface ListCommandOutput {
+	deviceList: string[];
+}
+
+const getGoIosPath = (): string => {
+	return "ios";
+};
 
 export class IosRobot implements Robot {
 
@@ -13,15 +22,15 @@ export class IosRobot implements Robot {
 	}
 
 	private async ios(...args: string[]): Promise<string> {
-		return execFileSync("ios", ["--udid", this.deviceId, ...args], {}).toString();
+		return execFileSync(getGoIosPath(), ["--udid", this.deviceId, ...args], {}).toString();
 	}
 
 	public async getScreenSize(): Promise<Dimensions> {
 		return await this.wda.getScreenSize();
 	}
 
-	public swipe(direction: SwipeDirection): Promise<void> {
-		return Promise.resolve();
+	public async swipe(direction: SwipeDirection): Promise<void> {
+		await this.wda.swipe(direction);
 	}
 
 	public async listApps(): Promise<string[]> {
@@ -40,12 +49,7 @@ export class IosRobot implements Robot {
 	}
 
 	public async openUrl(url: string): Promise<void> {
-		await this.wda.withinSession(async sessionUrl => {
-			await fetch(`${sessionUrl}/url`, {
-				method: "POST",
-				body: JSON.stringify({ url }),
-			});
-		});
+		await this.wda.openUrl(url);
 	}
 
 	public async sendKeys(text: string): Promise<void> {
@@ -74,8 +78,8 @@ export class IosRobot implements Robot {
 
 export class IosManager {
 	public async listDevices(): Promise<string[]> {
-		const output = execSync("ios list").toString();
-		const json = JSON.parse(output) as any;
+		const output = execFileSync(getGoIosPath(), ["list"]).toString();
+		const json: ListCommandOutput = JSON.parse(output);
 		return json.deviceList;
 	}
 }

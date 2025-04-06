@@ -1,7 +1,9 @@
-import { execFileSync } from "child_process";
-import * as xml from "fast-xml-parser";
-import { Bounds, Button, Dimensions, ElementCoordinates, Robot, SwipeDirection } from "./robot";
 import path from "path";
+import { execFileSync } from "child_process";
+
+import * as xml from "fast-xml-parser";
+
+import { Bounds, Button, Dimensions, ElementCoordinates, Robot, SwipeDirection } from "./robot";
 
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
