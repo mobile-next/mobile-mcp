@@ -114,11 +114,6 @@ On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with 
 
 The commands and tools support both accessibility-based locators (preferred) and coordinate-based inputs, giving you flexibility when accessibility/automation IDs are missing for reliable and seemless automation.
 
-## mobile_install_app
-- **Description:** Installs an app onto the device/emulator
-- **Parameters:**
-  - `appPath` (string): Path or URL to the app file (e.g., .apk for Android, .ipa/.app for iOS)
-
 ## mobile_list_apps
 - **Description:** List all the installed apps on the device
 - **Parameters:**
@@ -172,8 +167,6 @@ The commands and tools support both accessibility-based locators (preferred) and
 ## mobile_type_text
 - **Description:** Types text into a focused UI element (e.g., TextField, SearchField)
 - **Parameters:**
-  - `element` (string): Human-readable element description
-  - `ref` (string): Accessibility/automation ID of the element
   - `text` (string): Text to type
   - `submit` (boolean): Whether to press Enter/Return after typing
 
@@ -200,20 +193,10 @@ The commands and tools support both accessibility-based locators (preferred) and
 
 ## mobile_take_screenshot
 - **Description:** Captures a screenshot of the current device screen
-- **Parameters:**
-  - `raw` (boolean): Return a lossless image if true; otherwise, compressed by default
+- **Parameters:** None
 
 ## mobile_get_source
 - **Description:** Fetches the current device UI structure (accessibility snapshot) (xml format)
-- **Parameters:** None
-
-## mobile_wait
-- **Description:** Waits for a specified time
-- **Parameters:**
-  - `time` (number): Time to wait in seconds (capped at 10 seconds)
-
-## mobile_close_session
-- **Description:** Closes the current device session
 - **Parameters:** None
 
 
