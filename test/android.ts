@@ -4,12 +4,14 @@ import sharp from "sharp";
 
 import { AndroidRobot, getConnectedDevices } from "../src/android";
 
-describe("android", () => {
+const devices = getConnectedDevices();
+const hasOneAndroidDevice = devices.length === 1;
 
-	const devices = getConnectedDevices();
-	if (devices.length === 0) {
-		throw new Error("No Android devices found");
-	}
+if (!hasOneAndroidDevice) {
+	console.error("No Android devices found");
+}
+
+hasOneAndroidDevice && describe("android", () => {
 
 	const android = new AndroidRobot(devices[0]);
 
