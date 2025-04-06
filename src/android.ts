@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from "child_process";
+import { execFileSync } from "child_process";
 import * as xml from "fast-xml-parser";
 import { Bounds, Button, Dimensions, ElementCoordinates, Robot, SwipeDirection } from "./robot";
 import path from "path";
@@ -16,13 +16,40 @@ interface UiAutomatorXml {
 	};
 }
 
+const getAdbPath = (): string => {
+	let executable = "adb";
+	if (process.env.ANDROID_HOME) {
+		executable = path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
+	}
+
+	return executable;
+};
+
+const BUTTON_MAP: Record<Button, string> = {
+	"BACK": "KEYCODE_BACK",
+	"HOME": "KEYCODE_HOME",
+	"VOLUME_UP": "KEYCODE_VOLUME_UP",
+	"VOLUME_DOWN": "KEYCODE_VOLUME_DOWN",
+	"ENTER": "KEYCODE_ENTER",
+};
+
+const TIMEOUT = 30000;
+const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
+
 export class AndroidRobot implements Robot {
 
 	public constructor(private deviceId: string) {
 	}
 
+	public adb(...args: string[]): Buffer {
+		return execFileSync(getAdbPath(), ["-s", this.deviceId, ...args], {
+			maxBuffer: MAX_BUFFER_SIZE,
+			timeout: TIMEOUT,
+		});
+	}
+
 	public async getScreenSize(): Promise<Dimensions> {
-		const screenSize = execSync(`adb -s ${this.deviceId} shell wm size`)
+		const screenSize = this.adb("shell", "wm", "size")
 			.toString()
 			.split(" ")
 			.pop();
@@ -33,19 +60,6 @@ export class AndroidRobot implements Robot {
 
 		const [width, height] = screenSize.split("x").map(Number);
 		return { width, height };
-	}
-
-	public adb(...args: string[]): Buffer {
-
-		let executable = "adb";
-		if (process.env.ANDROID_HOME) {
-			executable = path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
-		}
-
-		return execFileSync(executable, ["-s", this.deviceId, ...args], {
-			maxBuffer: 1024 * 1024 * 4,
-			timeout: 30000,
-		});
 	}
 
 	public async listApps(): Promise<string[]> {
@@ -175,19 +189,11 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async pressButton(button: Button) {
-		const _map = {
-			"BACK": "KEYCODE_BACK",
-			"HOME": "KEYCODE_HOME",
-			"VOLUME_UP": "KEYCODE_VOLUME_UP",
-			"VOLUME_DOWN": "KEYCODE_VOLUME_DOWN",
-			"ENTER": "KEYCODE_ENTER",
-		};
-
-		if (!_map[button]) {
+		if (!BUTTON_MAP[button]) {
 			throw new Error(`Button "${button}" is not supported`);
 		}
 
-		this.adb("shell", "input", "keyevent", _map[button]);
+		this.adb("shell", "input", "keyevent", BUTTON_MAP[button]);
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
@@ -196,7 +202,7 @@ export class AndroidRobot implements Robot {
 }
 
 export const getConnectedDevices = (): string[] => {
-	return execSync(`adb devices`)
+	return execFileSync(getAdbPath(), ["devices"])
 		.toString()
 		.split("\n")
 		.filter(line => !line.startsWith("List of devices attached"))
