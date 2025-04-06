@@ -28,6 +28,11 @@ jobs:
     - name: Build
       run: npm run build
 
+    - uses: futureware-tech/simulator-action@v4
+      with:
+        model: 'iPhone 16'
+        udid: '68254284-73B1-4E6D-A051-36DFF20CFBF8'
+
     - name: Run tests
       run: |
         xcrun simctl bootstatus booted
