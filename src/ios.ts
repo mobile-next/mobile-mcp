@@ -79,13 +79,3 @@ export class IosManager {
 		return json.deviceList;
 	}
 }
-
-async function main() {
-	const ios = new IosRobot("4C07ED7E-AE81-412E-8AA9-1061EED59DFA");
-	const before = +new Date();
-	console.dir(await ios.getElementsOnScreen(), { depth: null });
-	const after = +new Date();
-	console.log(`Time taken: ${after - before}ms`);
-	// await ios.pressButton("VOLUME_UP");
-}
-main().then();

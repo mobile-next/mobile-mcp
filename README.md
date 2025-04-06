@@ -109,7 +109,6 @@ On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with 
 - `xcrun simctl list`
 - `xcrun simctl boot "iPhone 16"`
 
-
 # Mobile Commands and interaction tools
 
 The commands and tools support both accessibility-based locators (preferred) and coordinate-based inputs, giving you flexibility when accessibility/automation IDs are missing for reliable and seemless automation.
