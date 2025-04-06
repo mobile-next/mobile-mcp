@@ -2,13 +2,13 @@ name: Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ * ]
   pull_request:
-    branches: [ main ]
+    branches: [ * ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macOS-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -27,3 +27,9 @@ jobs:
 
     - name: Build
       run: npm run build
+
+    - name: Run tests
+      run: |
+        xcrun simctl bootstatus booted
+        npm run test
+
