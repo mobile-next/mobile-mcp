@@ -199,3 +199,11 @@ The commands and tools support both accessibility-based locators (preferred) and
 - **Parameters:** None
 
 
+# Thanks to all contributors ❤️
+
+### We appreciate everyone who has helped improve this project. 
+
+  <a href = "https://github.com/mobile-next/mobile-mcp/graphs/contributors">
+   <img src = "https://contrib.rocks/image?repo=mobile-next/mobile-mcp"/>
+ </a>
+
