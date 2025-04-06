@@ -50,7 +50,7 @@ export const createMcpServer = (): McpServer => {
 	const simulatorManager = new SimctlManager();
 
 	tool(
-		"list_available_devices",
+		"mobile_list_available_devices",
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
 		{},
 		async ({}) => {
@@ -64,7 +64,7 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"use_device",
+		"mobile_use_device",
 		"Select a device to use. This can be a simulator or an Android device. Use the list_available_devices tool to get a list of available devices.",
 		{
 			device: z.string().describe("The name of the device to select"),
