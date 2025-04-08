@@ -2,13 +2,13 @@ name: Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '*' ]
   pull_request:
-    branches: [ main ]
+    branches: [ '*' ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macOS-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -27,3 +27,14 @@ jobs:
 
     - name: Build
       run: npm run build
+
+    - uses: futureware-tech/simulator-action@v4
+      with:
+        model: 'iPhone 16'
+        udid: '68254284-73B1-4E6D-A051-36DFF20CFBF8'
+
+    - name: Run tests
+      run: |
+        xcrun simctl bootstatus booted
+        npm run test
+
