@@ -5,7 +5,7 @@ import sharp from "sharp";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, getConnectedDevices } from "./android";
-import { Robot } from "./robot";
+import { ActionableError, Robot } from "./robot";
 import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 
@@ -35,11 +35,18 @@ export const createMcpServer = (): McpServer => {
 					content: [{ type: "text", text: response }],
 				};
 			} catch (error: any) {
-				trace(`Tool '${description}' failed: ${error.message} stack: ${error.stack}`);
-				return {
-					content: [{ type: "text", text: `Error: ${error.message}` }],
-					isError: true,
-				};
+				if (error instanceof ActionableError) {
+					return {
+						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
+					};
+				} else {
+					// a real exception
+					trace(`Tool '${description}' failed: ${error.message} stack: ${error.stack}`);
+					return {
+						content: [{ type: "text", text: `Error: ${error.message}` }],
+						isError: true,
+					};
+				}
 			}
 		};
 
@@ -51,7 +58,7 @@ export const createMcpServer = (): McpServer => {
 
 	const requireRobot = () => {
 		if (!robot) {
-			throw new Error("No device selected. Use the mobile_use_device tool to select a device.");
+			throw new ActionableError("No device selected. Use the mobile_use_device tool to select a device.");
 		}
 	};
 
@@ -194,7 +201,7 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ button }) => {
 			requireRobot();
-			robot!.pressButton(button);
+			await robot!.pressButton(button);
 			return `Pressed the button: ${button}`;
 		}
 	);
@@ -207,7 +214,7 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ url }) => {
 			requireRobot();
-			robot!.openUrl(url);
+			await robot!.openUrl(url);
 			return `Opened URL: ${url}`;
 		}
 	);
@@ -220,7 +227,7 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ direction }) => {
 			requireRobot();
-			robot!.swipe(direction);
+			await robot!.swipe(direction);
 			return `Swiped ${direction} on screen`;
 		}
 	);

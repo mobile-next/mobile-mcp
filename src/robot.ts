@@ -24,6 +24,12 @@ export type SwipeDirection = "up" | "down" | "left" | "right";
 
 export type Button = "HOME" | "BACK" | "VOLUME_UP" | "VOLUME_DOWN" | "ENTER";
 
+export class ActionableError extends Error {
+	constructor(message: string) {
+		super(message);
+	}
+}
+
 export interface Robot {
 	/**
 	 * Get the screen size of the device in pixels.

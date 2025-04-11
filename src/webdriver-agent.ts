@@ -1,4 +1,4 @@
-import { SwipeDirection } from "./robot";
+import { ActionableError, SwipeDirection } from "./robot";
 
 interface SourceTreeElement {
 	type: string;
@@ -22,6 +22,17 @@ interface SourceTree {
 export class WebDriverAgent {
 
 	constructor(private readonly host: string, private readonly port: number) {
+	}
+
+	public async isRunning(): Promise<boolean> {
+		const url = `http://${this.host}:${this.port}/status`;
+		try {
+			const response = await fetch(url);
+			return response.status === 200;
+		} catch (error) {
+			console.error(`Failed to connect to WebDriverAgent: ${error}`);
+			return false;
+		}
 	}
 
 	public async createSession() {
@@ -91,7 +102,7 @@ export class WebDriverAgent {
 
 		// Type assertion to check if button is a key of _map
 		if (!(button in _map)) {
-			throw new Error(`Button "${button}" is not supported`);
+			throw new ActionableError(`Button "${button}" is not supported`);
 		}
 
 		await this.withinSession(async sessionUrl => {

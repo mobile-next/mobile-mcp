@@ -3,7 +3,7 @@ import { execFileSync } from "child_process";
 
 import * as xml from "fast-xml-parser";
 
-import { Bounds, Button, Dimensions, ElementCoordinates, InstalledApp, Robot, SwipeDirection } from "./robot";
+import { ActionableError, Bounds, Button, Dimensions, ElementCoordinates, InstalledApp, Robot, SwipeDirection } from "./robot";
 
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
@@ -101,7 +101,7 @@ export class AndroidRobot implements Robot {
 				y1 = Math.floor(screenSize.height * 0.80);
 				break;
 			default:
-				throw new Error(`Swipe direction "${direction}" is not supported`);
+				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
 		}
 
 		this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
@@ -194,7 +194,7 @@ export class AndroidRobot implements Robot {
 
 	public async pressButton(button: Button) {
 		if (!BUTTON_MAP[button]) {
-			throw new Error(`Button "${button}" is not supported`);
+			throw new ActionableError(`Button "${button}" is not supported`);
 		}
 
 		this.adb("shell", "input", "keyevent", BUTTON_MAP[button]);

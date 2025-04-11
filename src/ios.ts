@@ -6,13 +6,17 @@ import { execFileSync } from "child_process";
 import { Socket } from "net";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { Button, Dimensions, InstalledApp, Robot, SwipeDirection } from "./robot";
+import { ActionableError, Button, Dimensions, InstalledApp, Robot, SwipeDirection } from "./robot";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
 
 interface ListCommandOutput {
 	deviceList: string[];
+}
+
+interface VersionCommandOutput {
+	version: string;
 }
 
 const getGoIosPath = (): string => {
@@ -46,21 +50,45 @@ export class IosRobot implements Robot {
 		return await this.isListeningOnPort(WDA_PORT);
 	}
 
-	private async wda(): Promise<WebDriverAgent> {
-		if (!(await this.isTunnelRunning())) {
-			throw new Error("iOS tunnel is not running, please see https://github.com/mobile-next/mobile-mcp/wiki/Getting-Started-with-iOS");
+	private async assertTunnelRunning(): Promise<void> {
+		if (await this.isTunnelRequired()) {
+			if (!(await this.isTunnelRunning())) {
+				throw new ActionableError("iOS tunnel is not running, please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			}
 		}
+	}
+
+	private async wda(): Promise<WebDriverAgent> {
+
+		await this.assertTunnelRunning();
 
 		if (!(await this.isWdaForwardRunning())) {
-			throw new Error("Port forwarding to WebDriverAgent is not running, please see https://github.com/mobile-next/mobile-mcp/wiki/Getting-Started-with-iOS");
+			throw new ActionableError("Port forwarding to WebDriverAgent is not running (tunnel okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
 		}
 
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
+
+		if (!(await wda.isRunning())) {
+			throw new ActionableError("WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
+		}
+
 		return wda;
 	}
 
 	private async ios(...args: string[]): Promise<string> {
 		return execFileSync(getGoIosPath(), ["--udid", this.deviceId, ...args], {}).toString();
+	}
+
+	public async getIosVersion(): Promise<string> {
+		const output = await this.ios("info");
+		const json = JSON.parse(output);
+		return json.ProductVersion;
+	}
+
+	private async isTunnelRequired(): Promise<boolean> {
+		const version = await this.getIosVersion();
+		const args = version.split(".");
+		return parseInt(args[0], 10) >= 17;
 	}
 
 	public async getScreenSize(): Promise<Dimensions> {
@@ -74,6 +102,8 @@ export class IosRobot implements Robot {
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
+		await this.assertTunnelRunning();
+
 		const output = await this.ios("apps", "--all", "--list");
 		return output
 			.split("\n")
@@ -87,10 +117,12 @@ export class IosRobot implements Robot {
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
+		await this.assertTunnelRunning();
 		await this.ios("launch", packageName);
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
+		await this.assertTunnelRunning();
 		await this.ios("kill", packageName);
 	}
 
@@ -120,6 +152,7 @@ export class IosRobot implements Robot {
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
+		await this.assertTunnelRunning();
 		const tmpFilename = join(tmpdir(), `screenshot-${randomBytes(8).toString("hex")}.png`);
 		await this.ios("screenshot", "--output", tmpFilename);
 		const buffer = readFileSync(tmpFilename);
@@ -129,7 +162,23 @@ export class IosRobot implements Robot {
 }
 
 export class IosManager {
+
+	public async isGoIosInstalled(): Promise<boolean> {
+		try {
+			const output = execFileSync(getGoIosPath(), ["--version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
+			const json: VersionCommandOutput = JSON.parse(output);
+			return json.version !== undefined && json.version.startsWith("v");
+		} catch (error) {
+			return false;
+		}
+	}
+
 	public async listDevices(): Promise<string[]> {
+		if (!(await this.isGoIosInstalled())) {
+			console.error("go-ios is not installed, no physical iOS devices can be detected");
+			return [];
+		}
+
 		const output = execFileSync(getGoIosPath(), ["list"]).toString();
 		const json: ListCommandOutput = JSON.parse(output);
 		return json.deviceList;
