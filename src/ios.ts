@@ -5,7 +5,7 @@ import { readFileSync, unlinkSync } from "fs";
 import { execFileSync } from "child_process";
 import { Socket } from "net";
 
-import { WebDriverAgent } from "./webdriver-agent";
+import { ScreenElement, WebDriverAgent } from "./webdriver-agent";
 import { Button, Dimensions, InstalledApp, Robot, SwipeDirection } from "./robot";
 
 const WDA_PORT = 8100;
@@ -114,7 +114,7 @@ export class IosRobot implements Robot {
 		await wda.tap(x, y);
 	}
 
-	public async getElementsOnScreen(): Promise<any[]> {
+	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const wda = await this.wda();
 		return await wda.getElementsOnScreen();
 	}
