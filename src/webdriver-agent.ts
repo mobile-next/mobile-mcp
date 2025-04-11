@@ -1,6 +1,6 @@
-import { ActionableError, SwipeDirection } from "./robot";
+import { Dimensions, ActionableError, SwipeDirection } from "./robot";
 
-interface SourceTreeElement {
+export interface SourceTreeElement {
 	type: string;
 	label?: string;
 	name?: string;
@@ -15,8 +15,20 @@ interface SourceTreeElement {
 	children?: Array<SourceTreeElement>;
 }
 
-interface SourceTree {
+export interface SourceTree {
 	value: SourceTreeElement;
+}
+
+export interface ScreenElement {
+	type: string;
+	label?: string;
+	name?: string;
+	rect: {
+		x0: number;
+		y0: number;
+		x1: number;
+		y1: number;
+	};
 }
 
 export class WebDriverAgent {
@@ -35,7 +47,7 @@ export class WebDriverAgent {
 		}
 	}
 
-	public async createSession() {
+	public async createSession(): Promise<string> {
 		const url = `http://${this.host}:${this.port}/session`;
 		const response = await fetch(url, {
 			method: "POST",
@@ -63,7 +75,7 @@ export class WebDriverAgent {
 		return result;
 	}
 
-	public async getScreenSize() {
+	public async getScreenSize(): Promise<Dimensions> {
 		return this.withinSession(async sessionUrl => {
 			const url = `${sessionUrl}/wda/screen`;
 			const response = await fetch(url);
@@ -148,9 +160,9 @@ export class WebDriverAgent {
 		});
 	}
 
-	private filterSourceElements(source: SourceTreeElement): Array<any> {
+	private filterSourceElements(source: SourceTreeElement): Array<ScreenElement> {
 
-		const output: any[] = [];
+		const output: ScreenElement[] = [];
 
 		if (["TextField", "Button", "Switch", "Icon", "SearchField"].includes(source.type)) {
 			if (source.label !== null || source.name !== null) {
@@ -184,7 +196,7 @@ export class WebDriverAgent {
 		return json as SourceTree;
 	}
 
-	public async getElementsOnScreen(): Promise<any[]> {
+	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const source = await this.getPageSource();
 		return this.filterSourceElements(source.value);
 	}
