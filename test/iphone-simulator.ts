@@ -81,8 +81,8 @@ describe("iphone-simulator", () => {
 		const image = sharp(screenshot);
 		const metadata = await image.metadata();
 		const screenSize = await simctl.getScreenSize();
-		assert.equal(metadata.width, screenSize.width);
-		assert.equal(metadata.height, screenSize.height);
+		assert.equal(metadata.width, screenSize.width * screenSize.scale);
+		assert.equal(metadata.height, screenSize.height * screenSize.scale);
 	});
 
 	it("should be able to open url", async function() {

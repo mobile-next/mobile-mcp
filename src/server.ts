@@ -157,7 +157,7 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ x, y }) => {
 			requireRobot();
-			await robot!.tap(x / 3, y / 3);
+			await robot!.tap(x, y);
 			return `Clicked on screen at coordinates: ${x}, ${y}`;
 		}
 	);
