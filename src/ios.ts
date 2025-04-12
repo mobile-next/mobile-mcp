@@ -170,9 +170,9 @@ export class IosManager {
 
 	public async isGoIosInstalled(): Promise<boolean> {
 		try {
-			const output = execFileSync(getGoIosPath(), ["--version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
+			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
 			const json: VersionCommandOutput = JSON.parse(output);
-			return json.version !== undefined && json.version.startsWith("v");
+			return json.version !== undefined && (json.version.startsWith("v") || json.version === "local-build");
 		} catch (error) {
 			return false;
 		}
