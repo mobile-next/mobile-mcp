@@ -172,8 +172,8 @@ export const createMcpServer = (): McpServer => {
 			const elements = await robot!.getElementsOnScreen();
 
 			const result = elements.map(element => {
-				const x = Number((element.rect.x0 + element.rect.x1) / 2).toFixed(3);
-				const y = Number((element.rect.y0 + element.rect.y1) / 2).toFixed(3);
+				const x = Number((element.rect.x + element.rect.width / 2)).toFixed(3);
+				const y = Number((element.rect.y + element.rect.height / 2)).toFixed(3);
 
 				return {
 					text: element.label,
