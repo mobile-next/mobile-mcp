@@ -1,4 +1,4 @@
-import { ActionableError, SwipeDirection, ScreenSize } from "./robot";
+import { ActionableError, SwipeDirection, ScreenSize, ScreenElement } from "./robot";
 
 export interface SourceTreeElementRect {
 	x: number;
@@ -14,25 +14,12 @@ export interface SourceTreeElement {
 	value?: string;
 	rawIdentifier?: string;
 	rect: SourceTreeElementRect;
-
+	isVisible?: string; // "0" or "1"
 	children?: Array<SourceTreeElement>;
 }
 
 export interface SourceTree {
 	value: SourceTreeElement;
-}
-
-export interface ScreenElement {
-	type: string;
-	label?: string;
-	name?: string;
-	value?: string;
-	rect: {
-		x0: number;
-		y0: number;
-		x1: number;
-		y1: number;
-	};
 }
 
 export class WebDriverAgent {
@@ -85,8 +72,8 @@ export class WebDriverAgent {
 			const response = await fetch(url);
 			const json = await response.json();
 			return {
-				width: json.value.screenSize.width * json.value.scale,
-				height: json.value.screenSize.height * json.value.scale,
+				width: json.value.screenSize.width,
+				height: json.value.screenSize.height,
 				scale: json.value.scale || 1,
 			};
 		});
@@ -175,7 +162,7 @@ export class WebDriverAgent {
 		const acceptedTypes = ["TextField", "Button", "Switch", "Icon", "SearchField"];
 
 		if (acceptedTypes.includes(source.type)) {
-			if (this.isVisible(source.rect)) {
+			if (source.isVisible === "1" && this.isVisible(source.rect)) {
 				if (source.label !== null || source.name !== null) {
 					output.push({
 						type: source.type,
@@ -183,10 +170,10 @@ export class WebDriverAgent {
 						name: source.name,
 						value: source.value,
 						rect: {
-							x0: source.rect.x,
-							y0: source.rect.y,
-							x1: source.rect.x + source.rect.width,
-							y1: source.rect.y + source.rect.height,
+							x: source.rect.x,
+							y: source.rect.y,
+							width: source.rect.width,
+							height: source.rect.height,
 						},
 					});
 				}

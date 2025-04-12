@@ -3,19 +3,14 @@ import { execFileSync } from "child_process";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, Dimensions, InstalledApp, Robot, ScreenSize, SwipeDirection } from "./robot";
-
-interface UiAutomatorBounds {
-	left: number;
-	top: number;
-	right: number;
-	bottom: number;
-}
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection } from "./robot";
 
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
+	class?: string;
 	text?: string;
 	bounds?: string;
+	hint?: string;
 	"content-desc"?: string;
 }
 
@@ -119,44 +114,48 @@ export class AndroidRobot implements Robot {
 		return this.adb("shell", "screencap", "-p");
 	}
 
-	private collectElements(node: UiAutomatorXmlNode, screenSize: Dimensions): any[] {
-		const elements: any[] = [];
+	private collectElements(node: UiAutomatorXmlNode): ScreenElement[] {
+		const elements: Array<ScreenElement> = [];
 
-		const getCoordinates = (element: UiAutomatorXmlNode): UiAutomatorBounds => {
+		const getScreenElementRect = (element: UiAutomatorXmlNode): ScreenElementRect => {
 			const bounds = String(element.bounds);
 
 			const [, left, top, right, bottom] = bounds.match(/^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/)?.map(Number) || [];
-			return { left, top, right, bottom };
+			return {
+				x: left,
+				y: top,
+				width: right - left,
+				height: bottom - top,
+			};
 		};
 
 		if (node.node) {
 			if (Array.isArray(node.node)) {
 				for (const childNode of node.node) {
-					elements.push(...this.collectElements(childNode, screenSize));
+					elements.push(...this.collectElements(childNode));
 				}
 			} else {
-				elements.push(...this.collectElements(node.node, screenSize));
+				elements.push(...this.collectElements(node.node));
 			}
 		}
 
-		if (node.text) {
-			elements.push({
-				"text": node.text,
-				"coordinates": getCoordinates(node),
-			});
-		}
+		if (node.text || node["content-desc"] || node.hint) {
+			const element: ScreenElement = {
+				type: node.class || "text",
+				name: node.text,
+				label: node["content-desc"] || node.hint || "",
+				rect: getScreenElementRect(node),
+			};
 
-		if (node["content-desc"]) {
-			elements.push({
-				"text": node["content-desc"],
-				"coordinates": getCoordinates(node),
-			});
+			if (element.rect.width > 0 && element.rect.height > 0) {
+				elements.push(element);
+			}
 		}
 
 		return elements;
 	}
 
-	public async getElementsOnScreen(): Promise<any[]> {
+	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty");
 
 		const parser = new xml.XMLParser({
@@ -167,8 +166,7 @@ export class AndroidRobot implements Robot {
 		const parsedXml = parser.parse(dump) as UiAutomatorXml;
 		const hierarchy = parsedXml.hierarchy;
 
-		const screenSize = await this.getScreenSize();
-		const elements = this.collectElements(hierarchy.node, screenSize);
+		const elements = this.collectElements(hierarchy.node);
 		return elements;
 	}
 

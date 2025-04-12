@@ -43,45 +43,55 @@ describe("android", () => {
 
 	it("should be able to open a url", async function() {
 		hasOneAndroidDevice || this.skip();
-		await android.adb("shell", "input", "keyevent", "KEYCODE_HOME");
+		await android.adb("shell", "input", "keyevent", "HOME");
 		await android.openUrl("https://www.example.com");
 	});
 
 	it("should be able to list elements on screen", async function() {
 		hasOneAndroidDevice || this.skip();
-		await android.adb("shell", "input", "keyevent", "KEYCODE_HOME");
+		await android.adb("shell", "input", "keyevent", "HOME");
 		await android.openUrl("https://www.example.com");
 		const elements = await android.getElementsOnScreen();
-
-		const foundTitle = elements.find(element => element.text.includes("This domain is for use in illustrative examples in documents"));
-		assert.ok(foundTitle);
+		const foundTitle = elements.find(element => element.name?.includes("This domain is for use in illustrative examples in documents"));
+		assert.ok(foundTitle, "Title element not found");
 
 		// make sure navbar is present
-		const foundNavbar = elements.find(element => element.text === "example.com");
-		assert.ok(foundNavbar);
+		const foundNavbar = elements.find(element => element.label === "Search or type URL" && element.name?.includes("example.com"));
+		assert.ok(foundNavbar, "Navbar element not found");
 
 		// this is an icon, but has accessibility text
-		const foundSecureIcon = elements.find(element => element.text === "Connection is secure");
-		assert.ok(foundSecureIcon);
+		const foundSecureIcon = elements.find(element => element.name === "" && element.label === "New tab");
+		assert.ok(foundSecureIcon, "Secure icon not found");
 	});
 
-	it("should be able to send keys", async function() {
+	it("should be able to send keys and tap", async function() {
 		hasOneAndroidDevice || this.skip();
-	});
+		await android.terminateApp("com.android.chrome");
+		await android.launchApp("com.android.chrome");
 
-	it("should be able to press a button", async function() {
-		hasOneAndroidDevice || this.skip();
-	});
+		const elements = await android.getElementsOnScreen();
+		const searchElement = elements.find(e => e.label === "Search or type URL");
+		assert.ok(searchElement !== undefined);
+		await android.tap(searchElement.rect.x + searchElement.rect.width / 2, searchElement.rect.y + searchElement.rect.height / 2);
 
-	it("should be able to tap an element", async function() {
-		hasOneAndroidDevice || this.skip();
-	});
+		await android.sendKeys("never gonna give you up lyrics");
+		await android.pressButton("ENTER");
+		await new Promise(resolve => setTimeout(resolve, 3000));
 
-	it("should be able to swipe", async function() {
-		hasOneAndroidDevice || this.skip();
+		const elements2 = await android.getElementsOnScreen();
+		const index = elements2.findIndex(e => e.name?.startsWith("We're no strangers to love"));
+		assert.ok(index !== -1);
 	});
 
 	it("should be able to launch and terminate an app", async function() {
 		hasOneAndroidDevice || this.skip();
+		await android.terminateApp("com.android.chrome");
+		await android.launchApp("com.android.chrome");
+		await new Promise(resolve => setTimeout(resolve, 3000));
+		const elements = await android.getElementsOnScreen();
+		await android.terminateApp("com.android.chrome");
+
+		const searchElement = elements.find(e => e.label === "Search or type URL");
+		assert.ok(searchElement !== undefined);
 	});
 });

@@ -1,7 +1,7 @@
 import { execFileSync } from "child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { Button, InstalledApp, Robot, ScreenSize, SwipeDirection } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
 
 export interface Simulator {
 	name: string;
@@ -33,14 +33,21 @@ interface AppInfo {
 }
 
 const TIMEOUT = 30000;
+const WDA_PORT = 8100;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
 
 export class Simctl implements Robot {
 
-	private readonly wda: WebDriverAgent;
+	constructor(private readonly simulatorUuid: string) {}
 
-	constructor(private readonly simulatorUuid: string) {
-		this.wda = new WebDriverAgent("localhost", 8100);
+	private async wda(): Promise<WebDriverAgent> {
+		const wda = new WebDriverAgent("localhost", WDA_PORT);
+
+		if (!(await wda.isRunning())) {
+			throw new ActionableError("WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
+		}
+
+		return wda;
 	}
 
 	private simctl(...args: string[]): Buffer {
@@ -59,7 +66,8 @@ export class Simctl implements Robot {
 	}
 
 	public async openUrl(url: string) {
-		await this.wda.openUrl(url);
+		const wda = await this.wda();
+		await wda.openUrl(url);
 		// alternative: this.simctl("openurl", this.simulatorUuid, url);
 	}
 
@@ -122,27 +130,33 @@ export class Simctl implements Robot {
 	}
 
 	public async getScreenSize(): Promise<ScreenSize> {
-		return this.wda.getScreenSize();
+		const wda = await this.wda();
+		return wda.getScreenSize();
 	}
 
 	public async sendKeys(keys: string) {
-		return this.wda.sendKeys(keys);
+		const wda = await this.wda();
+		return wda.sendKeys(keys);
 	}
 
 	public async swipe(direction: SwipeDirection) {
-		return this.wda.swipe(direction);
+		const wda = await this.wda();
+		return wda.swipe(direction);
 	}
 
 	public async tap(x: number, y: number) {
-		return this.wda.tap(x, y);
+		const wda = await this.wda();
+		return wda.tap(x, y);
 	}
 
 	public async pressButton(button: Button) {
-		await this.wda.pressButton(button);
+		const wda = await this.wda();
+		return wda.pressButton(button);
 	}
 
-	public async getElementsOnScreen(): Promise<any[]> {
-		return await this.wda.getElementsOnScreen();
+	public async getElementsOnScreen(): Promise<ScreenElement[]> {
+		const wda = await this.wda();
+		return wda.getElementsOnScreen();
 	}
 }
 

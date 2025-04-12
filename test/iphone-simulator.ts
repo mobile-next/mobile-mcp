@@ -39,15 +39,28 @@ describe("iphone-simulator", () => {
 		// make sure "General" is not visible now
 		const elements2 = await simctl.getElementsOnScreen();
 		assert.ok(elements2.findIndex(e => e.name === "com.apple.settings.general") === -1);
+
+		// swipe up
+		await simctl.swipe("up");
+
+		// make sure "General" is visible again
+		const elements3 = await simctl.getElementsOnScreen();
+		assert.ok(elements3.findIndex(e => e.name === "com.apple.settings.general") !== -1);
 	});
 
 	it("should be able to send keys and press enter", async function() {
 		hasOneSimulator || this.skip();
 		await restartRemindersApp();
 
+		// find new reminder element
 		const elements = await simctl.getElementsOnScreen();
-		const addressElement = elements.filter(e => e.label === "New Reminder");
-		await simctl.tap(addressElement[0].rect.x0, addressElement[0].rect.y0);
+		const newElement = elements.find(e => e.label === "New Reminder");
+		assert.ok(newElement !== undefined, "should have found new reminder element");
+
+		// click on new reminder
+		await simctl.tap(newElement.rect.x, newElement.rect.y);
+
+		// wait for keyboard to appear
 		await new Promise(resolve => setTimeout(resolve, 1000));
 
 		// send keys with press button "Enter"
@@ -82,6 +95,8 @@ describe("iphone-simulator", () => {
 		const image = sharp(screenshot);
 		const metadata = await image.metadata();
 		const screenSize = await simctl.getScreenSize();
+		assert.equal(metadata.format, "png");
+		assert.equal(metadata.isProgressive, false);
 		assert.equal(metadata.width, screenSize.width * screenSize.scale);
 		assert.equal(metadata.height, screenSize.height * screenSize.scale);
 	});
@@ -90,13 +105,14 @@ describe("iphone-simulator", () => {
 		hasOneSimulator || this.skip();
 		// simply checking thato openurl with https:// launches safari
 		await simctl.openUrl("https://www.example.com");
+		await new Promise(resolve => setTimeout(resolve, 1000));
 
 		const elements = await simctl.getElementsOnScreen();
 		assert.ok(elements.length > 0);
 
 		const addressBar = elements.find(element => element.type === "TextField" && element.name === "TabBarItemTitle" && element.label === "Address");
 		assert.ok(addressBar !== undefined, "should have address bar");
-	}).timeout(10000);
+	});
 
 	it("should be able to list apps", async function() {
 		hasOneSimulator || this.skip();
