@@ -20,6 +20,11 @@ interface VersionCommandOutput {
 }
 
 const getGoIosPath = (): string => {
+	if (process.env.GO_IOS_PATH) {
+		return process.env.GO_IOS_PATH;
+	}
+
+	// fallback to go-ios in PATH via `npm install -g go-ios`
 	return "ios";
 };
 
