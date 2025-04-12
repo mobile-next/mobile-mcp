@@ -2,22 +2,78 @@ import assert from "assert";
 
 import sharp from "sharp";
 import { SimctlManager } from "../src/iphone-simulator";
+import { randomBytes } from "crypto";
 
-describe("ios", () => {
+describe("iphone-simulator", () => {
 
 	const manager = new SimctlManager();
 	const bootedSimulators = manager.listBootedSimulators();
-	assert.ok(bootedSimulators.length === 1, "should have exactly one booted simulator");
-	const simctl = manager.getSimulator(bootedSimulators[0].uuid);
+	const hasOneSimulator = bootedSimulators.length === 1;
+	const simctl = manager.getSimulator(bootedSimulators?.[0]?.uuid || "");
 
-	it("should be able to get the screen size", async () => {
+	const restartApp = async (app: string) => {
+		await simctl.launchApp(app);
+		await simctl.terminateApp(app);
+		await simctl.launchApp(app);
+	};
+
+	const restartPreferencesApp = async () => {
+		await restartApp("com.apple.Preferences");
+	};
+
+	const restartRemindersApp = async () => {
+		await restartApp("com.apple.reminders");
+	};
+
+	it("should be able to swipe", async function() {
+		hasOneSimulator || this.skip();
+		await restartPreferencesApp();
+
+		// make sure "General" is present (since it's at the top of the list)
+		const elements1 = await simctl.getElementsOnScreen();
+		assert.ok(elements1.findIndex(e => e.name === "com.apple.settings.general") !== -1);
+
+		// swipe down
+		await simctl.swipe("down");
+
+		// make sure "General" is not visible now
+		const elements2 = await simctl.getElementsOnScreen();
+		assert.ok(elements2.findIndex(e => e.name === "com.apple.settings.general") === -1);
+	});
+
+	it("should be able to send keys and press enter", async function() {
+		hasOneSimulator || this.skip();
+		await restartRemindersApp();
+
+		const elements = await simctl.getElementsOnScreen();
+		const addressElement = elements.filter(e => e.label === "New Reminder");
+		await simctl.tap(addressElement[0].rect.x0, addressElement[0].rect.y0);
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// send keys with press button "Enter"
+		const random1 = randomBytes(8).toString("hex");
+		await simctl.sendKeys(random1);
+		await simctl.pressButton("ENTER");
+
+		// send keys with "\n"
+		const random2 = randomBytes(8).toString("hex");
+		await simctl.sendKeys(random2 + "\n");
+
+		const elements2 = await simctl.getElementsOnScreen();
+		assert.ok(elements2.findIndex(e => e.value === random1) !== -1);
+		assert.ok(elements2.findIndex(e => e.value === random2) !== -1);
+	});
+
+	it("should be able to get the screen size", async function() {
+		hasOneSimulator || this.skip();
 		const screenSize = await simctl.getScreenSize();
 		assert.ok(screenSize.width > 256);
 		assert.ok(screenSize.height > 256);
 		assert.equal(Object.keys(screenSize).length, 2, "screenSize should have exactly 2 properties");
 	});
 
-	it("should be able to get screenshot", async () => {
+	it("should be able to get screenshot", async function() {
+		hasOneSimulator || this.skip();
 		const screenshot = await simctl.getScreenshot();
 		assert.ok(screenshot.length > 64 * 1024);
 
@@ -29,7 +85,8 @@ describe("ios", () => {
 		assert.equal(metadata.height, screenSize.height);
 	});
 
-	it("should be able to open url", async () => {
+	it("should be able to open url", async function() {
+		hasOneSimulator || this.skip();
 		// simply checking thato openurl with https:// launches safari
 		await simctl.openUrl("https://www.example.com");
 
@@ -40,7 +97,8 @@ describe("ios", () => {
 		assert.ok(addressBar !== undefined, "should have address bar");
 	}).timeout(10000);
 
-	it("should be able to list apps", async () => {
+	it("should be able to list apps", async function() {
+		hasOneSimulator || this.skip();
 		const apps = await simctl.listApps();
 		const packages = apps.map(app => app.packageName);
 		assert.ok(packages.includes("com.apple.mobilesafari"));
@@ -48,7 +106,8 @@ describe("ios", () => {
 		assert.ok(packages.includes("com.apple.Preferences"));
 	});
 
-	it("should be able to get elements on screen", async () => {
+	it("should be able to get elements on screen", async function() {
+		hasOneSimulator || this.skip();
 		await simctl.pressButton("HOME");
 		await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -58,14 +117,11 @@ describe("ios", () => {
 		// must have News app in home screen
 		const element = elements.find(e => e.type === "Icon" && e.label === "News");
 		assert.ok(element !== undefined, "should have News app in home screen");
-	}).timeout(10000);
+	});
 
-	it("should be able to launch and terminate app", async () => {
-		// make sure app is not running before launching
-		await simctl.launchApp("com.apple.Preferences");
-		await simctl.terminateApp("com.apple.Preferences");
-
-		await simctl.launchApp("com.apple.Preferences");
+	it("should be able to launch and terminate app", async function() {
+		hasOneSimulator || this.skip();
+		await restartPreferencesApp();
 		await new Promise(resolve => setTimeout(resolve, 2000));
 		const elements = await simctl.getElementsOnScreen();
 
@@ -78,5 +134,16 @@ describe("ios", () => {
 		const elements2 = await simctl.getElementsOnScreen();
 		const buttons2 = elements2.filter(e => e.type === "Button").map(e => e.label);
 		assert.ok(!buttons2.includes("General"));
-	}).timeout(20000);
+	});
+
+	it("should throw an error if button is not supported", async function() {
+		hasOneSimulator || this.skip();
+		try {
+			await simctl.pressButton("NOT_A_BUTTON" as any);
+			assert.fail("should have thrown an error");
+		} catch (error) {
+			assert.ok(error instanceof Error);
+			assert.ok(error.message.includes("Button \"NOT_A_BUTTON\" is not supported"));
+		}
+	});
 });
