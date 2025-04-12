@@ -1,7 +1,7 @@
-import { execFileSync, execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { Button, Dimensions, InstalledApp, Robot, SwipeDirection } from "./robot";
+import { Button, InstalledApp, Robot, ScreenSize, SwipeDirection } from "./robot";
 
 export interface Simulator {
 	name: string;
@@ -110,7 +110,7 @@ export class Simctl implements Robot {
 		}));
 	}
 
-	public async getScreenSize(): Promise<Dimensions> {
+	public async getScreenSize(): Promise<ScreenSize> {
 		return this.wda.getScreenSize();
 	}
 

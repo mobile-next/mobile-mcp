@@ -1,16 +1,19 @@
-import { Dimensions, ActionableError, SwipeDirection } from "./robot";
+import { ActionableError, SwipeDirection, ScreenSize } from "./robot";
+
+export interface SourceTreeElementRect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
 
 export interface SourceTreeElement {
 	type: string;
 	label?: string;
 	name?: string;
+	value?: string;
 	rawIdentifier?: string;
-	rect: {
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	};
+	rect: SourceTreeElementRect;
 
 	children?: Array<SourceTreeElement>;
 }
@@ -23,6 +26,7 @@ export interface ScreenElement {
 	type: string;
 	label?: string;
 	name?: string;
+	value?: string;
 	rect: {
 		x0: number;
 		y0: number;
@@ -75,7 +79,7 @@ export class WebDriverAgent {
 		return result;
 	}
 
-	public async getScreenSize(): Promise<Dimensions> {
+	public async getScreenSize(): Promise<ScreenSize> {
 		return this.withinSession(async sessionUrl => {
 			const url = `${sessionUrl}/wda/screen`;
 			const response = await fetch(url);
@@ -83,6 +87,7 @@ export class WebDriverAgent {
 			return {
 				width: json.value.screenSize.width * json.value.scale,
 				height: json.value.screenSize.height * json.value.scale,
+				scale: json.value.scale || 1,
 			};
 		});
 	}
@@ -160,23 +165,31 @@ export class WebDriverAgent {
 		});
 	}
 
-	private filterSourceElements(source: SourceTreeElement): Array<ScreenElement> {
+	private isVisible(rect: SourceTreeElementRect): boolean {
+		return rect.x >= 0 && rect.y >= 0;
+	}
 
+	private filterSourceElements(source: SourceTreeElement): Array<ScreenElement> {
 		const output: ScreenElement[] = [];
 
-		if (["TextField", "Button", "Switch", "Icon", "SearchField"].includes(source.type)) {
-			if (source.label !== null || source.name !== null) {
-				output.push({
-					type: source.type,
-					label: source.label,
-					name: source.name,
-					rect: {
-						x0: source.rect.x,
-						y0: source.rect.y,
-						x1: source.rect.x + source.rect.width,
-						y1: source.rect.y + source.rect.height,
-					},
-				});
+		const acceptedTypes = ["TextField", "Button", "Switch", "Icon", "SearchField"];
+
+		if (acceptedTypes.includes(source.type)) {
+			if (this.isVisible(source.rect)) {
+				if (source.label !== null || source.name !== null) {
+					output.push({
+						type: source.type,
+						label: source.label,
+						name: source.name,
+						value: source.value,
+						rect: {
+							x0: source.rect.x,
+							y0: source.rect.y,
+							x1: source.rect.x + source.rect.width,
+							y1: source.rect.y + source.rect.height,
+						},
+					});
+				}
 			}
 		}
 

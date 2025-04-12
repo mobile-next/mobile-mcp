@@ -152,15 +152,12 @@ export const createMcpServer = (): McpServer => {
 		"mobile_click_on_screen_at_coordinates",
 		"Click on the screen at given x,y coordinates",
 		{
-			x: z.number().describe("The x coordinate to click between 0 and 1"),
-			y: z.number().describe("The y coordinate to click between 0 and 1"),
+			x: z.number().describe("The x coordinate to click on the screen, in pixels"),
+			y: z.number().describe("The y coordinate to click on the screen, in pixels"),
 		},
 		async ({ x, y }) => {
 			requireRobot();
-			const screenSize = await robot!.getScreenSize();
-			const x0 = Math.floor(screenSize.width * x);
-			const y0 = Math.floor(screenSize.height * y);
-			await robot!.tap(x0, y0);
+			await robot!.tap(x / 3, y / 3);
 			return `Clicked on screen at coordinates: ${x}, ${y}`;
 		}
 	);
@@ -172,20 +169,15 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({}) => {
 			requireRobot();
-			const screenSize = await robot!.getScreenSize();
 			const elements = await robot!.getElementsOnScreen();
 
 			const result = elements.map(element => {
-				const x0 = element.rect.x0 / screenSize.width;
-				const y0 = element.rect.y0 / screenSize.height;
-				const x1 = element.rect.x1 / screenSize.width;
-				const y1 = element.rect.y1 / screenSize.height;
+				const x = Number((element.rect.x0 + element.rect.x1) / 2).toFixed(3);
+				const y = Number((element.rect.y0 + element.rect.y1) / 2).toFixed(3);
+
 				return {
 					text: element.label,
-					coordinates: {
-						x: Number((x0 + x1) / 2).toFixed(3),
-						y: Number((y0 + y1) / 2).toFixed(3),
-					}
+					coordinates: { x, y }
 				};
 			});
 

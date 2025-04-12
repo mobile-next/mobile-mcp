@@ -1,12 +1,12 @@
+import path from "path";
 import { tmpdir } from "os";
-import { join } from "path";
 import { randomBytes } from "crypto";
 import { readFileSync, unlinkSync } from "fs";
 import { execFileSync } from "child_process";
 import { Socket } from "net";
 
 import { ScreenElement, WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, Dimensions, InstalledApp, Robot, SwipeDirection } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection } from "./robot";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -96,7 +96,7 @@ export class IosRobot implements Robot {
 		return parseInt(args[0], 10) >= 17;
 	}
 
-	public async getScreenSize(): Promise<Dimensions> {
+	public async getScreenSize(): Promise<ScreenSize> {
 		const wda = await this.wda();
 		return await wda.getScreenSize();
 	}
@@ -158,7 +158,7 @@ export class IosRobot implements Robot {
 
 	public async getScreenshot(): Promise<Buffer> {
 		await this.assertTunnelRunning();
-		const tmpFilename = join(tmpdir(), `screenshot-${randomBytes(8).toString("hex")}.png`);
+		const tmpFilename = path.join(tmpdir(), `screenshot-${randomBytes(8).toString("hex")}.png`);
 		await this.ios("screenshot", "--output", tmpFilename);
 		const buffer = readFileSync(tmpFilename);
 		unlinkSync(tmpFilename);

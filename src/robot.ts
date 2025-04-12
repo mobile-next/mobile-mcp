@@ -1,9 +1,3 @@
-export interface Bounds {
-	left: number;
-	top: number;
-	right: number;
-	bottom: number;
-}
 
 export interface ElementCoordinates {
 	x: number,
@@ -13,6 +7,10 @@ export interface ElementCoordinates {
 export interface Dimensions {
 	width: number;
 	height: number;
+}
+
+export interface ScreenSize extends Dimensions {
+	scale: number;
 }
 
 export interface InstalledApp {
@@ -34,7 +32,7 @@ export interface Robot {
 	/**
 	 * Get the screen size of the device in pixels.
 	 */
-	getScreenSize(): Promise<Dimensions>;
+	getScreenSize(): Promise<ScreenSize>;
 
 	/**
 	 * Swipe in a direction.

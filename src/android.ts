@@ -3,7 +3,14 @@ import { execFileSync } from "child_process";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Bounds, Button, Dimensions, ElementCoordinates, InstalledApp, Robot, SwipeDirection } from "./robot";
+import { ActionableError, Button, Dimensions, InstalledApp, Robot, ScreenSize, SwipeDirection } from "./robot";
+
+interface UiAutomatorBounds {
+	left: number;
+	top: number;
+	right: number;
+	bottom: number;
+}
 
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
@@ -50,7 +57,7 @@ export class AndroidRobot implements Robot {
 		});
 	}
 
-	public async getScreenSize(): Promise<Dimensions> {
+	public async getScreenSize(): Promise<ScreenSize> {
 		const screenSize = this.adb("shell", "wm", "size")
 			.toString()
 			.split(" ")
@@ -60,8 +67,9 @@ export class AndroidRobot implements Robot {
 			throw new Error("Failed to get screen size");
 		}
 
+		const scale = 1;
 		const [width, height] = screenSize.split("x").map(Number);
-		return { width, height };
+		return { width, height, scale };
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
@@ -114,25 +122,11 @@ export class AndroidRobot implements Robot {
 	private collectElements(node: UiAutomatorXmlNode, screenSize: Dimensions): any[] {
 		const elements: any[] = [];
 
-		const getCoordinates = (element: UiAutomatorXmlNode): Bounds => {
+		const getCoordinates = (element: UiAutomatorXmlNode): UiAutomatorBounds => {
 			const bounds = String(element.bounds);
 
 			const [, left, top, right, bottom] = bounds.match(/^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/)?.map(Number) || [];
 			return { left, top, right, bottom };
-		};
-
-		const getCenter = (coordinates: Bounds): ElementCoordinates => {
-			return {
-				x: Math.floor((coordinates.left + coordinates.right) / 2),
-				y: Math.floor((coordinates.top + coordinates.bottom) / 2),
-			};
-		};
-
-		const normalizeCoordinates = (coordinates: ElementCoordinates, screenSize: Dimensions): ElementCoordinates => {
-			return {
-				x: Number((coordinates.x / screenSize.width).toFixed(3)),
-				y: Number((coordinates.y / screenSize.height).toFixed(3)),
-			};
 		};
 
 		if (node.node) {
@@ -148,14 +142,14 @@ export class AndroidRobot implements Robot {
 		if (node.text) {
 			elements.push({
 				"text": node.text,
-				"coordinates": normalizeCoordinates(getCenter(getCoordinates(node)), screenSize),
+				"coordinates": getCoordinates(node),
 			});
 		}
 
 		if (node["content-desc"]) {
 			elements.push({
 				"text": node["content-desc"],
-				"coordinates": normalizeCoordinates(getCenter(getCoordinates(node)), screenSize),
+				"coordinates": getCoordinates(node),
 			});
 		}
 
