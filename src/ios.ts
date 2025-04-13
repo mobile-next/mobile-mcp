@@ -6,7 +6,7 @@ import { execFileSync } from "child_process";
 import { Socket } from "net";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -163,6 +163,16 @@ export class IosRobot implements Robot {
 		const buffer = readFileSync(tmpFilename);
 		unlinkSync(tmpFilename);
 		return buffer;
+	}
+
+	public async setOrientation(orientation: Orientation): Promise<void> {
+		const wda = await this.wda();
+		await wda.setOrientation(orientation);
+	}
+
+	public async getOrientation(): Promise<Orientation> {
+		const wda = await this.wda();
+		return await wda.getOrientation();
 	}
 }
 

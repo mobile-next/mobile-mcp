@@ -1,4 +1,4 @@
-import { ActionableError, SwipeDirection, ScreenSize, ScreenElement } from "./robot";
+import { ActionableError, SwipeDirection, ScreenSize, ScreenElement, Orientation } from "./robot";
 
 export interface SourceTreeElementRect {
 	x: number;
@@ -247,6 +247,28 @@ export class WebDriverAgent {
 					]
 				}),
 			});
+		});
+	}
+
+	public async setOrientation(orientation: Orientation): Promise<void> {
+		await this.withinSession(async sessionUrl => {
+			const url = `${sessionUrl}/orientation`;
+			await fetch(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					orientation: orientation.toUpperCase()
+				})
+			});
+		});
+	}
+
+	public async getOrientation(): Promise<Orientation> {
+		return this.withinSession(async sessionUrl => {
+			const url = `${sessionUrl}/orientation`;
+			const response = await fetch(url);
+			const json = await response.json();
+			return json.value.toLowerCase() as Orientation;
 		});
 	}
 }

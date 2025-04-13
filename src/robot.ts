@@ -1,4 +1,3 @@
-
 export interface Dimensions {
 	width: number;
 	height: number;
@@ -37,6 +36,8 @@ export class ActionableError extends Error {
 		super(message);
 	}
 }
+
+export type Orientation = "portrait" | "landscape";
 
 export interface Robot {
 	/**
@@ -98,4 +99,15 @@ export interface Robot {
 	 * return a filtered list of elements that make sense to interact with.
 	 */
 	getElementsOnScreen(): Promise<ScreenElement[]>;
+
+	/**
+	 * Change the screen orientation of the device.
+	 * @param orientation The desired orientation ("portrait" or "landscape")
+	 */
+	setOrientation(orientation: Orientation): Promise<void>;
+
+	/**
+	 * Get the current screen orientation.
+	 */
+	getOrientation(): Promise<Orientation>;
 }

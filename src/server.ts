@@ -285,5 +285,29 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_set_orientation",
+		"Change the screen orientation of the device",
+		{
+			orientation: z.enum(["portrait", "landscape"]).describe("The desired orientation"),
+		},
+		async ({ orientation }) => {
+			requireRobot();
+			await robot!.setOrientation(orientation);
+			return `Changed device orientation to ${orientation}`;
+		}
+	);
+
+	tool(
+		"mobile_get_orientation",
+		"Get the current screen orientation of the device",
+		{},
+		async () => {
+			requireRobot();
+			const orientation = await robot!.getOrientation();
+			return `Current device orientation is ${orientation}`;
+		}
+	);
+
 	return server;
 };

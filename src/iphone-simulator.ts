@@ -1,7 +1,7 @@
 import { execFileSync } from "child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
 
 export interface Simulator {
 	name: string;
@@ -157,6 +157,16 @@ export class Simctl implements Robot {
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const wda = await this.wda();
 		return wda.getElementsOnScreen();
+	}
+
+	public async setOrientation(orientation: Orientation): Promise<void> {
+		const wda = await this.wda();
+		return wda.setOrientation(orientation);
+	}
+
+	public async getOrientation(): Promise<Orientation> {
+		const wda = await this.wda();
+		return wda.getOrientation();
 	}
 }
 

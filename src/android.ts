@@ -3,7 +3,7 @@ import { execFileSync } from "child_process";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
 
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
@@ -194,6 +194,48 @@ export class AndroidRobot implements Robot {
 
 	public async tap(x: number, y: number): Promise<void> {
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
+	}
+
+	public async setOrientation(orientation: Orientation): Promise<void> {
+		// Android uses numbers for orientation:
+		// 0 - Portrait
+		// 1 - Landscape
+		const orientationValue = orientation === "portrait" ? 0 : 1;
+
+		// Set orientation using content provider
+		this.adb(
+			"shell",
+			"content",
+			"insert",
+			"--uri",
+			"content://settings/system",
+			"--bind",
+			"name:s:user_rotation",
+			"--bind",
+			`value:i:${orientationValue}`
+		);
+
+		// Force the orientation change
+		this.adb(
+			"shell",
+			"settings",
+			"put",
+			"system",
+			"accelerometer_rotation",
+			"0"
+		);
+	}
+
+	public async getOrientation(): Promise<Orientation> {
+		const rotation = this.adb(
+			"shell",
+			"settings",
+			"get",
+			"system",
+			"user_rotation"
+		).toString().trim();
+
+		return rotation === "0" ? "portrait" : "landscape";
 	}
 }
 
