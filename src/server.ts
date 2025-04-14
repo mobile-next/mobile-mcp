@@ -60,23 +60,32 @@ export const createMcpServer = (): McpServer => {
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
 		{},
 		async ({}) => {
+			trace("========== DEVICE DETECTION STARTED ==========");
 			let simulatorNames: any[] = [];
 			let iosDevices: any[] = [];
-			const androidDevices = getConnectedDevices();
 
+			trace("Getting Android devices...");
+			const androidDevices = getConnectedDevices();
+			trace(`Found Android devices: [${androidDevices.join(", ")}]`);
+
+			trace("Getting iOS simulators...");
 			try {
 				const devices = await simulatorManager.listBootedSimulators();
 				simulatorNames = devices.map(d => d.name);
+				trace(`Found iOS simulators: [${simulatorNames.join(", ")}]`);
 			} catch (err: any) {
 				trace(`Error listing iOS simulators: ${String(err)}`);
 			}
 
+			trace("Getting iOS devices...");
 			try {
 				const iosManager = new IosManager();
 				iosDevices = await iosManager.listDevices();
+				trace(`Found iOS devices: [${iosDevices.join(", ")}]`);
 			} catch (err: any) {
 				trace(`Error listing iOS devices: ${String(err)}`);
 			}
+			trace("========== DEVICE DETECTION COMPLETED ==========");
 
 			return `Found these iOS simulators: [${simulatorNames.join(".")}], iOS devices: [${iosDevices.join(",")}] and Android devices: [${androidDevices.join(",")}]`;
 		}
