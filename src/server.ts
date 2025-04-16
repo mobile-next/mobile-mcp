@@ -176,7 +176,7 @@ export const createMcpServer = (): McpServer => {
 				const y = Number((element.rect.y + element.rect.height / 2)).toFixed(3);
 
 				return {
-					text: element.label,
+					text: element.label || element.name,
 					coordinates: { x, y }
 				};
 			});
