@@ -198,10 +198,15 @@ export class AndroidRobot implements Robot {
 }
 
 export const getConnectedDevices = (): string[] => {
-	return execFileSync(getAdbPath(), ["devices"])
-		.toString()
-		.split("\n")
-		.filter(line => !line.startsWith("List of devices attached"))
-		.filter(line => line.trim() !== "")
-		.map(line => line.split("\t")[0]);
+	try {
+		return execFileSync(getAdbPath(), ["devices"])
+			.toString()
+			.split("\n")
+			.filter(line => !line.startsWith("List of devices attached"))
+			.filter(line => line.trim() !== "")
+			.map(line => line.split("\t")[0]);
+	} catch (error) {
+		console.error("Could not execute adb command, maybe ANDROID_HOME is not set?");
+		return [];
+	}
 };
