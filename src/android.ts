@@ -47,7 +47,7 @@ type DpadButton = "DPAD_UP" | "DPAD_DOWN" | "DPAD_LEFT" | "DPAD_RIGHT" | "DPAD_C
 
 export class AndroidRobot implements Robot {
 
-	private deviceType: AndroidDeviceType = "standard"; // Default to standard
+	public deviceType: AndroidDeviceType = "standard"; // Default to standard
 
 	public constructor(private deviceId: string) {
 		// --- Device Type Detection ---
@@ -190,10 +190,6 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
-		if (this.deviceType === "tv") {
-			await this.tvTap(x, y);
-			return;
-		}
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
 	}
 
@@ -264,17 +260,65 @@ export class AndroidRobot implements Robot {
 
 	// --- TV Specific Methods ---
 
-	private async tvTap(x: number, y: number): Promise<void> {
-		let currentDirection = this.getDpadDirection(x, y);
+	public navigateToItemWithLabel(label: string) {
+		this.requireAndroidTv();
+		let currentDirection = this.getNextDpadDirectionToItemWithLabel(label);
 
 		while (currentDirection) {
-			this.pressDpad(currentDirection);
-			currentDirection = this.getDpadDirection(x, y);
+			this.pressDpadInternal(currentDirection);
+			currentDirection = this.getNextDpadDirectionToItemWithLabel(label);
+		}
+	}
+
+	public pressDpad(dpadButton: DpadButton) {
+		this.requireAndroidTv();
+		this.pressDpadInternal(dpadButton);
+	}
+
+	private getNextDpadDirectionToItemWithLabel(label: string): DpadButton | null {
+		const parsedXml = this.getParsedXml();
+		const targetElement = this.findElemenWithLabel(parsedXml.hierarchy.node, label);
+		const focusedElement = this.findFocusedElement(parsedXml.hierarchy.node);
+
+		if (!focusedElement || !targetElement) {
+			return null;
 		}
 
-		// Upon breaking from the while loop, we have reached at the target coordinates
-		// Press the dpad center button to 'click' on the focused element
-		this.pressDpad("DPAD_CENTER");
+		const focusedRect = this.getScreenElementRect(focusedElement);
+		const targetRect = this.getScreenElementRect(targetElement);
+
+		return this.getDpadDirection(focusedRect, targetRect.x, targetRect.y);
+	}
+
+	/**
+	 * Find the element with the specified label in the UI hierarchy.
+	 *
+	 * @param node - The root node of the UI hierarchy.
+	 * @param label - The label to search for.
+	 * @returns The element node or null if not found.
+	 */
+	private findElemenWithLabel(node: UiAutomatorXmlNode, label: string): UiAutomatorXmlNode | null {
+		if (node["text"] === label || node["content-desc"] === label || node.hint === label) {
+			return node;
+		}
+
+		if (node.node) {
+			if (Array.isArray(node.node)) {
+				for (const childNode of node.node) {
+					const focusedChild = this.findElemenWithLabel(childNode, label);
+					if (focusedChild) {
+						return focusedChild;
+					}
+				}
+			} else {
+				const focusedChild = this.findElemenWithLabel(node.node, label);
+				if (focusedChild) {
+					return focusedChild;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -314,44 +358,34 @@ export class AndroidRobot implements Robot {
 	 * @param targetY - The target Y coordinate.
 	 * @returns The dpad direction or null if no dpad direction is needed.
 	 */
-	private getDpadDirection(targetX: number, targetY: number): DpadButton | null {
-		// Always use the latest parsed XML. When dpad keyevent is sent, the screen is updated and
-		// the focused element may have changed.
-		const parsedXml = this.getParsedXml();
-		const focusedElement = this.findFocusedElement(parsedXml.hierarchy.node);
-
-		// No focused element
-		if (!focusedElement) {
-			return null;
-		}
-
-		const focusedRect = this.getScreenElementRect(focusedElement);
-
-		// Check if the target coordinates are within the bounds of the focused element
-		const isWithinBounds = targetX >= focusedRect.x && targetX <= focusedRect.x + focusedRect.width &&
-			targetY >= focusedRect.y && targetY <= focusedRect.y + focusedRect.height;
-
+	private getDpadDirection(focusedRect: ScreenElementRect, targetX: number, targetY: number): DpadButton | null {
 		// If within bounds then no dpad direction is needed
-		if (isWithinBounds) {
+		if (focusedRect.x === targetX && focusedRect.y === targetY) {
 			return null;
 		}
 
-		if (targetX < focusedRect.x) {
-			return "DPAD_LEFT";
-		} else if (targetX > focusedRect.x + focusedRect.width) {
+		if (focusedRect.x < targetX) {
 			return "DPAD_RIGHT";
-		} else if (targetY < focusedRect.y) {
-			return "DPAD_UP";
-		} else if (targetY > focusedRect.y + focusedRect.height) {
+		} else if (focusedRect.x > targetX) {
+			return "DPAD_LEFT";
+		} else if (focusedRect.y < targetY) {
 			return "DPAD_DOWN";
+		} else if (focusedRect.y > targetY) {
+			return "DPAD_UP";
 		}
 
 		// No further valid cases to be covered
 		return null;
 	}
 
-	private async pressDpad(dpadButton: DpadButton): Promise<void> {
+	private async pressDpadInternal(dpadButton: DpadButton): Promise<void> {
 		this.adb("shell", "input", "keyevent", dpadButton);
+	}
+
+	private requireAndroidTv() {
+		if (this.deviceType !== "tv") {
+			throw new ActionableError("No device selected. Use the mobile_use_device tool to select a device.");
+		}
 	}
 }
 

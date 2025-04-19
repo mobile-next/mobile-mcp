@@ -62,6 +62,13 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
+	const requireTvRobot = () => {
+		requireRobot();
+		if (!(robot instanceof AndroidRobot && robot.deviceType === "tv")) {
+			throw new ActionableError("This tool is only supported on Android TV devices. Let user know about this.");
+		}
+	};
+
 	tool(
 		"mobile_list_available_devices",
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
@@ -96,7 +103,9 @@ export const createMcpServer = (): McpServer => {
 					break;
 			}
 
-			return `Selected device: ${device} (${deviceType})`;
+			const isAndroidTv = (robot instanceof AndroidRobot && robot.deviceType === "tv");
+
+			return `Selected device: ${device} (${deviceType}${isAndroidTv ? ", (Android TV)" : ""})`;
 		}
 	);
 
@@ -306,6 +315,34 @@ export const createMcpServer = (): McpServer => {
 			requireRobot();
 			const orientation = await robot!.getOrientation();
 			return `Current device orientation is ${orientation}`;
+		}
+	);
+
+	tool(
+		"tv_dpad_navigate_to_item_with_label",
+		"Navigate to an item on screen with a specific label using D-pad. This is specifically for TV devices which depend on D-pad based traversal.",
+		{
+			label: z.string().describe("The label of the item to navigate to"),
+		},
+		async ({ label }) => {
+			requireTvRobot();
+			(robot as AndroidRobot).navigateToItemWithLabel(label);
+
+			return `Navigated with D-pad to item with label: ${label}`;
+		}
+	);
+
+	tool(
+		"tv_dpad_press_button",
+		"Press a button on the D-pad. This is specifically for TV Devices which depend on D-pad.",
+		{
+			button: z.string().describe("The D-pad button to press. Supported buttons: DPAD_CENTER (center), DPAD_UP(up), DPAD_DOWN(down), DPAD_LEFT(left), DPAD_RIGHT(right)"),
+		},
+		async ({ button }) => {
+			requireTvRobot();
+			(robot as AndroidRobot).pressDpad(button);
+
+			return `Pressed D-pad button: ${button}`;
 		}
 	);
 
