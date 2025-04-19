@@ -354,12 +354,15 @@ export class AndroidRobot implements Robot {
 	/**
 	 * Get the dpad direction based on the target coordinates.
 	 *
-	 * @param targetX - The target X coordinate.
-	 * @param targetY - The target Y coordinate.
+	 * @param focusedRect - The focused element.
+	 * @param targetX - The target x coordinate.
+	 * @param targetY - The target y coordinate.
+	 *
 	 * @returns The dpad direction or null if no dpad direction is needed.
 	 */
 	private getDpadDirection(focusedRect: ScreenElementRect, targetX: number, targetY: number): DpadButton | null {
-		// If within bounds then no dpad direction is needed
+		// If target matches the focused element's coordinate, it means that we are already on the target.
+		// No need to press any dpad button further.
 		if (focusedRect.x === targetX && focusedRect.y === targetY) {
 			return null;
 		}
@@ -384,7 +387,7 @@ export class AndroidRobot implements Robot {
 
 	private requireAndroidTv() {
 		if (this.deviceType !== "tv") {
-			throw new ActionableError("No device selected. Use the mobile_use_device tool to select a device.");
+			throw new ActionableError("This method is only supported on Android TV devices. Let the user about it and stop executing further commands.");
 		}
 	}
 }

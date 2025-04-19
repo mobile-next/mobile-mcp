@@ -65,7 +65,7 @@ export const createMcpServer = (): McpServer => {
 	const requireTvRobot = () => {
 		requireRobot();
 		if (!(robot instanceof AndroidRobot && robot.deviceType === "tv")) {
-			throw new ActionableError("This tool is only supported on Android TV devices. Let user know about this.");
+			throw new ActionableError("This tool is only supported on Android TV devices. Let user know about this and stop executing further commands.");
 		}
 	};
 
@@ -105,7 +105,7 @@ export const createMcpServer = (): McpServer => {
 
 			const isAndroidTv = (robot instanceof AndroidRobot && robot.deviceType === "tv");
 
-			return `Selected device: ${device} (${deviceType}${isAndroidTv ? ", (Android TV)" : ""})`;
+			return `Selected device: ${device} (${deviceType}).${isAndroidTv ? " This is an AndroidTV. Use tv specific tools for navigation and selecting" : ""}`;
 		}
 	);
 
