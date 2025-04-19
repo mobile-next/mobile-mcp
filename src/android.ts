@@ -11,6 +11,7 @@ interface UiAutomatorXmlNode {
 	text?: string;
 	bounds?: string;
 	hint?: string;
+	focused?: string;
 	"content-desc"?: string;
 }
 
@@ -40,9 +41,24 @@ const BUTTON_MAP: Record<Button, string> = {
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
 
+type AndroidDeviceType = "tv" | "standard";
+
+type DpadButton = "DPAD_UP" | "DPAD_DOWN" | "DPAD_LEFT" | "DPAD_RIGHT" | "DPAD_CENTER";
+
 export class AndroidRobot implements Robot {
 
+	private deviceType: AndroidDeviceType = "standard"; // Default to standard
+
 	public constructor(private deviceId: string) {
+		// --- Device Type Detection ---
+		try {
+			const features = this.adb("shell", "pm", "list", "features").toString();
+			if (features.includes("android.software.leanback") || features.includes("android.hardware.type.television")) {
+				this.deviceType = "tv";
+			}
+		} catch (error: any) {
+			// Defaulting to 'standard' is already set
+		}
 	}
 
 	public adb(...args: string[]): Buffer {
@@ -117,18 +133,6 @@ export class AndroidRobot implements Robot {
 	private collectElements(node: UiAutomatorXmlNode): ScreenElement[] {
 		const elements: Array<ScreenElement> = [];
 
-		const getScreenElementRect = (element: UiAutomatorXmlNode): ScreenElementRect => {
-			const bounds = String(element.bounds);
-
-			const [, left, top, right, bottom] = bounds.match(/^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/)?.map(Number) || [];
-			return {
-				x: left,
-				y: top,
-				width: right - left,
-				height: bottom - top,
-			};
-		};
-
 		if (node.node) {
 			if (Array.isArray(node.node)) {
 				for (const childNode of node.node) {
@@ -144,7 +148,7 @@ export class AndroidRobot implements Robot {
 				type: node.class || "text",
 				name: node.text,
 				label: node["content-desc"] || node.hint || "",
-				rect: getScreenElementRect(node),
+				rect: this.getScreenElementRect(node),
 			};
 
 			if (element.rect.width > 0 && element.rect.height > 0) {
@@ -156,14 +160,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty");
-
-		const parser = new xml.XMLParser({
-			ignoreAttributes: false,
-			attributeNamePrefix: ""
-		});
-
-		const parsedXml = parser.parse(dump) as UiAutomatorXml;
+		const parsedXml = this.getParsedXml();
 		const hierarchy = parsedXml.hierarchy;
 
 		const elements = this.collectElements(hierarchy.node);
@@ -193,6 +190,10 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
+		if (this.deviceType === "tv") {
+			await this.tvTap(x, y);
+			return;
+		}
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
 	}
 
@@ -236,6 +237,121 @@ export class AndroidRobot implements Robot {
 		).toString().trim();
 
 		return rotation === "0" ? "portrait" : "landscape";
+	}
+
+	private getParsedXml(): UiAutomatorXml {
+		const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty");
+
+		const parser = new xml.XMLParser({
+			ignoreAttributes: false,
+			attributeNamePrefix: ""
+		});
+
+		return parser.parse(dump) as UiAutomatorXml;
+	}
+
+	private getScreenElementRect(node: UiAutomatorXmlNode): ScreenElementRect {
+		const bounds = String(node.bounds);
+
+		const [, left, top, right, bottom] = bounds.match(/^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/)?.map(Number) || [];
+		return {
+			x: left,
+			y: top,
+			width: right - left,
+			height: bottom - top,
+		};
+	}
+
+	// --- TV Specific Methods ---
+
+	private async tvTap(x: number, y: number): Promise<void> {
+		let currentDirection = this.getDpadDirection(x, y);
+
+		while (currentDirection) {
+			this.pressDpad(currentDirection);
+			currentDirection = this.getDpadDirection(x, y);
+		}
+
+		// Upon breaking from the while loop, we have reached at the target coordinates
+		// Press the dpad center button to 'click' on the focused element
+		this.pressDpad("DPAD_CENTER");
+	}
+
+	/**
+	 * Find the focused element in the UI hierarchy.
+	 *
+	 * @param node - The root node of the UI hierarchy.
+	 * @returns The focused element node or null if not found.
+	 */
+	private findFocusedElement(node: UiAutomatorXmlNode): UiAutomatorXmlNode | null {
+		if (node["focused"] === "true") {
+			return node;
+		}
+
+		if (node.node) {
+			if (Array.isArray(node.node)) {
+				for (const childNode of node.node) {
+					const focusedChild = this.findFocusedElement(childNode);
+					if (focusedChild) {
+						return focusedChild;
+					}
+				}
+			} else {
+				const focusedChild = this.findFocusedElement(node.node);
+				if (focusedChild) {
+					return focusedChild;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get the dpad direction based on the target coordinates.
+	 *
+	 * @param targetX - The target X coordinate.
+	 * @param targetY - The target Y coordinate.
+	 * @returns The dpad direction or null if no dpad direction is needed.
+	 */
+	private getDpadDirection(targetX: number, targetY: number): DpadButton | null {
+		// Always use the latest parsed XML. When dpad keyevent is sent, the screen is updated and
+		// the focused element may have changed.
+		const parsedXml = this.getParsedXml();
+		const focusedElement = this.findFocusedElement(parsedXml.hierarchy.node);
+
+		// No focused element
+		if (!focusedElement) {
+			return null;
+		}
+
+		const focusedRect = this.getScreenElementRect(focusedElement);
+
+		// Check if the target coordinates are within the bounds of the focused element
+		const isWithinBounds = targetX >= focusedRect.x && targetX <= focusedRect.x + focusedRect.width &&
+			targetY >= focusedRect.y && targetY <= focusedRect.y + focusedRect.height;
+
+		// If within bounds then no dpad direction is needed
+		if (isWithinBounds) {
+			return null;
+		}
+
+		if (targetX < focusedRect.x) {
+			return "DPAD_LEFT";
+		} else if (targetX > focusedRect.x + focusedRect.width) {
+			return "DPAD_RIGHT";
+		} else if (targetY < focusedRect.y) {
+			return "DPAD_UP";
+		} else if (targetY > focusedRect.y + focusedRect.height) {
+			return "DPAD_DOWN";
+		}
+
+		// No further valid cases to be covered
+		return null;
+	}
+
+	private async pressDpad(dpadButton: DpadButton): Promise<void> {
+		this.adb("shell", "input", "keyevent", dpadButton);
 	}
 }
 
