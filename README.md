@@ -86,35 +86,6 @@ claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest ⁠
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
-## Prerequisites
-
-What you will need to connect MCP with your agent and mobile devices:
-
-- [Xcode command line tools](https://developer.apple.com/xcode/resources/)
-- [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
-- [node.js](https://nodejs.org/en/download/)
-- [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
-
-### Simulators, Emulators, and Physical Devices
-
-When launched, Mobile MCP can connect to:
-- iOS Simulators on macOS/Linux
-- Android Emulators on Linux/Windows/macOS
-- Physical iOS or Android devices (requires proper platform tools and drivers)
-
-Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and configured properly before running Mobile Next Mobile MCP.
-
-### Running in "headless" mode on Simulators/Emulators
-
-When you do not have a physical phone connected to your machine, you can run Mobile MCP with an emulator or simulator in the background.
-
-For example, on Android:
-1. Start an emulator (avdmanager / emulator command).
-2. Run Mobile MCP with the desired flags
-
-On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with that simulator instance.
-- `xcrun simctl list`
-- `xcrun simctl boot "iPhone 16"`
 
 ### 🛠️ How to Use 📝
 
@@ -172,6 +143,36 @@ via Whatsapp/Telegram/Slack to contact "Lauren Trown", thumbs up their response.
 Open Zoom app, schedule a meeting titled "AI Hackathon" for tomorrow at 10 AM with a duration of 1 hour,
 copy the invitation link, and send it via Gmail to contacts "team@example.com".
 ```
+
+## Prerequisites
+
+What you will need to connect MCP with your agent and mobile devices:
+
+- [Xcode command line tools](https://developer.apple.com/xcode/resources/)
+- [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
+- [node.js](https://nodejs.org/en/download/)
+- [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
+
+### Simulators, Emulators, and Physical Devices
+
+When launched, Mobile MCP can connect to:
+- iOS Simulators on macOS/Linux
+- Android Emulators on Linux/Windows/macOS
+- Physical iOS or Android devices (requires proper platform tools and drivers)
+
+Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and configured properly before running Mobile Next Mobile MCP.
+
+### Running in "headless" mode on Simulators/Emulators
+
+When you do not have a physical phone connected to your machine, you can run Mobile MCP with an emulator or simulator in the background.
+
+For example, on Android:
+1. Start an emulator (avdmanager / emulator command).
+2. Run Mobile MCP with the desired flags
+
+On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with that simulator instance.
+- `xcrun simctl list`
+- `xcrun simctl boot "iPhone 16"`
 
 # Thanks to all contributors ❤️
 
