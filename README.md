@@ -116,95 +116,62 @@ On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with 
 - `xcrun simctl list`
 - `xcrun simctl boot "iPhone 16"`
 
-# Mobile Commands and interaction tools
+### 🛠️ How to Use 📝
 
-The commands and tools support both accessibility-based locators (preferred) and coordinate-based inputs, giving you flexibility when accessibility/automation IDs are missing for reliable and seemless automation.
+After adding the MCP server to your IDE/Client, you can instruct your AI assistant to use the available tools. 
+For example, in Cursor's agent mode, you could use the prompts below to quickly validate, test and iterate on UI intereactions, read information from screen, go through complex workflows.
+Be descriptive, straight to the point.
 
-## mobile_list_apps
-- **Description:** List all the installed apps on the device
-- **Parameters:**
-  - `bundleId` (string): The application's unique bundle/package identifier like: com.google.android.keep	 or com.apple.mobilenotes )
+### ✨ Example Prompts
 
-## mobile_launch_app
-- **Description:** Launches the specified app on the device/emulator
-- **Parameters:**
-  - `bundleId` (string): The application's unique bundle/package identifier like: com.google.android.keep	 or com.apple.mobilenotes )
+#### Workflows
 
-## mobile_terminate_app
-- **Description:** Terminates a running application
-- **Parameters:**
-  - `packageName` (string): Based on the application's bundle/package identifier calls am force stop or kills the app based on pid.
- 
-## mobile_get_screen_size
-- **Description:** Get the screen size of the mobile device in pixels
-- **Parameters:** None
+You can specifiy detailed workflows in a single prompt, verify business logic, setup automations. You can go crazy:
 
-## mobile_click_on_screen_at_coordinates
-- **Description:** Taps on specified screen coordinates based on coordinates. 
-- **Parameters:**
-  - `x` (number): X-coordinate
-  - `y` (number): Y-coordinate
- 
-## mobile_list_elements_on_screen
-- **Description:** List elements on screen and their coordinates, with display text or accessibility label.
-- **Parameters:** None
+**Search for a video, comment, like and share it.**
+```
+Find the video called " Beginner Recipe for Tonkotsu Ramen" by Way of Ramen, click on like video, after liking write a comment " this was delicious, will make it next Friday", share the video with the first contact in your whatsapp list. 
+```
 
-## mobile_element_tap
-- **Description:** Taps on a UI element identified by accessibility locator
-- **Parameters:**
-  - `element` (string): Human-readable element description (e.g., "Login button")
-  - `ref` (string): Accessibility/automation ID or reference from a snapshot
+**Download a successful step counter app, register, setup workout and 5 start the app**
+```
+Find and Download a free "Pomodoro" app that has more thank 1k stars. 
+Launch the app, register with my email, after registration find how to start a pomodoro timer. 
+When the pomodoro timer started, go back to the app store and rate the app 5 stars, 
+and leave a comment how useful the app is. 
+```
 
-## mobile_tap
-- **Description:** Taps on specified screen coordinates
-- **Parameters:**
-  - `x` (number): X-coordinate
-  - `y` (number): Y-coordinate
- 
-## mobile_press_button
-- **Description:** Press a button on device (home, back, volume, enter, power button.)
-- **Parameters:** None
+**Search in Substack, read, highlight, comment and save an article**
+```
+Open Substack website, search for "Latest trends in AI automation 2025", open the first article, 
+highlight the section titled "Emerging AI trends", and save article to reading list for later review, 
+comment a random paragraph summary.
+```
 
-## mobile_open_url
-- **Description:** Open a URL in browser on device
-- **Parameters:**
-  - `url` (string): The URL to be opened (e.g., "https://example.com").
+**Reserve a workout class, set timer**
+```
+Open ClassPass, search for yoga classes tomorrow morning within 2 miles, 
+book the highest-rated class at 7 AM, confirm reservation,
+ setup a timer for the booked slot in the phone
+```
 
-## mobile_type_text
-- **Description:** Types text into a focused UI element (e.g., TextField, SearchField)
-- **Parameters:**
-  - `text` (string): Text to type
-  - `submit` (boolean): Whether to press Enter/Return after typing
+**Find a local event, setup calendar event**
+```
+Open Eventbrite, search for AI startup meetup events happening this weekend in "Austin, TX", 
+select the most popular one, register and RSVP yes to the even, setup a calendar event as a reminder.
+```
 
-## mobile_element_swipe
-- **Description:** Performs a swipe gesture from one UI element to another
-- **Parameters:**
-  - `startElement` (string): Human-readable description of the start element
-  - `startRef` (string): Accessibility/automation ID of the start element
-  - `endElement` (string): Human-readable description of the end element
-  - `endRef` (string): Accessibility/automation ID of the end element
- 
-## mobile_swipe
-- **Description:** Performs a swipe gesture between two sets of screen coordinates
-- **Parameters:**
-  - `startX` (number): Start X-coordinate
-  - `startY` (number): Start Y-coordinate
-  - `endX` (number): End X-coordinate
-  - `endY` (number): End Y-coordinate
+**Check weather forecast and send a Whatsapp/Telegram/Slack message**
+```
+Open Weather app, check tomorrow's weather forecast for "Berlin", and send the summary 
+via Whatsapp/Telegram/Slack to contact "Lauren Trown", thumbs up their response.
+```
 
-## mobile_press_key
-- **Description:** Presses hardware keys or triggers special events (e.g., back button on Android)
-- **Parameters:**
-  - `key` (string): Key identifier (e.g., HOME, BACK, VOLUME_UP, etc.)
-
-## mobile_take_screenshot
-- **Description:** Captures a screenshot of the current device screen
-- **Parameters:** None
-
-## mobile_get_source
-- **Description:** Fetches the current device UI structure (accessibility snapshot) (xml format)
-- **Parameters:** None
-
+- **Schedule a meeting in Zoom and share invite via email**
+```
+Open Zoom app, schedule a meeting titled "AI Hackathon" for tomorrow at 10 AM with a duration of 1 hour,
+copy the invitation link, and send it via Gmail to contacts "team@example.com".
+```
 
 # Thanks to all contributors ❤️
 
