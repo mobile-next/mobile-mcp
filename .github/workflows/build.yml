@@ -32,7 +32,7 @@ jobs:
 
     - name: Start Emulator
       run: |
-        nohup emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > /dev/null 2>&1 &
+        sudo ANDROID_AVD_HOME="$HOME/.config/.android/avd" nohup emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
         adb wait-for-device
         adb shell getprop sys.boot_completed | grep -m 1 '1'
       timeout-minutes: 10
