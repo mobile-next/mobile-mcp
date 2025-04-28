@@ -33,7 +33,11 @@ jobs:
     - name: Start Emulator
       run: |
         sudo ANDROID_AVD_HOME="$HOME/.config/.android/avd" nohup $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+        echo "Now waiting for device"
         adb wait-for-device
+        echo "Done waiting"
+        adb shell getprop sys.boot_completed
+        sleep 60
         adb shell getprop sys.boot_completed | grep -m 1 '1'
       timeout-minutes: 10
 
