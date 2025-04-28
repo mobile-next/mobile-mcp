@@ -19,33 +19,6 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Install Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Create avd
-      run: |
-        echo "y" | sdkmanager "system-images;android-31;google_apis;x86_64"
-        avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --device "pixel"
-
-    - name: Setup upterm session
-      uses: lhotari/action-upterm@v1
-
-    - name: Start Emulator
-      run: |
-        sudo ANDROID_AVD_HOME="$HOME/.config/.android/avd" nohup $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
-        echo "Now waiting for device"
-        adb wait-for-device
-        echo "Done waiting"
-        adb shell getprop sys.boot_completed
-        sleep 60
-        adb shell getprop sys.boot_completed | grep -m 1 '1'
-      timeout-minutes: 10
-
-    - name: Run adb shell ps
-      run: |
-        adb devices
-        adb shell ps
-
     - name: Use Node.js 22
       uses: actions/setup-node@v4
       with:
@@ -60,4 +33,29 @@ jobs:
 
     - name: Build
       run: npm run build
+
+    - name: Install Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Run adb shell ps
+      run: |
+        adb devices
+        adb shell ps
+
+    - name: Create and start Android emulator
+      run: |
+        # create avd
+        echo "y" | sdkmanager "system-images;android-31;google_apis;x86_64"
+        avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --device "pixel"
+        # start emulator
+        sudo ANDROID_AVD_HOME="$HOME/.config/.android/avd" nohup $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+        # wait for device
+        adb wait-for-device
+        echo "Waiting for sys.boot_completed"
+        while [[ -z $(adb shell getprop dev.bootcomplete) ]]; do sleep 1; done;'
+      timeout-minutes: 10
+
+    - name: Run android tests
+      run: |
+        npm test
 
