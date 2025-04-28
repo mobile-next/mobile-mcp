@@ -13,9 +13,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup upterm session
-      uses: lhotari/action-upterm@v1
-
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
@@ -29,6 +26,10 @@ jobs:
       run: |
         echo "y" | sdkmanager "system-images;android-31;google_apis;x86_64"
         avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --device "pixel"
+
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
+
     - name: Start Emulator
       run: |
         nohup emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > /dev/null 2>&1 &
