@@ -47,7 +47,7 @@ jobs:
         # wait for device
         adb wait-for-device
         echo "Waiting for sys.boot_completed"
-        while [[ -z $(adb shell getprop dev.bootcomplete) ]]; do sleep 1; done;'
+        while [[ -z $(adb shell getprop dev.bootcomplete) ]]; do sleep 1; done;
       timeout-minutes: 10
 
     - name: Run adb shell ps
