@@ -13,10 +13,38 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Use Node.js 18
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Create avd
+      run: |
+        echo "y" | sdkmanager "system-images;android-31;google_apis;x86_64"
+        avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --device "pixel"
+    - name: Start Emulator
+      run: |
+        nohup emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > /dev/null 2>&1 &
+        adb wait-for-device
+        adb shell getprop sys.boot_completed | grep -m 1 '1'
+      timeout-minutes: 10
+
+    - name: Run adb shell ps
+      run: |
+        adb devices
+        adb shell ps
+
+    - name: Use Node.js 22
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '22'
         cache: 'npm'
 
     - name: Install dependencies
@@ -27,3 +55,4 @@ jobs:
 
     - name: Build
       run: npm run build
+
