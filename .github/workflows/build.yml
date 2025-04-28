@@ -37,11 +37,6 @@ jobs:
     - name: Install Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Run adb shell ps
-      run: |
-        adb devices
-        adb shell ps
-
     - name: Create and start Android emulator
       run: |
         # create avd
@@ -54,6 +49,11 @@ jobs:
         echo "Waiting for sys.boot_completed"
         while [[ -z $(adb shell getprop dev.bootcomplete) ]]; do sleep 1; done;'
       timeout-minutes: 10
+
+    - name: Run adb shell ps
+      run: |
+        adb devices
+        adb shell ps
 
     - name: Run android tests
       run: |
