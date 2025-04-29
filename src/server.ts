@@ -1,13 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
-import sharp from "sharp";
 
 import { error, trace } from "./logger";
-import { AndroidRobot, getConnectedDevices } from "./android";
+import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
 import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
+import { PNG } from "./png";
+import { isImageMagickInstalled, Image } from "./image-utils";
 
 const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -62,24 +63,39 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	const requireTvRobot = () => {
-		requireRobot();
-		if (!(robot instanceof AndroidRobot && robot.deviceType === "tv")) {
-			throw new ActionableError("This tool is only supported on Android TV devices. Let user know about this and stop executing further commands.");
-		}
-	};
-
 	tool(
 		"mobile_list_available_devices",
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
 		{},
 		async ({}) => {
 			const iosManager = new IosManager();
-			const devices = await simulatorManager.listBootedSimulators();
+			const androidManager = new AndroidDeviceManager();
+			const devices = simulatorManager.listBootedSimulators();
 			const simulatorNames = devices.map(d => d.name);
-			const androidDevices = getConnectedDevices();
+			const androidDevices = androidManager.getConnectedDevices();
 			const iosDevices = await iosManager.listDevices();
-			return `Found these iOS simulators: [${simulatorNames.join(".")}], iOS devices: [${iosDevices.join(",")}] and Android devices: [${androidDevices.join(",")}]`;
+			const iosDeviceNames = iosDevices.map(d => d.deviceId);
+			const androidTvDevices = androidDevices.filter(d => d.deviceType === "tv").map(d => d.deviceId);
+			const androidMobileDevices = androidDevices.filter(d => d.deviceType === "mobile").map(d => d.deviceId);
+
+			const resp = ["Found these devices:"];
+			if (simulatorNames.length > 0) {
+				resp.push(`iOS simulators: [${simulatorNames.join(".")}]`);
+			}
+
+			if (iosDevices.length > 0) {
+				resp.push(`iOS devices: [${iosDeviceNames.join(",")}]`);
+			}
+
+			if (androidMobileDevices.length > 0) {
+				resp.push(`Android devices: [${androidMobileDevices.join(",")}]`);
+			}
+
+			if (androidTvDevices.length > 0) {
+				resp.push(`Android TV devices: [${androidTvDevices.join(",")}]`);
+			}
+
+			return resp.join("\n");
 		}
 	);
 
@@ -103,9 +119,7 @@ export const createMcpServer = (): McpServer => {
 					break;
 			}
 
-			const isAndroidTv = (robot instanceof AndroidRobot && robot.deviceType === "tv");
-
-			return `Selected device: ${device} (${deviceType}).${isAndroidTv ? " This is an AndroidTV. Use tv specific tools for navigation and selecting" : ""}`;
+			return `Selected device: ${device}`;
 		}
 	);
 
@@ -172,6 +186,18 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_click_on_element_using_dpad",
+		"Click on an element on screen using D-pad. This is specifically for TV devices which depend on D-pad based traversal and cannot use x,y coordinates.",
+		{
+			label: z.string().describe("The label of the element to click on"),
+		},
+		async ({ label }) => {
+			requireRobot();
+			return `Clicked on element with label: ${label}`;
+		}
+	);
+
+	tool(
 		"mobile_list_elements_on_screen",
 		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
 		{
@@ -181,13 +207,21 @@ export const createMcpServer = (): McpServer => {
 			const elements = await robot!.getElementsOnScreen();
 
 			const result = elements.map(element => {
-				const x = Number((element.rect.x + element.rect.width / 2)).toFixed(3);
-				const y = Number((element.rect.y + element.rect.height / 2)).toFixed(3);
+				const x = Number((element.rect.x + element.rect.width / 2)).toFixed(1);
+				const y = Number((element.rect.y + element.rect.height / 2)).toFixed(1);
 
-				return {
-					text: element.label || element.name,
+				const out: any = {
+					label: element.label,
+					name: element.name,
+					value: element.value,
 					coordinates: { x, y }
 				};
+
+				if (element.focused) {
+					out.focused = true;
+				}
+
+				return out;
 			});
 
 			return `Found these elements on screen: ${JSON.stringify(result)}`;
@@ -198,7 +232,7 @@ export const createMcpServer = (): McpServer => {
 		"mobile_press_button",
 		"Press a button on device",
 		{
-			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER"),
+			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
 		},
 		async ({ button }) => {
 			requireRobot();
@@ -260,29 +294,35 @@ export const createMcpServer = (): McpServer => {
 			requireRobot();
 
 			try {
-				const screenshot = await robot!.getScreenshot();
+				let screenshot = await robot!.getScreenshot();
+				let mimeType = "image/png";
 
-				// Scale down the screenshot by 50%
-				const image = sharp(screenshot);
-				const metadata = await image.metadata();
-				if (!metadata.width) {
-					throw new Error("Failed to get screenshot metadata");
+				// validate we received a png, will throw exception otherwise
+				const image = new PNG(screenshot);
+				const pngSize = image.getDimensions();
+				if (pngSize.width <= 0 || pngSize.height <= 0) {
+					throw new ActionableError("Screenshot is invalid. Please try again.");
 				}
 
-				const resizedScreenshot = await image
-					.resize(Math.floor(metadata.width / 2))
-					.jpeg({ quality: 75 })
-					.toBuffer();
+				if (isImageMagickInstalled()) {
+					trace("ImageMagick is installed, resizing screenshot");
+					const image = Image.fromBuffer(screenshot);
+					const beforeSize = screenshot.length;
+					screenshot = image.resize(Math.floor(pngSize.width / 2))
+						.jpeg({ quality: 75 })
+						.toBuffer();
 
-				// debug:
-				// writeFileSync('/tmp/screenshot.png', screenshot);
-				// writeFileSync('/tmp/screenshot-scaled.jpg', resizedScreenshot);
+					const afterSize = screenshot.length;
+					trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
 
-				const screenshot64 = resizedScreenshot.toString("base64");
+					mimeType = "image/jpeg";
+				}
+
+				const screenshot64 = screenshot.toString("base64");
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
 
 				return {
-					content: [{ type: "image", data: screenshot64, mimeType: "image/jpeg" }]
+					content: [{ type: "image", data: screenshot64, mimeType }]
 				};
 			} catch (err: any) {
 				error(`Error taking screenshot: ${err.message} ${err.stack}`);
@@ -315,34 +355,6 @@ export const createMcpServer = (): McpServer => {
 			requireRobot();
 			const orientation = await robot!.getOrientation();
 			return `Current device orientation is ${orientation}`;
-		}
-	);
-
-	tool(
-		"tv_dpad_navigate_to_item_with_label",
-		"Navigate to an item on screen with a specific label using D-pad. This is specifically for TV devices which depend on D-pad based traversal.",
-		{
-			label: z.string().describe("The label of the item to navigate to"),
-		},
-		async ({ label }) => {
-			requireTvRobot();
-			(robot as AndroidRobot).navigateToItemWithLabel(label);
-
-			return `Navigated with D-pad to item with label: ${label}`;
-		}
-	);
-
-	tool(
-		"tv_dpad_press_button",
-		"Press a button on the D-pad. This is specifically for TV Devices which depend on D-pad.",
-		{
-			button: z.string().describe("The D-pad button to press. Supported buttons: DPAD_CENTER (center), DPAD_UP(up), DPAD_DOWN(down), DPAD_LEFT(left), DPAD_RIGHT(right)"),
-		},
-		async ({ button }) => {
-			requireTvRobot();
-			(robot as AndroidRobot).pressDpad(button);
-
-			return `Pressed D-pad button: ${button}`;
 		}
 	);
 

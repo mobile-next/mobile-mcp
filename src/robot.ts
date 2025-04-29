@@ -14,7 +14,7 @@ export interface InstalledApp {
 
 export type SwipeDirection = "up" | "down" | "left" | "right";
 
-export type Button = "HOME" | "BACK" | "VOLUME_UP" | "VOLUME_DOWN" | "ENTER";
+export type Button = "HOME" | "BACK" | "VOLUME_UP" | "VOLUME_DOWN" | "ENTER" | "DPAD_CENTER" | "DPAD_UP" | "DPAD_DOWN" | "DPAD_LEFT" | "DPAD_RIGHT";
 
 export interface ScreenElementRect {
 	x: number;
@@ -26,9 +26,13 @@ export interface ScreenElementRect {
 export interface ScreenElement {
 	type: string;
 	label?: string;
+	text?: string;
 	name?: string;
 	value?: string;
 	rect: ScreenElementRect;
+
+	// currently only on android tv
+	focused?: boolean;
 }
 
 export class ActionableError extends Error {
