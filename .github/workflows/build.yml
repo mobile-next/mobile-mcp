@@ -55,6 +55,9 @@ jobs:
         adb devices
         adb shell ps
 
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1        
+      
     - name: Run android tests
       run: |
         npm test
