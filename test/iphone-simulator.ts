@@ -1,6 +1,6 @@
 import assert from "assert";
 
-import sharp from "sharp";
+import { PNG } from "../src/png";
 import { SimctlManager } from "../src/iphone-simulator";
 import { randomBytes } from "crypto";
 
@@ -92,13 +92,11 @@ describe("iphone-simulator", () => {
 		assert.ok(screenshot.length > 64 * 1024);
 
 		// must be a valid png image that matches the screen size
-		const image = sharp(screenshot);
-		const metadata = await image.metadata();
+		const image = new PNG(screenshot);
+		const pngSize =	image.getDimensions();
 		const screenSize = await simctl.getScreenSize();
-		assert.equal(metadata.format, "png");
-		assert.equal(metadata.isProgressive, false);
-		assert.equal(metadata.width, screenSize.width * screenSize.scale);
-		assert.equal(metadata.height, screenSize.height * screenSize.scale);
+		assert.equal(pngSize.width, screenSize.width * screenSize.scale);
+		assert.equal(pngSize.height, screenSize.height * screenSize.scale);
 	});
 
 	it("should be able to open url", async function() {

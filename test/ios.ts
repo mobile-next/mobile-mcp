@@ -7,7 +7,7 @@ describe("ios", async () => {
 	const manager = new IosManager();
 	const devices = await manager.listDevices();
 	const hasOneDevice = devices.length === 1;
-	const robot = new IosRobot(devices?.[0] || "");
+	const robot = new IosRobot(devices?.[0]?.deviceId || "");
 
 	it("should be able to get screenshot", async function() {
 		hasOneDevice || this.skip();
