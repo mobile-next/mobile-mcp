@@ -230,14 +230,25 @@ export class AndroidRobot implements Robot {
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
-	private async getUiAutomatorXml(): Promise<UiAutomatorXml> {
+	private async getUiAutomatorDump(): Promise<string> {
+		for (let tries = 0; tries < 10; tries++) {
+			const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();
+			// note: we're not catching other errors here. maybe we should check for <?xml
+			if (dump.includes("null root node returned by UiTestAutomationBridge")) {
+				// uncomment for debugging
+				// const screenshot = await this.getScreenshot();
+				// console.error("Failed to get UIAutomator XML. Here's a screenshot: " + screenshot.toString("base64"));
+				continue;
+			}
 
-		const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();
-		if (dump.includes("null root node returned by UiTestAutomationBridge")) {
-			const screenshot = await this.getScreenshot();
-			console.error("Failed to get UIAutomator XML. Here's a screenshot: " + screenshot.toString("base64"));
+			return dump;
 		}
 
+		throw new ActionableError("Failed to get UIAutomator XML");
+	}
+
+	private async getUiAutomatorXml(): Promise<UiAutomatorXml> {
+		const dump = await this.getUiAutomatorDump();
 		const parser = new xml.XMLParser({
 			ignoreAttributes: false,
 			attributeNamePrefix: ""
