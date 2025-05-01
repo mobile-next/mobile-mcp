@@ -44,21 +44,17 @@ export class Simctl implements Robot {
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
 
 		if (!(await wda.isRunning())) {
-			throw new ActionableError("WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			throw new ActionableError("WebDriverAgent is not running on simulator, please see https://github.com/mobile-next/mobile-mcp/wiki/");
 		}
 
 		return wda;
 	}
 
 	private simctl(...args: string[]): Buffer {
-		return execFileSync(
-			"xcrun",
-			["simctl", ...args],
-			{
-				timeout: TIMEOUT,
-				maxBuffer: MAX_BUFFER_SIZE,
-			}
-		);
+		return execFileSync("xcrun", ["simctl", ...args], {
+			timeout: TIMEOUT,
+			maxBuffer: MAX_BUFFER_SIZE,
+		});
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
