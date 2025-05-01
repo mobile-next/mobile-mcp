@@ -107,6 +107,15 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
 	}
 
+	public async listRunningProcesses(): Promise<string[]> {
+		return this.adb("shell", "ps", "-e")
+			.toString()
+			.split("\n")
+			.map(line => line.trim())
+			.filter(line => line.startsWith("u")) // non-system processes
+			.map(line => line.split(/\s+/)[8]); // get process name
+	}
+
 	public async swipe(direction: SwipeDirection): Promise<void> {
 		const screenSize = await this.getScreenSize();
 		const centerX = screenSize.width >> 1;
@@ -171,9 +180,8 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const parsedXml = this.getParsedXml();
+		const parsedXml = this.getUiAutomatorXml();
 		const hierarchy = parsedXml.hierarchy;
-
 		const elements = this.collectElements(hierarchy.node);
 		return elements;
 	}
@@ -211,43 +219,19 @@ export class AndroidRobot implements Robot {
 		const orientationValue = orientation === "portrait" ? 0 : 1;
 
 		// Set orientation using content provider
-		this.adb(
-			"shell",
-			"content",
-			"insert",
-			"--uri",
-			"content://settings/system",
-			"--bind",
-			"name:s:user_rotation",
-			"--bind",
-			`value:i:${orientationValue}`
-		);
+		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
 
 		// Force the orientation change
-		this.adb(
-			"shell",
-			"settings",
-			"put",
-			"system",
-			"accelerometer_rotation",
-			"0"
-		);
+		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
 	}
 
 	public async getOrientation(): Promise<Orientation> {
-		const rotation = this.adb(
-			"shell",
-			"settings",
-			"get",
-			"system",
-			"user_rotation"
-		).toString().trim();
-
+		const rotation = this.adb("shell", "settings", "get", "system", "user_rotation").toString().trim();
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
-	private getParsedXml(): UiAutomatorXml {
-		const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty");
+	private getUiAutomatorXml(): UiAutomatorXml {
+		const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();
 
 		const parser = new xml.XMLParser({
 			ignoreAttributes: false,

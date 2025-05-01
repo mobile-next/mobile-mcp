@@ -68,32 +68,43 @@ describe("android", () => {
 
 	it("should be able to send keys and tap", async function() {
 		hasOneAndroidDevice || this.skip();
-		await android.terminateApp("com.android.chrome");
-		await android.launchApp("com.android.chrome");
+		await android.terminateApp("com.google.android.deskclock");
+		await android.adb("shell", "pm", "clear", "com.google.android.deskclock");
+		await android.launchApp("com.google.android.deskclock");
 
-		const elements = await android.getElementsOnScreen();
-		const searchElement = elements.find(e => e.label === "Search or type URL");
-		assert.ok(searchElement !== undefined);
-		await android.tap(searchElement.rect.x + searchElement.rect.width / 2, searchElement.rect.y + searchElement.rect.height / 2);
+		let elements = await android.getElementsOnScreen();
 
-		await android.sendKeys("never gonna give you up lyrics");
-		await android.pressButton("ENTER");
-		await new Promise(resolve => setTimeout(resolve, 3000));
+		// We probably start at Clock tab
+		const timerElement = elements.find(e => e.label === "Timer" && e.type === "android.widget.FrameLayout");
+		assert.ok(timerElement !== undefined);
+		await android.tap(timerElement.rect.x, timerElement.rect.y);
 
-		const elements2 = await android.getElementsOnScreen();
-		const index = elements2.findIndex(e => e.text?.startsWith("We're no strangers to love"));
-		assert.ok(index !== -1);
+		// now we're in Timer tab
+		elements = await android.getElementsOnScreen();
+		const currentTime = elements.find(e => e.text === "00h 00m 00s");
+		assert.ok(currentTime !== undefined, "Expected time to be 00h 00m 00s");
+		await android.sendKeys("123456");
+
+		// now the title has changed with new timer
+		elements = await android.getElementsOnScreen();
+		const newTime = elements.find(e => e.text === "12h 34m 56s");
+		assert.ok(newTime !== undefined, "Expected time to be 12h 34m 56s");
+
+		await android.terminateApp("com.google.android.deskclock");
 	});
 
 	it("should be able to launch and terminate an app", async function() {
 		hasOneAndroidDevice || this.skip();
-		await android.terminateApp("com.android.chrome");
-		await android.launchApp("com.android.chrome");
-		await new Promise(resolve => setTimeout(resolve, 3000));
-		const elements = await android.getElementsOnScreen();
+
+		// kill if running
 		await android.terminateApp("com.android.chrome");
 
-		const searchElement = elements.find(e => e.label === "Search or type URL");
-		assert.ok(searchElement !== undefined);
+		await android.launchApp("com.android.chrome");
+		const processes = await android.listRunningProcesses();
+		assert.ok(processes.includes("com.android.chrome"));
+
+		await android.terminateApp("com.android.chrome");
+		const processes2 = await android.listRunningProcesses();
+		assert.ok(!processes2.includes("com.android.chrome"));
 	});
 });
