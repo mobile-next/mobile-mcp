@@ -49,9 +49,9 @@ describe("android", () => {
 
 	it("should be able to list elements on screen", async function() {
 		hasOneAndroidDevice || this.skip();
+		await android.terminateApp("com.android.chrome");
 		await android.adb("shell", "input", "keyevent", "HOME");
 		await android.openUrl("https://www.example.com");
-		await new Promise(resolve => setTimeout(resolve, 3000));
 		const elements = await android.getElementsOnScreen();
 
 		// make sure title (TextView) is present
@@ -103,6 +103,7 @@ describe("android", () => {
 		await android.terminateApp("com.android.chrome");
 
 		await android.launchApp("com.android.chrome");
+		await new Promise(resolve => setTimeout(resolve, 3000));
 		const processes = await android.listRunningProcesses();
 		assert.ok(processes.includes("com.android.chrome"));
 

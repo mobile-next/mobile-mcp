@@ -53,9 +53,10 @@ describe("iphone-simulator", () => {
 		await restartRemindersApp();
 
 		// find new reminder element
+		await new Promise(resolve => setTimeout(resolve, 3000));
 		const elements = await simctl.getElementsOnScreen();
 		const newElement = elements.find(e => e.label === "New Reminder");
-		assert.ok(newElement !== undefined, "should have found new reminder element");
+		assert.ok(newElement !== undefined, "should have found New Reminder element");
 
 		// click on new reminder
 		await simctl.tap(newElement.rect.x, newElement.rect.y);
