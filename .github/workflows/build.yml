@@ -50,14 +50,6 @@ jobs:
         while [[ -z $(adb shell getprop dev.bootcomplete) ]]; do sleep 1; done;
       timeout-minutes: 10
 
-    - name: Run adb shell ps
-      run: |
-        adb devices
-        adb shell ps
-
-    - name: Setup upterm session
-      uses: lhotari/action-upterm@v1        
-      
     - name: Run android tests
       run: |
         npm test
