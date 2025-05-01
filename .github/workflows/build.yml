@@ -43,7 +43,7 @@ jobs:
         echo "y" | sdkmanager "system-images;android-31;google_apis;x86_64"
         avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --device "pixel"
         # start emulator
-        sudo ANDROID_AVD_HOME="$HOME/.config/.android/avd" nohup $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+        sudo ANDROID_AVD_HOME="$HOME/.config/.android/avd" nohup $ANDROID_HOME/emulator/emulator -avd test -no-metrics -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
         # wait for device
         adb wait-for-device
         echo "Waiting for sys.boot_completed"
