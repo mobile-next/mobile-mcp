@@ -180,7 +180,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const parsedXml = this.getUiAutomatorXml();
+		const parsedXml = await this.getUiAutomatorXml();
 		const hierarchy = parsedXml.hierarchy;
 		const elements = this.collectElements(hierarchy.node);
 		return elements;
@@ -230,21 +230,20 @@ export class AndroidRobot implements Robot {
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
-	private getUiAutomatorXml(): UiAutomatorXml {
+	private async getUiAutomatorXml(): Promise<UiAutomatorXml> {
+
 		const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();
+		if (dump.includes("null root node returned by UiTestAutomationBridge")) {
+			const screenshot = await this.getScreenshot();
+			console.error("Failed to get UIAutomator XML. Here's a screenshot: " + screenshot.toString("base64"));
+		}
 
 		const parser = new xml.XMLParser({
 			ignoreAttributes: false,
 			attributeNamePrefix: ""
 		});
 
-		const response = parser.parse(dump) as UiAutomatorXml;
-		if (response.hierarchy === undefined) {
-			console.error("Failed to parse UIAutomator XML:", dump);
-			throw new ActionableError("Failed to parse UIAutomator XML, please try again");
-		}
-
-		return response;
+		return parser.parse(dump) as UiAutomatorXml;
 	}
 
 	private getScreenElementRect(node: UiAutomatorXmlNode): ScreenElementRect {
