@@ -51,6 +51,7 @@ describe("android", () => {
 		hasOneAndroidDevice || this.skip();
 		await android.adb("shell", "input", "keyevent", "HOME");
 		await android.openUrl("https://www.example.com");
+		await new Promise(resolve => setTimeout(resolve, 3000));
 		const elements = await android.getElementsOnScreen();
 
 		// make sure title (TextView) is present
@@ -72,20 +73,22 @@ describe("android", () => {
 		await android.adb("shell", "pm", "clear", "com.google.android.deskclock");
 		await android.launchApp("com.google.android.deskclock");
 
-		let elements = await android.getElementsOnScreen();
-
 		// We probably start at Clock tab
+		await new Promise(resolve => setTimeout(resolve, 3000));
+		let elements = await android.getElementsOnScreen();
 		const timerElement = elements.find(e => e.label === "Timer" && e.type === "android.widget.FrameLayout");
 		assert.ok(timerElement !== undefined);
 		await android.tap(timerElement.rect.x, timerElement.rect.y);
 
 		// now we're in Timer tab
+		await new Promise(resolve => setTimeout(resolve, 3000));
 		elements = await android.getElementsOnScreen();
 		const currentTime = elements.find(e => e.text === "00h 00m 00s");
 		assert.ok(currentTime !== undefined, "Expected time to be 00h 00m 00s");
 		await android.sendKeys("123456");
 
 		// now the title has changed with new timer
+		await new Promise(resolve => setTimeout(resolve, 3000));
 		elements = await android.getElementsOnScreen();
 		const newTime = elements.find(e => e.text === "12h 34m 56s");
 		assert.ok(newTime !== undefined, "Expected time to be 12h 34m 56s");
