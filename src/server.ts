@@ -186,18 +186,6 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"mobile_click_on_element_using_dpad",
-		"Click on an element on screen using D-pad. This is specifically for TV devices which depend on D-pad based traversal and cannot use x,y coordinates.",
-		{
-			label: z.string().describe("The label of the element to click on"),
-		},
-		async ({ label }) => {
-			requireRobot();
-			return `Clicked on element with label: ${label}`;
-		}
-	);
-
-	tool(
 		"mobile_list_elements_on_screen",
 		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
 		{
@@ -211,6 +199,8 @@ export const createMcpServer = (): McpServer => {
 				const y = Number((element.rect.y + element.rect.height / 2)).toFixed(1);
 
 				const out: any = {
+					type: element.type,
+					text: element.text,
 					label: element.label,
 					name: element.name,
 					value: element.value,

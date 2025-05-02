@@ -1,4 +1,4 @@
-import { execFileSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
 
 const DEFAULT_JPEG_QUALITY = 75;
 
@@ -27,12 +27,12 @@ export class ImageTransformer {
 	}
 
 	public toBuffer(): Buffer {
-		const output = execFileSync("magick", ["-", "-resize", `${this.newWidth}x`, "-quality", `${this.jpegOptions.quality}`, `${this.newFormat}:-`], {
+		const proc = spawnSync("magick", ["-", "-resize", `${this.newWidth}x`, "-quality", `${this.jpegOptions.quality}`, `${this.newFormat}:-`], {
 			maxBuffer: 8 * 1024 * 1024,
 			input: this.buffer
 		});
 
-		return output;
+		return proc.stdout;
 	}
 }
 
