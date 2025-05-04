@@ -142,12 +142,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
-		const rawScreenshot = this.adb("shell", "screencap", "-p");
-		return this.normalizeLineEndings(rawScreenshot);
-	}
-
-	private normalizeLineEndings(buffer: Buffer): Buffer {
-		return Buffer.from(buffer.toString("binary").replace(/\r\n/g, "\n"), "binary");
+		return this.adb("exec-out", "screencap", "-p");
 	}
 
 	private collectElements(node: UiAutomatorXmlNode): ScreenElement[] {
