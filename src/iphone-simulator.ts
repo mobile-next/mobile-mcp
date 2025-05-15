@@ -75,42 +75,75 @@ export class Simctl implements Robot {
 		this.simctl("terminate", this.simulatorUuid, packageName);
 	}
 
-	private parseIOSAppData(inputText: string): Array<AppInfo> {
+	public static parseIOSAppData(inputText: string): Array<AppInfo> {
 		const result: Array<AppInfo> = [];
 
-		// Remove leading and trailing characters if needed
-		const cleanText = inputText.trim();
+		enum ParseState {
+			LOOKING_FOR_APP,
+			IN_APP,
+			IN_PROPERTY
+		}
 
-		// Extract each app section
-		const appRegex = /"([^"]+)"\s+=\s+\{([^}]+)\};/g;
-		let appMatch;
+		let state = ParseState.LOOKING_FOR_APP;
+		let currentApp: Partial<AppInfo> = {};
+		let appIdentifier = "";
 
-		while ((appMatch = appRegex.exec(cleanText)) !== null) {
-			// const bundleId = appMatch[1];
-			const appContent = appMatch[2];
-
-			const appInfo: Partial<AppInfo> = {
-			};
-
-			// parse simple key-value pairs
-			const keyValueRegex = /\s+(\w+)\s+=\s+([^;]+);/g;
-			let keyValueMatch;
-
-			while ((keyValueMatch = keyValueRegex.exec(appContent)) !== null) {
-				const key = keyValueMatch[1];
-				let value = keyValueMatch[2].trim();
-
-				// Handle quoted string values
-				if (value.startsWith('"') && value.endsWith('"')) {
-					value = value.substring(1, value.length - 1);
-				}
-
-				if (key !== "GroupContainers" && key !== "SBAppTags") {
-					(appInfo as any)[key] = value;
-				}
+		const lines = inputText.split("\n");
+		for (let line of lines) {
+			line = line.trim();
+			if (line === "") {
+				continue;
 			}
 
-			result.push(appInfo as AppInfo);
+			switch (state) {
+				case ParseState.LOOKING_FOR_APP:
+					// look for app identifier pattern: "com.example.app" = {
+					const appMatch = line.match(/^"?([^"=]+)"?\s*=\s*\{/);
+					if (appMatch) {
+						appIdentifier = appMatch[1].trim();
+						currentApp = {
+							CFBundleIdentifier: appIdentifier,
+						};
+
+						state = ParseState.IN_APP;
+					}
+					break;
+
+				case ParseState.IN_APP:
+					if (line === "};") {
+						result.push(currentApp as AppInfo);
+						currentApp = {};
+						state = ParseState.LOOKING_FOR_APP;
+					} else {
+						// look for property: PropertyName = Value;
+						const propertyMatch = line.match(/^([^=]+)\s*=\s*(.+?);\s*$/);
+						if (propertyMatch) {
+							const propName = propertyMatch[1].trim();
+							let propValue = propertyMatch[2].trim();
+
+							// remove quotes if present (they're optional)
+							if (propValue.startsWith('"') && propValue.endsWith('"')) {
+								propValue = propValue.substring(1, propValue.length - 1);
+							}
+
+							// add property to current app
+							(currentApp as any)[propName] = propValue;
+						} else if (line.endsWith("{")) {
+							// nested property like GroupContainers = {
+							state = ParseState.IN_PROPERTY;
+						}
+					}
+					break;
+
+				case ParseState.IN_PROPERTY:
+					if (line === "};") {
+						// end of nested property
+						state = ParseState.IN_APP;
+					}
+
+					// skip content of nested properties, we don't care of those right now
+					break;
+			}
 		}
 
 		return result;
@@ -118,7 +151,7 @@ export class Simctl implements Robot {
 
 	public async listApps(): Promise<InstalledApp[]> {
 		const text = this.simctl("listapps", this.simulatorUuid).toString();
-		const apps = this.parseIOSAppData(text);
+		const apps = Simctl.parseIOSAppData(text);
 		return apps.map(app => ({
 			packageName: app.CFBundleIdentifier,
 			appName: app.CFBundleDisplayName,
