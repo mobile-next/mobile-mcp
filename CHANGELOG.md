@@ -1,3 +1,7 @@
+## [0.0.17](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.17) (2025-05-16)
+
+* iOS: Fixed parsing of simctl listapps where CFBundleDisplayName contains non-alphanumerical characters ([#59](https://github.com/mobile-next/mobile-mcp/issues/59)) ([bf19771d](https://github.com/mobile-next/mobile-mcp/pull/63/commits/bf19771dcd49444ba4841ec649e3a72a03b54c74))
+
 ## [0.0.16](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.16) (2025-05-10)
 
 * Server: Detect if there is a new version of the mcp and notify user ([14b015f](https://github.com/mobile-next/mobile-mcp/commit/14b015f29ab47aa1f3ae122a670a58eb7ef51fd8))
