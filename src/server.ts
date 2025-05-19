@@ -219,6 +219,7 @@ export const createMcpServer = (): McpServer => {
 					label: element.label,
 					name: element.name,
 					value: element.value,
+					identifier: element.identifier,
 					coordinates: {
 						x: element.rect.x,
 						y: element.rect.y,

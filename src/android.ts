@@ -18,6 +18,7 @@ interface UiAutomatorXmlNode {
 	hint?: string;
 	focused?: string;
 	"content-desc"?: string;
+	"resource-id"?: string;
 }
 
 interface UiAutomatorXml {
@@ -169,6 +170,11 @@ export class AndroidRobot implements Robot {
 			if (node.focused === "true") {
 				// only provide it if it's true, otherwise don't confuse llm
 				element.focused = true;
+			}
+
+			const resourceId = node["resource-id"];
+			if (resourceId !== null && resourceId !== "") {
+				element.identifier = resourceId;
 			}
 
 			if (element.rect.width > 0 && element.rect.height > 0) {

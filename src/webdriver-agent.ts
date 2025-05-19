@@ -163,12 +163,13 @@ export class WebDriverAgent {
 
 		if (acceptedTypes.includes(source.type)) {
 			if (source.isVisible === "1" && this.isVisible(source.rect)) {
-				if (source.label !== null || source.name !== null) {
+				if (source.label !== null || source.name !== null || source.rawIdentifier !== null) {
 					output.push({
 						type: source.type,
 						label: source.label,
 						name: source.name,
 						value: source.value,
+						identifier: source.rawIdentifier,
 						rect: {
 							x: source.rect.x,
 							y: source.rect.y,
