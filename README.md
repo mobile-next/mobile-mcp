@@ -66,8 +66,6 @@ More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) 
 
 Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
 
-
-
 ```json
 {
   "mcpServers": {
@@ -79,7 +77,8 @@ Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
 }
 
 ```
-[Cline:](https://docs.cline.bot/mcp/configuring-mcp-servers) To setup Cline, just add the json above to your MCP settings file. [More in our wiki](https://github.com/mobile-next/mobile-mcp/wiki/Cline). 
+[Cline:](https://docs.cline.bot/mcp/configuring-mcp-servers) To setup Cline, just add the json above to your MCP settings file. 
+[More in our wiki](https://github.com/mobile-next/mobile-mcp/wiki/Cline) 
 
 
 ```
