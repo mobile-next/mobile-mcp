@@ -64,7 +64,9 @@ More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) 
 
 ## Installation and configuration
 
-Setup our MCP with Cursor, Claude, VS Code, Github Copilot:
+Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
+
+
 
 ```json
 {
@@ -76,6 +78,12 @@ Setup our MCP with Cursor, Claude, VS Code, Github Copilot:
   }
 }
 
+```
+[Cline:](https://docs.cline.bot/mcp/configuring-mcp-servers) To setup Cline, just add the json above to your MCP settings file. [More in our wiki](https://github.com/mobile-next/mobile-mcp/wiki/Cline). 
+
+
+```
+claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest ⁠
 ```
 
 [Claude Code:](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
@@ -143,6 +151,7 @@ via Whatsapp/Telegram/Slack to contact "Lauren Trown", thumbs up their response.
 Open Zoom app, schedule a meeting titled "AI Hackathon" for tomorrow at 10 AM with a duration of 1 hour,
 copy the invitation link, and send it via Gmail to contacts "team@example.com".
 ```
+[More prompt examples can be found here.](https://github.com/mobile-next/mobile-mcp/wiki/Prompt-Example-repo-list)
 
 ## Prerequisites
 
