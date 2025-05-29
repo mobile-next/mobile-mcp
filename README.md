@@ -10,6 +10,7 @@ https://github.com/user-attachments/assets/c4e89c4f-cc71-4424-8184-bdbc8c638fa1
   <a href="https://www.npmjs.com/package/@mobilenext/mobile-mcp">
     <img src="https://img.shields.io/badge/npm-@mobilenext/mobile--mcp-red" alt="npm">
   </a>
+  <a href="https://smithery.ai/server/@mobile-next/mobile-mcp"><img alt="Smithery Badge" src="https://smithery.ai/badge/@mobile-next/mobile-mcp"></a>
   <a href="https://github.com/mobile-next/mobile-mcp">
     <img src="https://img.shields.io/badge/github-repo-black" alt="GitHub repo">
   </a>
@@ -93,6 +94,14 @@ claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest ⁠
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
+
+### Installing via Smithery
+
+To install Mobile Automation Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@mobile-next/mobile-mcp):
+
+```bash
+npx -y @smithery/cli install @mobile-next/mobile-mcp --client claude
+```
 
 ### 🛠️ How to Use 📝
 
