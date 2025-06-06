@@ -80,15 +80,10 @@ Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
 [Cline:](https://docs.cline.bot/mcp/configuring-mcp-servers) To setup Cline, just add the json above to your MCP settings file. 
 [More in our wiki](https://github.com/mobile-next/mobile-mcp/wiki/Cline) 
 
-
-```
-claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest ⁠
-```
-
 [Claude Code:](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
 
 ```
-claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest ⁠
+claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
