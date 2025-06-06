@@ -241,7 +241,7 @@ export class AndroidRobot implements Robot {
 				continue;
 			}
 
-			return dump;
+			return extractXml(dump);
 		}
 
 		throw new ActionableError("Failed to get UIAutomator XML");
@@ -300,4 +300,9 @@ export class AndroidDeviceManager {
 			return [];
 		}
 	}
+}
+
+function extractXml(dump: string): string {
+	// remove <init> Exception and UI hierchary dumped to: /dev/tty
+	return dump.substring(dump.indexOf("<?xml"), dump.lastIndexOf(">") + 1);
 }

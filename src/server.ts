@@ -76,9 +76,14 @@ export const createMcpServer = (): McpServer => {
 	const simulatorManager = new SimctlManager();
 
 	const requireRobot = () => {
-		if (!robot) {
-			throw new ActionableError("No device selected. Use the mobile_use_device tool to select a device.");
+		if (robot) {
+			return;
 		}
+		// make test easier
+		if (process.env.MOBILE_MCP_DEVICE_ID && process.env.MOBILE_MCP_DEVICE_TYPE) {
+			useDevice(process.env.MOBILE_MCP_DEVICE_ID, process.env.MOBILE_MCP_DEVICE_TYPE as DeviceType);
+		}
+		throw new ActionableError("No device selected. Use the mobile_use_device tool to select a device.");
 	};
 
 	tool(
@@ -117,6 +122,22 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	type DeviceType = "simulator" | "ios" | "android";
+	const useDevice = (device: string, deviceType: DeviceType): Robot => {
+		switch (deviceType) {
+			case "simulator":
+				robot = simulatorManager.getSimulator(device);
+				break;
+			case "ios":
+				robot = new IosRobot(device);
+				break;
+			case "android":
+				robot = new AndroidRobot(device);
+				break;
+		}
+		return robot;
+	};
+
 	tool(
 		"mobile_use_device",
 		"Select a device to use. This can be a simulator or an Android device. Use the list_available_devices tool to get a list of available devices.",
@@ -125,18 +146,7 @@ export const createMcpServer = (): McpServer => {
 			deviceType: z.enum(["simulator", "ios", "android"]).describe("The type of device to select"),
 		},
 		async ({ device, deviceType }) => {
-			switch (deviceType) {
-				case "simulator":
-					robot = simulatorManager.getSimulator(device);
-					break;
-				case "ios":
-					robot = new IosRobot(device);
-					break;
-				case "android":
-					robot = new AndroidRobot(device);
-					break;
-			}
-
+			useDevice(device, deviceType);
 			return `Selected device: ${device}`;
 		}
 	);
