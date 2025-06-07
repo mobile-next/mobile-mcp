@@ -168,9 +168,14 @@ export class Simctl implements Robot {
 		return wda.sendKeys(keys);
 	}
 
-	public async swipe(direction: SwipeDirection) {
+	public async swipe(direction: SwipeDirection): Promise<void> {
 		const wda = await this.wda();
 		return wda.swipe(direction);
+	}
+
+	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void> {
+		const wda = await this.wda();
+		return wda.swipeFromCoordinate(x, y, direction, distance);
 	}
 
 	public async tap(x: number, y: number) {

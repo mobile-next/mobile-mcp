@@ -48,7 +48,16 @@ export class WebDriverAgent {
 			body: JSON.stringify({ capabilities: { alwaysMatch: { platformName: "iOS" } } }),
 		});
 
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new ActionableError(`Failed to create WebDriver session: ${response.status} ${errorText}`);
+		}
+
 		const json = await response.json();
+		if (!json.value || !json.value.sessionId) {
+			throw new ActionableError(`Invalid session response: ${JSON.stringify(json)}`);
+		}
+
 		return json.value.sessionId;
 	}
 
@@ -211,9 +220,8 @@ export class WebDriverAgent {
 		});
 	}
 
-	public async swipe(direction: SwipeDirection) {
+	public async swipe(direction: SwipeDirection): Promise<void> {
 		await this.withinSession(async sessionUrl => {
-
 			const x0 = 200;
 			let y0 = 600;
 			const x1 = 200;
@@ -226,7 +234,7 @@ export class WebDriverAgent {
 			}
 
 			const url = `${sessionUrl}/actions`;
-			await fetch(url, {
+			const response = await fetch(url, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -240,13 +248,83 @@ export class WebDriverAgent {
 							actions: [
 								{ type: "pointerMove", duration: 0, x: x0, y: y0 },
 								{ type: "pointerDown", button: 0 },
-								{ type: "pointerMove", duration: 0, x: x1, y: y1 },
-								{ type: "pause", duration: 1000 },
+								{ type: "pointerMove", duration: 1000, x: x1, y: y1 },
 								{ type: "pointerUp", button: 0 }
 							]
 						}
 					]
 				}),
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new ActionableError(`WebDriver actions request failed: ${response.status} ${errorText}`);
+			}
+
+			// Clear actions to ensure they complete
+			await fetch(`${sessionUrl}/actions`, {
+				method: "DELETE",
+			});
+		});
+	}
+
+	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance: number = 400): Promise<void> {
+		await this.withinSession(async sessionUrl => {
+			// Use simple coordinates like the working swipe method
+			const x0 = x;
+			const y0 = y;
+			let x1 = x;
+			let y1 = y;
+
+			// Calculate target position based on direction and distance
+			switch (direction) {
+				case "up":
+					y1 = y - distance; // Move up by specified distance
+					break;
+				case "down":
+					y1 = y + distance; // Move down by specified distance
+					break;
+				case "left":
+					x1 = x - distance; // Move left by specified distance
+					break;
+				case "right":
+					x1 = x + distance; // Move right by specified distance
+					break;
+				default:
+					throw new ActionableError(`Swipe direction "${direction}" is not supported`);
+			}
+
+			const url = `${sessionUrl}/actions`;
+			const response = await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					actions: [
+						{
+							type: "pointer",
+							id: "finger1",
+							parameters: { pointerType: "touch" },
+							actions: [
+								{ type: "pointerMove", duration: 0, x: x0, y: y0 },
+								{ type: "pointerDown", button: 0 },
+								{ type: "pointerMove", duration: 1000, x: x1, y: y1 },
+								{ type: "pointerUp", button: 0 }
+							]
+						}
+					]
+				}),
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new ActionableError(`WebDriver actions request failed: ${response.status} ${errorText}`);
+			}
+
+			// Clear actions to ensure they complete
+			await fetch(`${sessionUrl}/actions`, {
+				method: "DELETE",
 			});
 		});
 	}
