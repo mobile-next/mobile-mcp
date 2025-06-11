@@ -8,7 +8,7 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
     <img src="https://img.shields.io/github/stars/mobile-next/mobile-mcp" alt="Mobile Next Stars" />
   </a>  
  <a href="https://github.com/mobile-next/mobile-mcp">
-    <img src="https://img.shields.io/github/contributors/mobile-next/mobile-mcp?color=green" alt="Mobile Next Stars" />
+    <img src="https://img.shields.io/github/contributors/mobile-next/mobile-mcp?color=green" alt="Mobile Next Downloads" />
   </a>
   <a href="https://www.npmjs.com/package/@mobilenext/mobile-mcp">
     <img src="https://img.shields.io/npm/dm/@mobilenext/mobile-mcp?logo=npm&style=flat&color=red" alt="npm">
