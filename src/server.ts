@@ -269,12 +269,24 @@ export const createMcpServer = (): McpServer => {
 		"swipe_on_screen",
 		"Swipe on the screen",
 		{
-			direction: z.enum(["up", "down"]).describe("The direction to swipe"),
+			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
+			x: z.number().optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			y: z.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			distance: z.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
-		async ({ direction }) => {
+		async ({ direction, x, y, distance }) => {
 			requireRobot();
-			await robot!.swipe(direction);
-			return `Swiped ${direction} on screen`;
+
+			if (x !== undefined && y !== undefined) {
+				// Use coordinate-based swipe
+				await robot!.swipeFromCoordinate(x, y, direction, distance);
+				const distanceText = distance ? ` ${distance} pixels` : "";
+				return `Swiped ${direction}${distanceText} from coordinates: ${x}, ${y}`;
+			} else {
+				// Use center-based swipe
+				await robot!.swipe(direction);
+				return `Swiped ${direction} on screen`;
+			}
 		}
 	);
 

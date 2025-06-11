@@ -120,7 +120,6 @@ export class AndroidRobot implements Robot {
 	public async swipe(direction: SwipeDirection): Promise<void> {
 		const screenSize = await this.getScreenSize();
 		const centerX = screenSize.width >> 1;
-		// const centerY = screenSize[1] >> 1;
 
 		let x0: number, y0: number, x1: number, y1: number;
 
@@ -134,6 +133,55 @@ export class AndroidRobot implements Robot {
 				x0 = x1 = centerX;
 				y0 = Math.floor(screenSize.height * 0.20);
 				y1 = Math.floor(screenSize.height * 0.80);
+				break;
+			case "left":
+				x0 = Math.floor(screenSize.width * 0.80);
+				x1 = Math.floor(screenSize.width * 0.20);
+				y0 = y1 = Math.floor(screenSize.height * 0.50);
+				break;
+			case "right":
+				x0 = Math.floor(screenSize.width * 0.20);
+				x1 = Math.floor(screenSize.width * 0.80);
+				y0 = y1 = Math.floor(screenSize.height * 0.50);
+				break;
+			default:
+				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
+		}
+
+		this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
+	}
+
+	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void> {
+		const screenSize = await this.getScreenSize();
+
+		let x0: number, y0: number, x1: number, y1: number;
+
+		// Use provided distance or default to 30% of screen dimension
+		const defaultDistanceY = Math.floor(screenSize.height * 0.3);
+		const defaultDistanceX = Math.floor(screenSize.width * 0.3);
+		const swipeDistanceY = distance || defaultDistanceY;
+		const swipeDistanceX = distance || defaultDistanceX;
+
+		switch (direction) {
+			case "up":
+				x0 = x1 = x;
+				y0 = y;
+				y1 = Math.max(0, y - swipeDistanceY);
+				break;
+			case "down":
+				x0 = x1 = x;
+				y0 = y;
+				y1 = Math.min(screenSize.height, y + swipeDistanceY);
+				break;
+			case "left":
+				x0 = x;
+				x1 = Math.max(0, x - swipeDistanceX);
+				y0 = y1 = y;
+				break;
+			case "right":
+				x0 = x;
+				x1 = Math.min(screenSize.width, x + swipeDistanceX);
+				y0 = y1 = y;
 				break;
 			default:
 				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
