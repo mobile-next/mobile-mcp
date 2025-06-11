@@ -32,15 +32,6 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
 https://github.com/user-attachments/assets/c4e89c4f-cc71-4424-8184-bdbc8c638fa1
 
 
-
-
-<p align="center">
-    <a href="https://github.com/mobile-next/">
-        <img alt="mobile-mcp" src="https://raw.githubusercontent.com/mobile-next/mobile-next-assets/refs/heads/main/mobile-mcp-banner.png" width="600">
-    </a>
-</p>
-
-
 ### 🚀 Mobile MCP Roadmap: Building the Future of Mobile
 
 Join us on our journey as we continuously enhance Mobile MCP! 
