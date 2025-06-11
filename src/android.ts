@@ -117,7 +117,7 @@ export class AndroidRobot implements Robot {
 			.map(line => line.split(/\s+/)[8]); // get process name
 	}
 
-		public async swipe(direction: SwipeDirection): Promise<void> {
+	public async swipe(direction: SwipeDirection): Promise<void> {
 		const screenSize = await this.getScreenSize();
 		const centerX = screenSize.width >> 1;
 

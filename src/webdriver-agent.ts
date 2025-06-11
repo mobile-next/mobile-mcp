@@ -75,8 +75,8 @@ export class WebDriverAgent {
 		return result;
 	}
 
-	public async getScreenSize(): Promise<ScreenSize> {
-		return this.withinSession(async sessionUrl => {
+	public async getScreenSize(sessionUrl?: string): Promise<ScreenSize> {
+		if (sessionUrl) {
 			const url = `${sessionUrl}/wda/screen`;
 			const response = await fetch(url);
 			const json = await response.json();
@@ -85,7 +85,18 @@ export class WebDriverAgent {
 				height: json.value.screenSize.height,
 				scale: json.value.scale || 1,
 			};
-		});
+		} else {
+			return this.withinSession(async sessionUrlInner => {
+				const url = `${sessionUrlInner}/wda/screen`;
+				const response = await fetch(url);
+				const json = await response.json();
+				return {
+					width: json.value.screenSize.width,
+					height: json.value.screenSize.height,
+					scale: json.value.scale || 1,
+				};
+			});
+		}
 	}
 
 	public async sendKeys(keys: string) {
@@ -222,15 +233,37 @@ export class WebDriverAgent {
 
 	public async swipe(direction: SwipeDirection): Promise<void> {
 		await this.withinSession(async sessionUrl => {
-			const x0 = 200;
-			let y0 = 600;
-			const x1 = 200;
-			let y1 = 200;
+			const screenSize = await this.getScreenSize(sessionUrl);
+			let x0: number, y0: number, x1: number, y1: number;
+			// Use 60% of the width/height for swipe distance
+			const verticalDistance = Math.floor(screenSize.height * 0.6);
+			const horizontalDistance = Math.floor(screenSize.width * 0.6);
+			const centerX = Math.floor(screenSize.width / 2);
+			const centerY = Math.floor(screenSize.height / 2);
 
-			if (direction === "up") {
-				const tmp = y0;
-				y0 = y1;
-				y1 = tmp;
+			switch (direction) {
+				case "up":
+					x0 = x1 = centerX;
+					y0 = centerY + Math.floor(verticalDistance / 2);
+					y1 = centerY - Math.floor(verticalDistance / 2);
+					break;
+				case "down":
+					x0 = x1 = centerX;
+					y0 = centerY - Math.floor(verticalDistance / 2);
+					y1 = centerY + Math.floor(verticalDistance / 2);
+					break;
+				case "left":
+					y0 = y1 = centerY;
+					x0 = centerX + Math.floor(horizontalDistance / 2);
+					x1 = centerX - Math.floor(horizontalDistance / 2);
+					break;
+				case "right":
+					y0 = y1 = centerY;
+					x0 = centerX - Math.floor(horizontalDistance / 2);
+					x1 = centerX + Math.floor(horizontalDistance / 2);
+					break;
+				default:
+					throw new ActionableError(`Swipe direction "${direction}" is not supported`);
 			}
 
 			const url = `${sessionUrl}/actions`;
