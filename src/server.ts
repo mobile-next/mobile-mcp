@@ -10,7 +10,7 @@ import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isImageMagickInstalled, Image } from "./image-utils";
 
-const getAgentVersion = (): string => {
+export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
 };
