@@ -241,7 +241,7 @@ export class AndroidRobot implements Robot {
 				continue;
 			}
 
-			return dump;
+			return dump.substring(dump.indexOf("<?xml"));
 		}
 
 		throw new ActionableError("Failed to get UIAutomator XML");
