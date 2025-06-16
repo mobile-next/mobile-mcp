@@ -33,15 +33,15 @@ describe("iphone-simulator", () => {
 		const elements1 = await simctl.getElementsOnScreen();
 		assert.ok(elements1.findIndex(e => e.name === "com.apple.settings.general") !== -1);
 
-		// swipe down
-		await simctl.swipe("down");
+		// swipe up (bottom of screen to top of screen)
+		await simctl.swipe("up");
 
 		// make sure "General" is not visible now
 		const elements2 = await simctl.getElementsOnScreen();
 		assert.ok(elements2.findIndex(e => e.name === "com.apple.settings.general") === -1);
 
-		// swipe up
-		await simctl.swipe("up");
+		// swipe down
+		await simctl.swipe("down");
 
 		// make sure "General" is visible again
 		const elements3 = await simctl.getElementsOnScreen();
