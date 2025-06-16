@@ -269,8 +269,9 @@ export class AndroidRobot implements Robot {
 	public async setOrientation(orientation: Orientation): Promise<void> {
 		const orientationValue = orientation === "portrait" ? 0 : 1;
 
-		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
+		// disable auto-rotation prior to setting the orientation
 		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
+		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
