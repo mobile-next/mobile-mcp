@@ -111,4 +111,29 @@ describe("android", () => {
 		const processes2 = await android.listRunningProcesses();
 		assert.ok(!processes2.includes("com.android.chrome"));
 	});
+
+	it("should handle orientation changes", async function() {
+		hasOneAndroidDevice || this.skip();
+
+		// assume we start in portrait
+		const originalOrientation = await android.getOrientation();
+		assert.equal(originalOrientation, "portrait");
+		const screenSize1 = await android.getScreenSize();
+
+		// set to landscape
+		await android.setOrientation("landscape");
+		await new Promise(resolve => setTimeout(resolve, 1500));
+		const orientation = await android.getOrientation();
+		assert.equal(orientation, "landscape");
+		const screenSize2 = await android.getScreenSize();
+
+		// set to portrait
+		await android.setOrientation("portrait");
+		await new Promise(resolve => setTimeout(resolve, 1500));
+		const orientation2 = await android.getOrientation();
+		assert.equal(orientation2, "portrait");
+
+		// screen size should not have changed
+		assert.deepEqual(screenSize1, screenSize2);
+	});
 });
