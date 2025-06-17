@@ -213,7 +213,7 @@ export class AndroidRobot implements Robot {
 		}
 
 		// Include elements with text/labels OR clickable/focusable elements (like icons, buttons)
-		const hasTextOrLabel = node.text || node["content-desc"] || node.hint;
+		const hasTextOrLabel = node.text || node["content-desc"] || node.hint || node["resource-id"];
 		const isInteractive = node.clickable === "true" || node.focusable === "true" ||
 			(node.class && (node.class.includes("Button") || node.class.includes("ImageView") ||
 			node.class.includes("ImageButton") || node.class.includes("View")));
