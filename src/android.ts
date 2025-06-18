@@ -17,6 +17,11 @@ interface UiAutomatorXmlNode {
 	bounds?: string;
 	hint?: string;
 	focused?: string;
+	clickable?: string;
+	focusable?: string;
+	enabled?: string;
+	selected?: string;
+	package?: string;
 	"content-desc"?: string;
 	"resource-id"?: string;
 }
@@ -207,9 +212,15 @@ export class AndroidRobot implements Robot {
 			}
 		}
 
-		if (node.text || node["content-desc"] || node.hint) {
+		// Include elements with text/labels OR clickable/focusable elements (like icons, buttons)
+		const hasTextOrLabel = node.text || node["content-desc"] || node.hint || node["resource-id"];
+		const isInteractive = node.clickable === "true" || node.focusable === "true" ||
+			(node.class && (node.class.includes("Button") || node.class.includes("ImageView") ||
+			node.class.includes("ImageButton") || node.class.includes("View")));
+
+		if (hasTextOrLabel || isInteractive) {
 			const element: ScreenElement = {
-				type: node.class || "text",
+				type: node.class || "element",
 				text: node.text,
 				label: node["content-desc"] || node.hint || "",
 				rect: this.getScreenElementRect(node),
@@ -269,8 +280,9 @@ export class AndroidRobot implements Robot {
 	public async setOrientation(orientation: Orientation): Promise<void> {
 		const orientationValue = orientation === "portrait" ? 0 : 1;
 
-		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
+		// disable auto-rotation prior to setting the orientation
 		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
+		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
@@ -289,7 +301,7 @@ export class AndroidRobot implements Robot {
 				continue;
 			}
 
-			return dump;
+			return dump.substring(dump.indexOf("<?xml"));
 		}
 
 		throw new ActionableError("Failed to get UIAutomator XML");

@@ -1,12 +1,16 @@
 name: Build
 permissions:
-  contents: read
+  contents: write
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+    tags:
+      - "*.*.*"
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
@@ -31,13 +35,28 @@ jobs:
       run: npm install
 
     - name: Audit
-      run: npm audit
+      run: npm audit --audit-level high
 
     - name: Lint
       run: npm run lint
 
+    - name: Update version
+      if: github.ref_type == 'tag'
+      run: |
+        npm version "${{ github.ref_name }}" --no-git-tag-version
+        npm update
+
     - name: Build
-      run: npm run build
+      run: |
+        npm run build
+
+    - name: Publish
+      if: github.ref_type == 'tag'
+      env:
+        NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+      run: |
+        echo "//registry.npmjs.org/:_authToken=$NPM_AUTH_TOKEN" >> ~/.npmrc
+        npm publish
 
 #    - name: Install Android SDK
 #      uses: android-actions/setup-android@v3
@@ -58,4 +77,3 @@ jobs:
 #    - name: Run android tests
 #      run: |
 #        npm test
-

@@ -10,7 +10,7 @@ import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isImageMagickInstalled, Image } from "./image-utils";
 
-const getAgentVersion = (): string => {
+export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
 };
@@ -43,6 +43,8 @@ export const createMcpServer = (): McpServer => {
 			tools: {},
 		},
 	});
+
+	const noParams = z.object({});
 
 	const tool = (name: string, description: string, paramsSchema: ZodRawShape, cb: (args: z.objectOutputType<ZodRawShape, ZodTypeAny>) => Promise<string>) => {
 		const wrappedCb = async (args: ZodRawShape): Promise<CallToolResult> => {
@@ -84,7 +86,9 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_available_devices",
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
-		{},
+		{
+			noParams
+		},
 		async ({}) => {
 			const iosManager = new IosManager();
 			const androidManager = new AndroidDeviceManager();
@@ -144,7 +148,9 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_apps",
 		"List all the installed apps on the device",
-		{},
+		{
+			noParams
+		},
 		async ({}) => {
 			requireRobot();
 			const result = await robot!.listApps();
@@ -181,7 +187,9 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_get_screen_size",
 		"Get the screen size of the mobile device in pixels",
-		{},
+		{
+			noParams
+		},
 		async ({}) => {
 			requireRobot();
 			const screenSize = await robot!.getScreenSize();
@@ -207,6 +215,7 @@ export const createMcpServer = (): McpServer => {
 		"mobile_list_elements_on_screen",
 		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
 		{
+			noParams
 		},
 		async ({}) => {
 			requireRobot();
@@ -312,7 +321,9 @@ export const createMcpServer = (): McpServer => {
 	server.tool(
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
-		{},
+		{
+			noParams
+		},
 		async ({}) => {
 			requireRobot();
 
@@ -375,7 +386,9 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_get_orientation",
 		"Get the current screen orientation of the device",
-		{},
+		{
+			noParams
+		},
 		async () => {
 			requireRobot();
 			const orientation = await robot!.getOrientation();
