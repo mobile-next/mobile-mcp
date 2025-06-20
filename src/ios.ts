@@ -195,7 +195,7 @@ export class IosRobot implements Robot {
 		return await wda.getOrientation();
 	}
 
-	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; boolean; process?: string }): Promise<string> {
+	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
 		await this.assertTunnelRunning();
 		const timeWindow = options?.timeWindow || "1m";
 		const filter = options?.filter;

@@ -137,14 +137,7 @@ export class Simctl implements Robot {
 		const timeWindow = options?.timeWindow || "1m";
 		const filter = options?.filter;
 		const processFilter = options?.process;
-		let deviceUuid = this.simulatorUuid;
-		if (useBooted) {
-			const bootedSimulators = new SimctlManager().listBootedSimulators();
-			if (bootedSimulators.length === 0) {
-				throw new ActionableError("No booted simulator found. Please start a simulator first.");
-			}
-			deviceUuid = bootedSimulators[0].uuid;
-		}
+		const deviceUuid = this.simulatorUuid;
 
 		let predicate = "";
 		let currentApp: string | null = null;
@@ -156,17 +149,12 @@ export class Simctl implements Robot {
 		} else {
 			// Try to detect currently running user apps from installed apps
 			try {
-				let runningApps;
-				if (useBooted) {
-					runningApps = await this.listAppsBooted();
-				} else {
-					runningApps = await this.listApps();
-				}
+				const runningApps = await this.listApps();
 
 				// Filter to non-Apple user apps
 				const userApps = runningApps
-					.map(app => app.packageName)
-					.filter(appId => !appId.startsWith("com.apple.") && appId.includes("."));
+					.map((app: InstalledApp) => app.packageName)
+					.filter((appId: string) => !appId.startsWith("com.apple.") && appId.includes("."));
 
 				if (userApps.length > 0) {
 					// For now, just use the first user app found
