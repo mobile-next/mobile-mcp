@@ -1,6 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
+import path from "path";
+import { tmpdir } from "os";
+import { randomBytes } from "crypto";
+import { writeFileSync } from "fs";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
@@ -9,6 +13,16 @@ import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isImageMagickInstalled, Image } from "./image-utils";
+
+const formatBytes = (bytes: number): string => {
+	if (bytes === 0) {
+		return "0 B";
+	}
+	const k = 1024;
+	const sizes = ["B", "KB", "MB", "GB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+};
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -322,9 +336,10 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 		{
-			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to false.")
+			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to false."),
+			save: z.boolean().optional().describe("Whether to save the compressed screenshot to disk. Defaults to false.")
 		},
-		async ({ ios_use_booted = false }) => {
+		async ({ ios_use_booted = true, save = false }) => {
 			requireRobot();
 
 			try {
@@ -345,6 +360,8 @@ export const createMcpServer = (): McpServer => {
 					throw new ActionableError("Screenshot is invalid. Please try again.");
 				}
 
+				let savedPath: string | undefined;
+
 				if (isImageMagickInstalled()) {
 					trace("ImageMagick is installed, resizing screenshot");
 					const image = Image.fromBuffer(screenshot);
@@ -357,13 +374,27 @@ export const createMcpServer = (): McpServer => {
 					trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
 
 					mimeType = "image/jpeg";
+
+					if (save) {
+						const tmpFilename = path.join(tmpdir(), `compressed-screenshot-${randomBytes(8).toString("hex")}.jpg`);
+						writeFileSync(tmpFilename, screenshot);
+						savedPath = tmpFilename;
+						trace(`Compressed screenshot saved to: ${savedPath}`);
+					}
 				}
 
 				const screenshot64 = screenshot.toString("base64");
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
 
+				const textContent = savedPath
+					? `Screenshot: ${pngSize.width}x${pngSize.height}px, ${formatBytes(screenshot.length)}, saved to: ${savedPath}`
+					: `Screenshot: ${pngSize.width}x${pngSize.height}px, ${formatBytes(screenshot.length)}`;
+
 				return {
-					content: [{ type: "image", data: screenshot64, mimeType }]
+					content: [
+						{ type: "text", text: textContent },
+						{ type: "image", data: screenshot64, mimeType }
+					]
 				};
 			} catch (err: any) {
 				error(`Error taking screenshot: ${err.message} ${err.stack}`);
