@@ -67,6 +67,12 @@ export interface Robot {
 	getScreenshot(): Promise<Buffer>;
 
 	/**
+	 * Get a screenshot of the screen using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as getScreenshot().
+	 */
+	getScreenshotBooted?(): Promise<Buffer>;
+
+	/**
 	 * List all installed apps on the device. Returns an array of package names (or
 	 * bundle identifiers in iOS) for all installed apps.
 	 */
