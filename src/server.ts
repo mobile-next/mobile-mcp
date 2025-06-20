@@ -324,7 +324,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to false.")
 		},
-		async ({ ios_use_booted = false }) => {
+		async ({ ios_use_booted = true }) => {
 			requireRobot();
 
 			try {
