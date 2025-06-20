@@ -222,7 +222,7 @@ export class AndroidRobot implements Robot {
 			const element: ScreenElement = {
 				type: node.class || "element",
 				text: node.text,
-				label: node["content-desc"] || node.hint || "",
+				label: node["resource-id"] || node["content-desc"] || node.hint || "",
 				rect: this.getScreenElementRect(node),
 			};
 
