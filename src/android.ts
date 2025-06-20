@@ -279,6 +279,122 @@ export class AndroidRobot implements Robot {
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
+	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
+		const timeWindow = options?.timeWindow || "1m";
+		const filter = options?.filter;
+		const processFilter = options?.process;
+		let packageFilter: string | null = null;
+		let searchQuery: string | null = null;
+		let effectiveFilter = filter;
+		// For Android: if both process and filter are provided, combine them as "package:<process> <filter>"
+		if (processFilter && filter && !filter.includes("package:")) {
+			effectiveFilter = `package:${processFilter} ${filter}`;
+		} else if (processFilter && !filter) {
+			effectiveFilter = `package:${processFilter}`;
+		}
+		// Handle Android package filtering syntax
+		if (effectiveFilter) {
+			if (effectiveFilter.startsWith("package:mine")) {
+				// Filter to user apps only
+				const query = effectiveFilter.replace("package:mine", "").trim();
+				searchQuery = query || null;
+				// Will filter user packages in post-processing
+			} else if (effectiveFilter.includes("package:")) {
+				// Handle specific package filters like package:com.example.app search_term
+				const packageMatch = effectiveFilter.match(/package:([^\s]+)(?:\s+(.+))?/);
+				if (packageMatch) {
+					packageFilter = packageMatch[1];
+					searchQuery = packageMatch[2] || null;
+				}
+			} else {
+				// Regular search filter
+				searchQuery = effectiveFilter;
+			}
+		}
+
+		const args = ["shell", "logcat"];
+		if (timeWindow) {
+			// Calculate timestamp for time-based filtering using -T
+			const timeInSeconds = this.parseTimeWindow(timeWindow);
+			const startTime = new Date(Date.now() - (timeInSeconds * 1000));
+			// Format as MM-dd HH:mm:ss.mmm
+			const month = String(startTime.getMonth() + 1).padStart(2, "0");
+			const day = String(startTime.getDate()).padStart(2, "0");
+			const hours = String(startTime.getHours()).padStart(2, "0");
+			const minutes = String(startTime.getMinutes()).padStart(2, "0");
+			const seconds = String(startTime.getSeconds()).padStart(2, "0");
+			const milliseconds = String(startTime.getMilliseconds()).padStart(3, "0");
+
+			const timeFormat = `${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+			args.push("-T", timeFormat);
+		} else {
+			args.push("-d");
+		}
+		// Add package filtering directly to logcat if we have a specific package
+		if (packageFilter && packageFilter !== "mine") {
+			// Use logcat's native package filtering with --pid
+			try {
+				// First get the PID(s) for this package
+				const pidOutput = this.adb("shell", "pidof", packageFilter).toString().trim();
+				if (pidOutput) {
+					const pids = pidOutput.split(/\s+/);
+					for (const pid of pids) {
+						args.push("--pid", pid);
+					}
+				}
+			} catch (error) {
+				// If pidof fails, fall back to post-processing
+			}
+		}
+		const output = this.adb(...args).toString();
+
+		// Post-process filtering
+		const lines = output.split("\n").filter(line => line.trim());
+		let filteredLines = lines;
+		// Filter by specific package if provided (fallback if --pid didn't work)
+		if (packageFilter && packageFilter !== "mine") {
+			filteredLines = filteredLines.filter(line => {
+				return line.includes(packageFilter!);
+			});
+		}
+		// Filter for user packages if package:mine
+		if (filter && filter.startsWith("package:mine")) {
+			filteredLines = filteredLines.filter(line => {
+				// Look for user app indicators - avoid system/Android logs
+				return !line.includes("com.android.") &&
+					!line.includes("android.") &&
+					!line.includes("system_") &&
+					(line.includes("com.") || line.includes("io.") || line.includes("net.") || line.includes("app."));
+			});
+		}
+		// Apply text search if provided
+		if (searchQuery) {
+			filteredLines = filteredLines.filter(line => {
+				return line.toLowerCase().includes(searchQuery!.toLowerCase());
+			});
+		}
+		return filteredLines.join("\n");
+	}
+
+	private parseTimeWindow(timeWindow: string): number {
+		const match = timeWindow.match(/^(\d+)([smh])$/);
+		if (!match) {
+			return 60;
+		}
+		const value = parseInt(match[1], 10);
+		const unit = match[2];
+		switch (unit) {
+			case "s":
+				return value;
+			case "m":
+				return value * 60;
+			case "h":
+				return value * 3600;
+			default:
+				return 60;
+		}
+	}
+
 	private async getUiAutomatorDump(): Promise<string> {
 		for (let tries = 0; tries < 10; tries++) {
 			const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();

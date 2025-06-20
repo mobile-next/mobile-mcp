@@ -194,6 +194,46 @@ export class IosRobot implements Robot {
 		const wda = await this.wda();
 		return await wda.getOrientation();
 	}
+
+	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; boolean; process?: string }): Promise<string> {
+		await this.assertTunnelRunning();
+		const timeWindow = options?.timeWindow || "1m";
+		const filter = options?.filter;
+		const args = ["syslog"];
+		if (timeWindow) {
+			const timeInSeconds = this.parseTimeWindow(timeWindow);
+			args.push("--since");
+			args.push(`${timeInSeconds}s`);
+		}
+		let output = await this.ios(...args);
+		if (filter) {
+			const lines = output.split("\n");
+			const filteredLines = lines.filter(line =>
+				line.toLowerCase().includes(filter.toLowerCase())
+			);
+			output = filteredLines.join("\n");
+		}
+		return output;
+	}
+
+	private parseTimeWindow(timeWindow: string): number {
+		const match = timeWindow.match(/^(\d+)([smh])$/);
+		if (!match) {
+			return 60;
+		}
+		const value = parseInt(match[1], 10);
+		const unit = match[2];
+		switch (unit) {
+			case "s":
+				return value;
+			case "m":
+				return value * 60;
+			case "h":
+				return value * 3600;
+			default:
+				return 60;
+		}
+	}
 }
 
 export class IosManager {

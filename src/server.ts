@@ -450,6 +450,84 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_tap_element",
+		"Find an element on screen by query and tap it. This combines list_elements and tap functionality.",
+		{
+			query: z.string().describe("Search query to find the element (matches against text, label, name, value, or identifier)")
+		},
+		async ({ query }) => {
+			requireRobot();
+			const elements = await robot!.getElementsOnScreen();
+
+			// Find all matching elements by searching text, label, name, value, and identifier
+			const matchingElements = elements.filter(element => {
+				const searchFields = [
+					element.text,
+					element.label,
+					element.name,
+					element.value,
+					element.identifier
+				].filter(field => field && field.trim() !== "");
+
+				return searchFields.some(field =>
+					field && field.toLowerCase().includes(query.toLowerCase())
+				);
+			});
+
+			if (matchingElements.length === 0) {
+				throw new ActionableError(`No element found matching query: "${query}". Available elements: ${elements.map(e => e.text || e.label || e.name || e.value || e.identifier).filter(t => t).join(", ")}`);
+			}
+
+			if (matchingElements.length > 1) {
+				const matchingElementsJson = matchingElements.map(element => ({
+					type: element.type,
+					text: element.text,
+					label: element.label,
+					name: element.name,
+					value: element.value,
+					identifier: element.identifier,
+					coordinates: {
+						x: element.rect.x + (element.rect.width / 2),
+						y: element.rect.y + (element.rect.height / 2)
+					},
+					rect: element.rect
+				}));
+
+				throw new ActionableError(`Multiple elements found matching query: "${query}". Found ${matchingElements.length} matches:\n${JSON.stringify(matchingElementsJson, null, 2)}`);
+			}
+
+			const matchingElement = matchingElements[0];
+
+			// Calculate center coordinates of the element
+			const centerX = matchingElement.rect.x + (matchingElement.rect.width / 2);
+			const centerY = matchingElement.rect.y + (matchingElement.rect.height / 2);
+
+			// Tap the element
+			await robot!.tap(centerX, centerY);
+
+			return `Tapped element "${matchingElement.text || matchingElement.label || matchingElement.name || matchingElement.value || matchingElement.identifier}" at coordinates: ${centerX}, ${centerY}`;
+		}
+	);
+
+	tool(
+		"mobile_get_log",
+		"Get device logs with optional filtering. For iOS simulators, gets logs from running apps using log show command. For iOS physical devices, gets system logs. For Android devices, gets logcat output.",
+		{
+			timeWindow: z.string().optional().describe("Time window to look back (e.g., '5m' for 5 minutes, '1h' for 1 hour). Defaults to '1m'"),
+			filter: z.string().optional().describe("Filter logs containing this query (case-insensitive). For Android: supports 'package:mine <query>' (user apps only), 'package:com.app.bundle <query>' (specific app), or '<query>' (text search). For iOS: simple text search only."),
+			process: z.string().optional().describe("Filter logs to a specific process/app bundle ID (e.g., 'com.ramp.Ramp.ios'). Can be combined with 'filter' for text search within that process. If not provided, attempts to auto-detect running user apps.")
+		},
+		async ({ timeWindow, filter, process }) => {
+			requireRobot();
+			const logs = await robot!.getDeviceLogs({ timeWindow, filter, process });
+			const filterText = filter ? ` (filtered by: ${filter})` : "";
+			const processText = process ? ` (process: ${process})` : "";
+			const timeText = timeWindow ? ` from last ${timeWindow}` : "";
+			return `Device logs${timeText}${filterText}${processText}:\n${logs}`;
+		}
+	);
+
 	// async check for latest agent version
 	checkForLatestAgentVersion().then();
 
