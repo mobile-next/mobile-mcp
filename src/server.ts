@@ -322,15 +322,20 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 		{
-			noParams
+			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to false.")
 		},
-		async ({}) => {
+		async ({ ios_use_booted = false }) => {
 			requireRobot();
 
 			try {
 				const screenSize = await robot!.getScreenSize();
 
-				let screenshot = await robot!.getScreenshot();
+				let screenshot: Buffer;
+				if (ios_use_booted && robot!.getScreenshotBooted) {
+					screenshot = await robot!.getScreenshotBooted();
+				} else {
+					screenshot = await robot!.getScreenshot();
+				}
 				let mimeType = "image/png";
 
 				// validate we received a png, will throw exception otherwise
