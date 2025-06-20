@@ -208,25 +208,25 @@ export class IosManager {
 		}
 	}
 
-	public async getDeviceName(deviceId: string): Promise<string> {
+	public getDeviceName(deviceId: string): string {
 		const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
 		const json: InfoCommandOutput = JSON.parse(output);
 		return json.DeviceName;
 	}
 
-	public async listDevices(): Promise<IosDevice[]> {
-		if (!(await this.isGoIosInstalled())) {
+	public listDevices(): IosDevice[] {
+		if (!this.isGoIosInstalled()) {
 			console.error("go-ios is not installed, no physical iOS devices can be detected");
 			return [];
 		}
 
 		const output = execFileSync(getGoIosPath(), ["list"]).toString();
 		const json: ListCommandOutput = JSON.parse(output);
-		const devices = json.deviceList.map(async device => ({
+		const devices = json.deviceList.map(device => ({
 			deviceId: device,
-			deviceName: await this.getDeviceName(device),
+			deviceName: this.getDeviceName(device),
 		}));
 
-		return Promise.all(devices);
+		return devices;
 	}
 }
