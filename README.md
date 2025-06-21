@@ -175,7 +175,7 @@ What you will need to connect MCP with your agent and mobile devices:
 
 - [Xcode command line tools](https://developer.apple.com/xcode/resources/)
 - [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
-- [node.js](https://nodejs.org/en/download/)
+- [node.js](https://nodejs.org/en/download/) v22+
 - [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
 
 ### Simulators, Emulators, and Physical Devices

@@ -96,8 +96,10 @@ describe("iphone-simulator", () => {
 		const image = new PNG(screenshot);
 		const pngSize = image.getDimensions();
 		const screenSize = await simctl.getScreenSize();
-		assert.equal(pngSize.width, screenSize.width * screenSize.scale);
-		assert.equal(pngSize.height, screenSize.height * screenSize.scale);
+
+		// wda returns screen size as points, round up
+		assert.equal(Math.ceil(pngSize.width / screenSize.scale), screenSize.width);
+		assert.equal(Math.ceil(pngSize.height / screenSize.scale), screenSize.height);
 	});
 
 	it("should be able to open url", async function() {

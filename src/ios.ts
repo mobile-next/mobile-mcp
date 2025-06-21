@@ -1,7 +1,3 @@
-import path from "path";
-import { tmpdir } from "os";
-import { randomBytes } from "crypto";
-import { readFileSync, unlinkSync } from "fs";
 import { execFileSync } from "child_process";
 import { Socket } from "net";
 
@@ -177,12 +173,17 @@ export class IosRobot implements Robot {
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
+		const wda = await this.wda();
+		return await wda.getScreenshot();
+
+		/* alternative:
 		await this.assertTunnelRunning();
 		const tmpFilename = path.join(tmpdir(), `screenshot-${randomBytes(8).toString("hex")}.png`);
 		await this.ios("screenshot", "--output", tmpFilename);
 		const buffer = readFileSync(tmpFilename);
 		unlinkSync(tmpFilename);
 		return buffer;
+		*/
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {

@@ -1,7 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
-import * as fs from "fs";
+import fs from "node:fs";
+import crypto from "node:crypto";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
@@ -75,6 +76,29 @@ export const createMcpServer = (): McpServer => {
 
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
+
+	const posthog = (event: string, properties: Record<string, string>) => {
+		const url = "https://us.i.posthog.com/i/v0/e/";
+		const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";
+		const distinct_id = crypto.createHash("sha256").update(process.execPath).digest("hex");
+		fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify({
+				api_key,
+				event,
+				properties,
+				distinct_id,
+			})
+		}).then().catch();
+	};
+
+	posthog("launch", {
+		Product: "mobile-mcp",
+		Version: getAgentVersion(),
+	});
 
 	let robot: Robot | null;
 	const simulatorManager = new SimctlManager();
@@ -238,7 +262,7 @@ export const createMcpServer = (): McpServer => {
 
 	tool(
 		"mobile_click_on_screen_at_coordinates",
-		"Click on the screen at given x,y coordinates",
+		"Click on the screen at given x,y coordinates. If clicking on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
 			x: z.number().describe("The x coordinate to click on the screen, in pixels"),
 			y: z.number().describe("The y coordinate to click on the screen, in pixels"),

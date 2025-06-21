@@ -58,7 +58,9 @@ export class Simctl implements Robot {
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
-		return this.simctl("io", this.simulatorUuid, "screenshot", "-");
+		const wda = await this.wda();
+		return await wda.getScreenshot();
+		// alternative: return this.simctl("io", this.simulatorUuid, "screenshot", "-");
 	}
 
 	public async openUrl(url: string) {

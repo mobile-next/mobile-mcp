@@ -231,6 +231,13 @@ export class WebDriverAgent {
 		});
 	}
 
+	public async getScreenshot(): Promise<Buffer> {
+		const url = `http://${this.host}:${this.port}/screenshot`;
+		const response = await fetch(url);
+		const json = await response.json();
+		return Buffer.from(json.value, "base64");
+	}
+
 	public async swipe(direction: SwipeDirection): Promise<void> {
 		await this.withinSession(async sessionUrl => {
 			const screenSize = await this.getScreenSize(sessionUrl);
