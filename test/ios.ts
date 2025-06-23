@@ -10,7 +10,7 @@ describe("ios", async () => {
 	const hasOneDevice = devices.length === 1;
 	const robot = new IosRobot(devices?.[0]?.deviceId || "");
 
-	it.only("should be able to get screenshot", async function() {
+	it("should be able to get screenshot", async function() {
 		hasOneDevice || this.skip();
 		const screenshot = await robot.getScreenshot();
 		// an black screenshot (screen is off) still consumes over 30KB
