@@ -91,6 +91,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
+		// only apps that have a launcher activity are returned
 		return this.adb("shell", "cmd", "package", "query-activities", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
 			.toString()
 			.split("\n")
@@ -102,6 +103,14 @@ export class AndroidRobot implements Robot {
 				packageName,
 				appName: packageName,
 			}));
+	}
+
+	private async listPackages(): Promise<string[]> {
+		return this.adb("shell", "pm", "list", "packages")
+			.toString()
+			.split("\n")
+			.filter(line => line.startsWith("package:"))
+			.map(line => line.substring("package:".length));
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
@@ -248,10 +257,40 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url);
 	}
 
+	private isAscii(text: string): boolean {
+		return /^[\x00-\x7F]*$/.test(text);
+	}
+
+	private async isClipperInstalled(): Promise<boolean> {
+		const packages = await this.listPackages();
+		return packages.includes("com.mobilenext.devicekit");
+	}
+
 	public async sendKeys(text: string): Promise<void> {
-		// adb shell requires some escaping
-		const _text = text.replace(/ /g, "\\ ");
-		this.adb("shell", "input", "text", _text);
+		if (text === "") {
+			// bailing early, so we don't run adb shell with empty string.
+			// this happens when you prompt with a simple "submit".
+			return;
+		}
+
+		if (this.isAscii(text)) {
+			// adb shell input only supports ascii characters. and
+			// some of the keys have to be escaped.
+			const _text = text.replace(/ /g, "\\ ");
+			this.adb("shell", "input", "text", _text);
+		} else if (await this.isClipperInstalled()) {
+			// try sending over clipboard
+			const base64 = Buffer.from(text).toString("base64");
+
+			// send clipboard over and immediately paste it
+			this.adb("shell", "am", "broadcast", "-a", "devicekit.clipboard.set", "-e", "encoding", "base64", "-e", "text", base64, "-n", "com.mobilenext.devicekit/.ClipboardBroadcastReceiver");
+			this.adb("shell", "input", "keyevent", "KEYCODE_PASTE");
+
+			// clear clipboard when we're done
+			this.adb("shell", "am", "broadcast", "-a", "devicekit.clipboard.clear", "-n", "com.mobilenext.devicekit/.ClipboardBroadcastReceiver");
+		} else {
+			throw new ActionableError("Non-ASCII text is not supported on Android, please install mobilenext devicekit, see https://github.com/mobile-next/devicekit-android");
+		}
 	}
 
 	public async pressButton(button: Button) {
