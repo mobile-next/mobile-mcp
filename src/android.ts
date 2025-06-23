@@ -261,7 +261,7 @@ export class AndroidRobot implements Robot {
 		return /^[\x00-\x7F]*$/.test(text);
 	}
 
-	private async isClipperInstalled(): Promise<boolean> {
+	private async isDeviceKitInstalled(): Promise<boolean> {
 		const packages = await this.listPackages();
 		return packages.includes("com.mobilenext.devicekit");
 	}
@@ -278,7 +278,7 @@ export class AndroidRobot implements Robot {
 			// some of the keys have to be escaped.
 			const _text = text.replace(/ /g, "\\ ");
 			this.adb("shell", "input", "text", _text);
-		} else if (await this.isClipperInstalled()) {
+		} else if (await this.isDeviceKitInstalled()) {
 			// try sending over clipboard
 			const base64 = Buffer.from(text).toString("base64");
 
