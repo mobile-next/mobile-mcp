@@ -44,6 +44,15 @@ export class ActionableError extends Error {
 
 export type Orientation = "portrait" | "landscape";
 
+export type NetworkType = "wifi" | "cellular" | "none" | "unknown";
+
+export interface NetworkInfo {
+	type: NetworkType;
+	isConnected: boolean;
+	networkName?: string;
+	signalStrength?: number;
+}
+
 export interface Robot {
 	/**
 	 * Get the screen size of the device in pixels.
@@ -120,4 +129,9 @@ export interface Robot {
 	 * Get the current screen orientation.
 	 */
 	getOrientation(): Promise<Orientation>;
+
+	/**
+	 * Get network connectivity information including type, status, and details.
+	 */
+	getNetworkInfo(): Promise<NetworkInfo>;
 }

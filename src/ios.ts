@@ -2,7 +2,7 @@ import { execFileSync } from "child_process";
 import { Socket } from "net";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation, NetworkInfo } from "./robot";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -194,6 +194,48 @@ export class IosRobot implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const wda = await this.wda();
 		return await wda.getOrientation();
+	}
+
+	public async getNetworkInfo(): Promise<NetworkInfo> {
+		try {
+			// Use go-ios to get device info - just testing connectivity
+			await this.ios("info");
+
+			// For iOS devices, we'll use a simpler approach
+			// Check basic connectivity by trying to get device info (requires connection)
+			// More detailed network info would require more complex setup
+
+			// Try to get WiFi info using go-ios if available
+			try {
+				const wirelessInfo = await this.ios("wifi", "info");
+				const wifiData = JSON.parse(wirelessInfo);
+
+				if (wifiData && wifiData.SSID) {
+					return {
+						type: "wifi",
+						isConnected: true,
+						networkName: wifiData.SSID,
+						signalStrength: wifiData.RSSI ? parseInt(wifiData.RSSI, 10) : undefined,
+					};
+				}
+			} catch (wifiError) {
+				// WiFi info not available, continue with basic check
+			}
+
+			// Fallback: if we can get device info, there's some connection
+			// This is a simplified check - iOS network detection is more complex
+			// and would typically require additional tools or apps on device
+			return {
+				type: "unknown",
+				isConnected: true,
+			};
+		} catch (error) {
+			// If we can't communicate with device, assume no connection
+			return {
+				type: "none",
+				isConnected: false,
+			};
+		}
 	}
 }
 

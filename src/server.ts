@@ -474,6 +474,19 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_get_network_info",
+		"Get network connectivity information including type, status, and details",
+		{
+			noParams
+		},
+		async () => {
+			requireRobot();
+			const networkInfo = await robot!.getNetworkInfo();
+			return `Network Info: ${JSON.stringify(networkInfo, null, 2)}`;
+		}
+	);
+
 	// async check for latest agent version
 	checkForLatestAgentVersion().then();
 

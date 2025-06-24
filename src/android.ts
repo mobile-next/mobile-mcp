@@ -3,7 +3,7 @@ import { execFileSync } from "child_process";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation, NetworkInfo } from "./robot";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -316,6 +316,23 @@ export class AndroidRobot implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const rotation = this.adb("shell", "settings", "get", "system", "user_rotation").toString().trim();
 		return rotation === "0" ? "portrait" : "landscape";
+	}
+
+	public async getNetworkInfo(): Promise<NetworkInfo> {
+		// Simple implementation for now - just check basic connectivity
+		try {
+			// Try to ping Google DNS to test connectivity
+			this.adb("shell", "ping", "-c", "1", "8.8.8.8");
+			return {
+				type: "unknown",
+				isConnected: true,
+			};
+		} catch (error) {
+			return {
+				type: "none",
+				isConnected: false,
+			};
+		}
 	}
 
 	private async getUiAutomatorDump(): Promise<string> {

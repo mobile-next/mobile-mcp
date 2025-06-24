@@ -1,7 +1,7 @@
 import { execFileSync } from "child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation, NetworkInfo } from "./robot";
 
 export interface Simulator {
 	name: string;
@@ -133,6 +133,30 @@ export class Simctl implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const wda = await this.wda();
 		return wda.getOrientation();
+	}
+
+	public async getNetworkInfo(): Promise<NetworkInfo> {
+		// For iOS simulators, network connectivity is provided by the host Mac
+		// Simulators typically always have internet access if the host does
+		try {
+			// Simple connectivity test - try to reach a reliable server
+			// For simulators, we can use the host's network stack
+			this.simctl("spawn", this.simulatorUuid, "ping", "-c", "1", "8.8.8.8");
+
+			// If ping succeeds, we have connectivity
+			// Simulators use the host's network, so it's typically WiFi
+			return {
+				type: "wifi",
+				isConnected: true,
+				networkName: "Simulator Network (Host)",
+			};
+		} catch (error) {
+			// If ping fails, assume no connectivity
+			return {
+				type: "none",
+				isConnected: false,
+			};
+		}
 	}
 }
 
