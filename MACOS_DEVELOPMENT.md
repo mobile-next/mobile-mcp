@@ -60,8 +60,9 @@ Before you start, make sure you have these tools installed:
 - **go-ios**
   - Check:
     ```bash
-    go-ios version
+    ios version
     ```
+    > Note: The command is `ios`, not `go-ios`
   - If not installed:
     ```bash
     npm install -g go-ios
@@ -106,7 +107,7 @@ xcrun simctl boot "iPhone 15"
 
 Check go-ios:
 ```bash
-go-ios version
+ios version
 ```
 > If not installed:
 ```bash
