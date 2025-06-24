@@ -11,9 +11,7 @@
 6. [Contributing](#contributing)
 7. [FAQ](#faq)
 
----
-
-## 🚀 Project Setup
+## Project Setup 🚀
 
 Before you start, make sure you have these tools installed:
 
@@ -99,7 +97,7 @@ cd mobile-mcp
 npm install && npm run build && npm run test
 ```
 
-## 📱 Platform Setup
+## Platform Setup 📱
 
 ### iOS Simulators
 
@@ -142,7 +140,7 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="$PATH:$ANDROID_HOME/platform-tools"
 ```
 
-## 🛠️ Add a Feature
+## Add a Feature 🛠️
 1. `git checkout -b feature/your-feature`
 2. Update `src/robot.ts` (interface)
 3. Implement in `src/android.ts`, `src/ios.ts`, or `src/iphone-simulator.ts`
@@ -151,7 +149,7 @@ export PATH="$PATH:$ANDROID_HOME/platform-tools"
 6. `npm run build && npm run test`
 7. PR: clear commits, describe changes
 
-## 🔄 Workflow
+## Workflow 🔄
 ```bash
 npm run watch   # Auto-rebuild
 npm run lint    # Lint code
@@ -159,7 +157,7 @@ npm run test    # Run tests
 node lib/index.js  # Start server
 ```
 
-## 🗂️ Architecture
+## Architecture 🗂️
 ```
 src/
 ├── server.ts           # Tool registration
@@ -169,18 +167,18 @@ src/
 ├── iphone-simulator.ts # iOS simulator logic
 ```
 
-## 🤝 Contributing
+## Contributing 🤝
 - Follow patterns in `server.ts`
 - Cross-platform support preferred
 - Update types, add tests
 - Lint, test, document
 - Use clear, conventional commits
 
-## ❓ FAQ
+## FAQ ❓
 - **Xcode/Homebrew error?** Try `sudo` or check permissions.
 - **adb not detecting device?** Enable USB debugging, restart adb.
 - **Tests failing?** Check Node/npm versions, reinstall deps.
 - **Need help?** [Slack](http://mobilenexthq.com/join-slack) or GitHub Issues.
 
 ---
-**Build the future of mobile automation. Contribute, test, and make an impact!** 
+Build the future of mobile automation. Contribute, test, and make an impact! 
