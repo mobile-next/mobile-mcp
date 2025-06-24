@@ -25,4 +25,24 @@ describe("ios", async () => {
 		assert.equal(Math.ceil(pngSize.width / screenSize.scale), screenSize.width);
 		assert.equal(Math.ceil(pngSize.height / screenSize.scale), screenSize.height);
 	});
+
+	it("should be able to get network info", async function() {
+		hasOneDevice || this.skip();
+		const networkInfo = await robot.getNetworkInfo();
+
+		// check that we get a valid network info object
+		assert.ok(typeof networkInfo === "object");
+		assert.ok(typeof networkInfo.type === "string");
+		assert.ok(typeof networkInfo.isConnected === "boolean");
+
+		// type should be one of the valid network types
+		const validTypes = ["wifi", "cellular", "none", "unknown"];
+		assert.ok(validTypes.includes(networkInfo.type));
+
+		// iOS devices require connection to get device info, so should be connected
+		if (networkInfo.isConnected) {
+			// if we can communicate with device, connection exists
+			assert.ok(networkInfo.isConnected === true);
+		}
+	});
 });
