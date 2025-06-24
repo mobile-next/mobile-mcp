@@ -141,13 +141,25 @@ export PATH="$PATH:$ANDROID_HOME/platform-tools"
 ```
 
 ## Add a Feature 🛠️
-1. `git checkout -b feature/your-feature`
-2. Update `src/robot.ts` (interface)
-3. Implement in `src/android.ts`, `src/ios.ts`, or `src/iphone-simulator.ts`
-4. Register in `src/server.ts`
-5. Add tests in `test/`
-6. `npm run build && npm run test`
-7. PR: clear commits, describe changes
+
+Want to contribute a new tool or capability? Here's how:
+
+1. Create a new branch:
+    ```bash
+    git checkout -b feature/your-feature
+    ```
+2. Update the interface in `src/robot.ts`
+3. Implement your feature in:
+    - `src/android.ts`
+    - `src/ios.ts`
+    - or `src/iphone-simulator.ts`
+4. Register your tool in `src/server.ts`
+5. Add or update tests in `test/`
+6. Build and test:
+    ```bash
+    npm run build && npm run test
+    ```
+7. Open a pull request with clear commits and a helpful description.
 
 ## Workflow 🔄
 ```bash
@@ -158,6 +170,8 @@ node lib/index.js  # Start server
 ```
 
 ## Architecture 🗂️
+
+Project structure:
 ```
 src/
 ├── server.ts           # Tool registration
