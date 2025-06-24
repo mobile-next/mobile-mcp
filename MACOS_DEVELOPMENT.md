@@ -14,6 +14,16 @@
 ---
 
 ## 🚀 Project Setup
+
+**First, check if Homebrew is installed:**
+```bash
+brew --version
+```
+If you see a version number, you're good! If you get "command not found", install Homebrew:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
 ```bash
 # Prerequisites
 node --version    # >= 18
@@ -23,7 +33,6 @@ npm --version     # >= 8
 xcode-select -p   # Xcode CLI tools
 # If not installed: xcode-select --install
 brew --version    # Homebrew
-# If not installed: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Clone & build
  git clone https://github.com/mobile-next/mobile-mcp.git
