@@ -100,17 +100,44 @@ npm install && npm run build && npm run test
 ```
 
 ## 📱 Platform Setup
+
+### iOS Simulators
+
+Check available simulators:
 ```bash
-# iOS Simulators
 xcrun simctl list devices
-# If not installed: Install Xcode from App Store
+```
+> If not installed: Install Xcode from the App Store
+
+Boot a simulator:
+```bash
 xcrun simctl boot "iPhone 15"
-# iOS Devices
+```
+
+### iOS Devices
+
+Check go-ios:
+```bash
 go-ios version
-# If not installed: npm install -g go-ios
-# Android
+```
+> If not installed:
+```bash
+npm install -g go-ios
+```
+
+### Android
+
+Check adb:
+```bash
 adb version
-# If not installed: brew install android-platform-tools
+```
+> If not installed:
+```bash
+brew install android-platform-tools
+```
+
+Set Android environment variables:
+```bash
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="$PATH:$ANDROID_HOME/platform-tools"
 ```
