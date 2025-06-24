@@ -3,7 +3,18 @@ import { execFileSync } from "child_process";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation, NetworkInfo } from "./robot";
+import {
+	ActionableError,
+	Button,
+	InstalledApp,
+	Robot,
+	ScreenElement,
+	ScreenElementRect,
+	ScreenSize,
+	SwipeDirection,
+	Orientation,
+	NetworkInfo,
+} from "./robot";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -37,16 +48,16 @@ const getAdbPath = (): string => {
 };
 
 const BUTTON_MAP: Record<Button, string> = {
-	"BACK": "KEYCODE_BACK",
-	"HOME": "KEYCODE_HOME",
-	"VOLUME_UP": "KEYCODE_VOLUME_UP",
-	"VOLUME_DOWN": "KEYCODE_VOLUME_DOWN",
-	"ENTER": "KEYCODE_ENTER",
-	"DPAD_CENTER": "KEYCODE_DPAD_CENTER",
-	"DPAD_UP": "KEYCODE_DPAD_UP",
-	"DPAD_DOWN": "KEYCODE_DPAD_DOWN",
-	"DPAD_LEFT": "KEYCODE_DPAD_LEFT",
-	"DPAD_RIGHT": "KEYCODE_DPAD_RIGHT",
+	BACK: "KEYCODE_BACK",
+	HOME: "KEYCODE_HOME",
+	VOLUME_UP: "KEYCODE_VOLUME_UP",
+	VOLUME_DOWN: "KEYCODE_VOLUME_DOWN",
+	ENTER: "KEYCODE_ENTER",
+	DPAD_CENTER: "KEYCODE_DPAD_CENTER",
+	DPAD_UP: "KEYCODE_DPAD_UP",
+	DPAD_DOWN: "KEYCODE_DPAD_DOWN",
+	DPAD_LEFT: "KEYCODE_DPAD_LEFT",
+	DPAD_RIGHT: "KEYCODE_DPAD_RIGHT",
 };
 
 const TIMEOUT = 30000;
@@ -55,9 +66,7 @@ const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
 type AndroidDeviceType = "tv" | "mobile";
 
 export class AndroidRobot implements Robot {
-
-	public constructor(private deviceId: string) {
-	}
+	public constructor(private deviceId: string) {}
 
 	public adb(...args: string[]): Buffer {
 		return execFileSync(getAdbPath(), ["-s", this.deviceId, ...args], {
@@ -76,10 +85,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getScreenSize(): Promise<ScreenSize> {
-		const screenSize = this.adb("shell", "wm", "size")
-			.toString()
-			.split(" ")
-			.pop();
+		const screenSize = this.adb("shell", "wm", "size").toString().split(" ").pop();
 
 		if (!screenSize) {
 			throw new Error("Failed to get screen size");
@@ -92,7 +98,16 @@ export class AndroidRobot implements Robot {
 
 	public async listApps(): Promise<InstalledApp[]> {
 		// only apps that have a launcher activity are returned
-		return this.adb("shell", "cmd", "package", "query-activities", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+		return this.adb(
+			"shell",
+			"cmd",
+			"package",
+			"query-activities",
+			"-a",
+			"android.intent.action.MAIN",
+			"-c",
+			"android.intent.category.LAUNCHER",
+		)
 			.toString()
 			.split("\n")
 			.map(line => line.trim())
@@ -135,23 +150,23 @@ export class AndroidRobot implements Robot {
 		switch (direction) {
 			case "up":
 				x0 = x1 = centerX;
-				y0 = Math.floor(screenSize.height * 0.80);
-				y1 = Math.floor(screenSize.height * 0.20);
+				y0 = Math.floor(screenSize.height * 0.8);
+				y1 = Math.floor(screenSize.height * 0.2);
 				break;
 			case "down":
 				x0 = x1 = centerX;
-				y0 = Math.floor(screenSize.height * 0.20);
-				y1 = Math.floor(screenSize.height * 0.80);
+				y0 = Math.floor(screenSize.height * 0.2);
+				y1 = Math.floor(screenSize.height * 0.8);
 				break;
 			case "left":
-				x0 = Math.floor(screenSize.width * 0.80);
-				x1 = Math.floor(screenSize.width * 0.20);
-				y0 = y1 = Math.floor(screenSize.height * 0.50);
+				x0 = Math.floor(screenSize.width * 0.8);
+				x1 = Math.floor(screenSize.width * 0.2);
+				y0 = y1 = Math.floor(screenSize.height * 0.5);
 				break;
 			case "right":
-				x0 = Math.floor(screenSize.width * 0.20);
-				x1 = Math.floor(screenSize.width * 0.80);
-				y0 = y1 = Math.floor(screenSize.height * 0.50);
+				x0 = Math.floor(screenSize.width * 0.2);
+				x1 = Math.floor(screenSize.width * 0.8);
+				y0 = y1 = Math.floor(screenSize.height * 0.5);
 				break;
 			default:
 				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
@@ -283,13 +298,37 @@ export class AndroidRobot implements Robot {
 			const base64 = Buffer.from(text).toString("base64");
 
 			// send clipboard over and immediately paste it
-			this.adb("shell", "am", "broadcast", "-a", "devicekit.clipboard.set", "-e", "encoding", "base64", "-e", "text", base64, "-n", "com.mobilenext.devicekit/.ClipboardBroadcastReceiver");
+			this.adb(
+				"shell",
+				"am",
+				"broadcast",
+				"-a",
+				"devicekit.clipboard.set",
+				"-e",
+				"encoding",
+				"base64",
+				"-e",
+				"text",
+				base64,
+				"-n",
+				"com.mobilenext.devicekit/.ClipboardBroadcastReceiver",
+			);
 			this.adb("shell", "input", "keyevent", "KEYCODE_PASTE");
 
 			// clear clipboard when we're done
-			this.adb("shell", "am", "broadcast", "-a", "devicekit.clipboard.clear", "-n", "com.mobilenext.devicekit/.ClipboardBroadcastReceiver");
+			this.adb(
+				"shell",
+				"am",
+				"broadcast",
+				"-a",
+				"devicekit.clipboard.clear",
+				"-n",
+				"com.mobilenext.devicekit/.ClipboardBroadcastReceiver",
+			);
 		} else {
-			throw new ActionableError("Non-ASCII text is not supported on Android, please install mobilenext devicekit, see https://github.com/mobile-next/devicekit-android");
+			throw new ActionableError(
+				"Non-ASCII text is not supported on Android, please install mobilenext devicekit, see https://github.com/mobile-next/devicekit-android",
+			);
 		}
 	}
 
@@ -310,7 +349,17 @@ export class AndroidRobot implements Robot {
 
 		// disable auto-rotation prior to setting the orientation
 		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
-		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
+		this.adb(
+			"shell",
+			"content",
+			"insert",
+			"--uri",
+			"content://settings/system",
+			"--bind",
+			"name:s:user_rotation",
+			"--bind",
+			`value:i:${orientationValue}`,
+		);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
@@ -329,8 +378,8 @@ export class AndroidRobot implements Robot {
 				return {
 					type: "wifi",
 					isConnected: hasInternet,
-					networkName: `${wifiInfo.ssid}${hasInternet ? '' : ' (no internet)'}`,
-					signalStrength: wifiInfo.rssi
+					networkName: `${wifiInfo.ssid}${hasInternet ? "" : " (no internet)"}`,
+					signalStrength: wifiInfo.rssi,
 				};
 			}
 
@@ -358,20 +407,19 @@ export class AndroidRobot implements Robot {
 				type: "none",
 				isConnected: false,
 			};
-
 		} catch (error) {
 			// Fallback to basic ping test if main method fails
 			const hasInternet = this.checkInternetViaPing();
 			return hasInternet
 				? {
-					  type: "unknown",
-					  isConnected: true,
-					  networkName: "Unknown connection with internet",
-				  }
+					type: "unknown",
+					isConnected: true,
+					networkName: "Unknown connection with internet",
+				}
 				: {
-					  type: "none",
-					  isConnected: false,
-				  };
+					type: "none",
+					isConnected: false,
+				};
 		}
 	}
 
@@ -385,16 +433,18 @@ export class AndroidRobot implements Robot {
 	}
 
 	private parseWifiInfo(info: string) {
-		if (!info.includes("WIFI CONNECTED")) return null;
-		
+		if (!info.includes("WIFI CONNECTED")) {
+			return null;
+		}
+
 		const ssidMatch = info.match(/SSID: "([^"]+)"/);
 		const rssiMatch = info.match(/RSSI: (-?\d+)/);
-		
-		return ssidMatch 
-			? { 
-				ssid: ssidMatch[1], 
-				rssi: rssiMatch ? parseInt(rssiMatch[1], 10) : undefined 
-			  } 
+
+		return ssidMatch
+			? {
+				ssid: ssidMatch[1],
+				rssi: rssiMatch ? parseInt(rssiMatch[1], 10) : undefined,
+			}
 			: null;
 	}
 
@@ -451,7 +501,6 @@ export class AndroidRobot implements Robot {
 }
 
 export class AndroidDeviceManager {
-
 	private getDeviceType(name: string): AndroidDeviceType {
 		const device = new AndroidRobot(name);
 		const features = device.getSystemFeatures();

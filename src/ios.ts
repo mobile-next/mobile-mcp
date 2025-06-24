@@ -40,9 +40,7 @@ const getGoIosPath = (): string => {
 };
 
 export class IosRobot implements Robot {
-
-	public constructor(private deviceId: string) {
-	}
+	public constructor(private deviceId: string) {}
 
 	private isListeningOnPort(port: number): Promise<boolean> {
 		return new Promise((resolve, reject) => {
@@ -75,17 +73,20 @@ export class IosRobot implements Robot {
 	}
 
 	private async wda(): Promise<WebDriverAgent> {
-
 		await this.assertTunnelRunning();
 
 		if (!(await this.isWdaForwardRunning())) {
-			throw new ActionableError("Port forwarding to WebDriverAgent is not running (tunnel okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			throw new ActionableError(
+				"Port forwarding to WebDriverAgent is not running (tunnel okay), please see https://github.com/mobile-next/mobile-mcp/wiki/",
+			);
 		}
 
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
 
 		if (!(await wda.isRunning())) {
-			throw new ActionableError("WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			throw new ActionableError(
+				"WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/",
+			);
 		}
 
 		return wda;
@@ -126,15 +127,13 @@ export class IosRobot implements Robot {
 		await this.assertTunnelRunning();
 
 		const output = await this.ios("apps", "--all", "--list");
-		return output
-			.split("\n")
-			.map(line => {
-				const [packageName, appName] = line.split(" ");
-				return {
-					packageName,
-					appName,
-				};
-			});
+		return output.split("\n").map(line => {
+			const [packageName, appName] = line.split(" ");
+			return {
+				packageName,
+				appName,
+			};
+		});
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
@@ -223,7 +222,6 @@ export class IosRobot implements Robot {
 				isConnected: true,
 				networkName: "iOS Device Connection",
 			};
-
 		} catch (error) {
 			// Fallback to connection test
 			const isConnected = await this.checkDeviceConnectivity();
@@ -248,12 +246,12 @@ export class IosRobot implements Robot {
 		try {
 			const wirelessInfo = await this.ios("wifi", "info");
 			const wifiData = JSON.parse(wirelessInfo);
-			
-			return wifiData && wifiData.SSID 
+
+			return wifiData && wifiData.SSID
 				? {
 					ssid: wifiData.SSID,
-					rssi: wifiData.RSSI ? parseInt(wifiData.RSSI, 10) : undefined
-				  }
+					rssi: wifiData.RSSI ? parseInt(wifiData.RSSI, 10) : undefined,
+				}
 				: null;
 		} catch {
 			return null;
@@ -262,7 +260,6 @@ export class IosRobot implements Robot {
 }
 
 export class IosManager {
-
 	public async isGoIosInstalled(): Promise<boolean> {
 		try {
 			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
