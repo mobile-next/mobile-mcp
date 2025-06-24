@@ -3,13 +3,13 @@
 ---
 
 ## 📑 Table of Contents
-1. [Project Setup](#project-setup)
-2. [Platform Setup](#platform-setup)
-3. [Add a Feature](#add-a-feature)
-4. [Workflow](#workflow)
-5. [Architecture](#architecture)
-6. [Contributing](#contributing)
-7. [FAQ](#faq)
+1. [Project Setup](#project-setup-)
+2. [Platform Setup](#platform-setup-)
+3. [Add a Feature](#add-a-feature-)
+4. [Workflow](#workflow-)
+5. [Architecture](#architecture-)
+6. [Contributing](#contributing-)
+7. [FAQ](#faq-)
 
 ## Project Setup 🚀
 
