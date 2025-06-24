@@ -24,6 +24,16 @@ If you see a version number, you're good! If you get "command not found", instal
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
+**Next, check if git is installed:**
+```bash
+git --version
+```
+If you see a version number, you're good! If you get "command not found", install git:
+```bash
+brew install git
+# Or: xcode-select --install
+```
+
 ```bash
 # Prerequisites
 node --version    # >= 18
@@ -33,6 +43,9 @@ npm --version     # >= 8
 xcode-select -p   # Xcode CLI tools
 # If not installed: xcode-select --install
 brew --version    # Homebrew
+
+git --version     # Git
+# If not installed: brew install git
 
 # Clone & build
  git clone https://github.com/mobile-next/mobile-mcp.git
