@@ -198,43 +198,65 @@ export class IosRobot implements Robot {
 
 	public async getNetworkInfo(): Promise<NetworkInfo> {
 		try {
-			// Use go-ios to get device info - just testing connectivity
-			await this.ios("info");
-
-			// For iOS devices, we'll use a simpler approach
-			// Check basic connectivity by trying to get device info (requires connection)
-			// More detailed network info would require more complex setup
-
-			// Try to get WiFi info using go-ios if available
-			try {
-				const wirelessInfo = await this.ios("wifi", "info");
-				const wifiData = JSON.parse(wirelessInfo);
-
-				if (wifiData && wifiData.SSID) {
-					return {
-						type: "wifi",
-						isConnected: true,
-						networkName: wifiData.SSID,
-						signalStrength: wifiData.RSSI ? parseInt(wifiData.RSSI, 10) : undefined,
-					};
-				}
-			} catch (wifiError) {
-				// WiFi info not available, continue with basic check
+			const isConnected = await this.checkDeviceConnectivity();
+			if (!isConnected) {
+				return {
+					type: "none",
+					isConnected: false,
+				};
 			}
 
-			// Fallback: if we can get device info, there's some connection
-			// This is a simplified check - iOS network detection is more complex
-			// and would typically require additional tools or apps on device
+			// Try to get detailed WiFi information
+			const wifiInfo = await this.getWifiInfo();
+			if (wifiInfo) {
+				return {
+					type: "wifi",
+					isConnected: true,
+					networkName: wifiInfo.ssid,
+					signalStrength: wifiInfo.rssi,
+				};
+			}
+
+			// Device is connected but WiFi details unavailable
 			return {
 				type: "unknown",
 				isConnected: true,
+				networkName: "iOS Device Connection",
 			};
+
 		} catch (error) {
-			// If we can't communicate with device, assume no connection
+			// Fallback to connection test
+			const isConnected = await this.checkDeviceConnectivity();
 			return {
-				type: "none",
-				isConnected: false,
+				type: isConnected ? "unknown" : "none",
+				isConnected,
+				networkName: isConnected ? "iOS Device Connection" : undefined,
 			};
+		}
+	}
+
+	private async checkDeviceConnectivity(): Promise<boolean> {
+		try {
+			await this.ios("info");
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	private async getWifiInfo() {
+		try {
+			const wirelessInfo = await this.ios("wifi", "info");
+			const wifiData = JSON.parse(wirelessInfo);
+			
+			return wifiData && wifiData.SSID 
+				? {
+					ssid: wifiData.SSID,
+					rssi: wifiData.RSSI ? parseInt(wifiData.RSSI, 10) : undefined
+				  }
+				: null;
+		} catch {
+			return null;
 		}
 	}
 }

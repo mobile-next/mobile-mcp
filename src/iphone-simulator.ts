@@ -136,27 +136,38 @@ export class Simctl implements Robot {
 	}
 
 	public async getNetworkInfo(): Promise<NetworkInfo> {
-		// For iOS simulators, network connectivity is provided by the host Mac
-		// Simulators typically always have internet access if the host does
 		try {
-			// Simple connectivity test - try to reach a reliable server
-			// For simulators, we can use the host's network stack
-			this.simctl("spawn", this.simulatorUuid, "ping", "-c", "1", "8.8.8.8");
-
-			// If ping succeeds, we have connectivity
+			const hasInternet = this.checkInternetViaPing();
+			
 			// Simulators use the host's network, so it's typically WiFi
 			return {
-				type: "wifi",
-				isConnected: true,
-				networkName: "Simulator Network (Host)",
+				type: hasInternet ? "wifi" : "none",
+				isConnected: hasInternet,
+				networkName: this.getSimulatorNetworkName(hasInternet),
 			};
 		} catch (error) {
-			// If ping fails, assume no connectivity
+			// Fallback in case of unexpected errors
 			return {
 				type: "none",
 				isConnected: false,
+				networkName: "Simulator (Error)",
 			};
 		}
+	}
+
+	private checkInternetViaPing(): boolean {
+		try {
+			this.simctl("spawn", this.simulatorUuid, "ping", "-c", "1", "8.8.8.8");
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	private getSimulatorNetworkName(hasInternet: boolean): string {
+		return hasInternet 
+			? "Simulator Network (Host)" 
+			: "Simulator (No Internet)";
 	}
 }
 

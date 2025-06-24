@@ -319,19 +319,94 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getNetworkInfo(): Promise<NetworkInfo> {
-		// Simple implementation for now - just check basic connectivity
 		try {
-			// Try to ping Google DNS to test connectivity
-			this.adb("shell", "ping", "-c", "1", "8.8.8.8");
-			return {
-				type: "unknown",
-				isConnected: true,
-			};
-		} catch (error) {
+			const connectivityInfo = this.adb("shell", "dumpsys", "connectivity").toString();
+			const hasInternet = this.checkInternetViaPing();
+
+			// Check WiFi connection
+			const wifiInfo = this.parseWifiInfo(connectivityInfo);
+			if (wifiInfo) {
+				return {
+					type: "wifi",
+					isConnected: hasInternet,
+					networkName: `${wifiInfo.ssid}${hasInternet ? '' : ' (no internet)'}`,
+					signalStrength: wifiInfo.rssi
+				};
+			}
+
+			// Check cellular connection
+			if (this.isCellularConnected(connectivityInfo)) {
+				const carrier = this.getCarrierName();
+				return {
+					type: "cellular",
+					isConnected: hasInternet,
+					networkName: hasInternet ? carrier : `${carrier} (no internet)`,
+				};
+			}
+
+			// No WiFi/cellular but might have other connection
+			if (hasInternet) {
+				return {
+					type: "unknown",
+					isConnected: true,
+					networkName: "Unknown connection with internet",
+				};
+			}
+
+			// No connectivity detected
 			return {
 				type: "none",
 				isConnected: false,
 			};
+
+		} catch (error) {
+			// Fallback to basic ping test if main method fails
+			const hasInternet = this.checkInternetViaPing();
+			return hasInternet
+				? {
+					  type: "unknown",
+					  isConnected: true,
+					  networkName: "Unknown connection with internet",
+				  }
+				: {
+					  type: "none",
+					  isConnected: false,
+				  };
+		}
+	}
+
+	private checkInternetViaPing(): boolean {
+		try {
+			this.adb("shell", "ping", "-c", "1", "-W", "3", "8.8.8.8");
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	private parseWifiInfo(info: string) {
+		if (!info.includes("WIFI CONNECTED")) return null;
+		
+		const ssidMatch = info.match(/SSID: "([^"]+)"/);
+		const rssiMatch = info.match(/RSSI: (-?\d+)/);
+		
+		return ssidMatch 
+			? { 
+				ssid: ssidMatch[1], 
+				rssi: rssiMatch ? parseInt(rssiMatch[1], 10) : undefined 
+			  } 
+			: null;
+	}
+
+	private isCellularConnected(info: string): boolean {
+		return info.includes("MOBILE") && info.includes("CONNECTED");
+	}
+
+	private getCarrierName(): string {
+		try {
+			return this.adb("shell", "getprop", "gsm.operator.alpha").toString().trim() || "Mobile Data";
+		} catch {
+			return "Mobile Data";
 		}
 	}
 
