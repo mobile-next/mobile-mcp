@@ -3,13 +3,13 @@
 ---
 
 ## 📑 Table of Contents
-1. [Project Setup](#project-setup-)
-2. [Platform Setup](#platform-setup-)
-3. [Add a Feature](#add-a-feature-)
-4. [Workflow](#workflow-)
-5. [Architecture](#architecture-)
-6. [Contributing](#contributing-)
-7. [FAQ](#faq-)
+1. [Project Setup](#project-setup)
+2. [Platform Setup](#platform-setup)
+3. [Add a Feature](#add-a-feature)
+4. [Workflow](#workflow)
+5. [Architecture](#architecture)
+6. [Contributing](#contributing)
+7. [FAQ](#faq)
 
 ## Project Setup 🚀
 
@@ -45,16 +45,6 @@ Before you start, make sure you have these tools installed:
   - If not installed:
     ```bash
     brew install node
-    ```
-
-- **npm** (>= 8)
-  - Check:
-    ```bash
-    npm --version
-    ```
-  - If not installed:
-    ```bash
-    brew install npm
     ```
 
 - **Xcode CLI**
