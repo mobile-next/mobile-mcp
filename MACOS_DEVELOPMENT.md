@@ -15,42 +15,53 @@
 
 ## 🚀 Project Setup
 
+### Prerequisites Table
+
+| Tool         | Check Command         | Install Command                        |
+|--------------|----------------------|----------------------------------------|
+| Homebrew     | `brew --version`     | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` |
+| git          | `git --version`      | `brew install git` or `xcode-select --install` |
+| Node.js      | `node --version`     | `brew install node`                    |
+| npm          | `npm --version`      | `brew install npm`                     |
+| Xcode CLI    | `xcode-select -p`    | `xcode-select --install`               |
+| go-ios       | `go-ios version`     | `npm install -g go-ios`                |
+| adb          | `adb version`        | `brew install android-platform-tools`   |
+
+---
+
 **First, check if Homebrew is installed:**
 ```bash
 brew --version
 ```
-If you see a version number, you're good! If you get "command not found", install Homebrew:
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+> **If not installed:**
+> `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
 **Next, check if git is installed:**
 ```bash
 git --version
 ```
-If you see a version number, you're good! If you get "command not found", install git:
-```bash
-brew install git
-# Or: xcode-select --install
-```
+> **If not installed:**
+> `brew install git`  
+> or: `xcode-select --install`
 
 ```bash
 # Prerequisites
 node --version    # >= 18
-# If not installed: brew install node
+# 👉 If not installed: brew install node
 npm --version     # >= 8
-# If not installed: brew install npm
+# 👉 If not installed: brew install npm
 xcode-select -p   # Xcode CLI tools
-# If not installed: xcode-select --install
+# 👉 If not installed: xcode-select --install
 brew --version    # Homebrew
+# 👉 If not installed: see above
 
 git --version     # Git
-# If not installed: brew install git
+# 👉 If not installed: see above
 
 # Clone & build
- git clone https://github.com/mobile-next/mobile-mcp.git
- cd mobile-mcp
- npm install && npm run build && npm run test
+git clone https://github.com/mobile-next/mobile-mcp.git
+cd mobile-mcp
+npm install && npm run build && npm run test
 ```
 
 ## 📱 Platform Setup
