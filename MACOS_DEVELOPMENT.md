@@ -15,17 +15,23 @@
 
 ## 🚀 Project Setup
 
-### Prerequisites
+Before you start, make sure you have these tools installed:
 
 - **Homebrew**
-  - Check: `brew --version`
+  - Check:
+    ```bash
+    brew --version
+    ```
   - If not installed:
     ```bash
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     ```
 
 - **git**
-  - Check: `git --version`
+  - Check:
+    ```bash
+    git --version
+    ```
   - If not installed:
     ```bash
     brew install git
@@ -33,36 +39,51 @@
     xcode-select --install
     ```
 
-- **Node.js**
-  - Check: `node --version` (>= 18)
+- **Node.js** (>= 18)
+  - Check:
+    ```bash
+    node --version
+    ```
   - If not installed:
     ```bash
     brew install node
     ```
 
-- **npm**
-  - Check: `npm --version` (>= 8)
+- **npm** (>= 8)
+  - Check:
+    ```bash
+    npm --version
+    ```
   - If not installed:
     ```bash
     brew install npm
     ```
 
 - **Xcode CLI**
-  - Check: `xcode-select -p`
+  - Check:
+    ```bash
+    xcode-select -p
+    ```
   - If not installed:
     ```bash
     xcode-select --install
     ```
 
 - **go-ios**
-  - Check: `go-ios version`
+  - Check:
+    ```bash
+    go-ios version
+    ```
   - If not installed:
     ```bash
     npm install -g go-ios
     ```
 
 - **adb**
-  - Check: `adb version`
+  - Check:
+    ```bash
+    adb version
+    ```
   - If not installed:
     ```bash
     brew install android-platform-tools
@@ -70,23 +91,13 @@
 
 ---
 
-# Prerequisites
-node --version    # >= 18
-# 👉 If not installed: brew install node
-npm --version     # >= 8
-# 👉 If not installed: brew install npm
-xcode-select -p   # Xcode CLI tools
-# 👉 If not installed: xcode-select --install
-brew --version    # Homebrew
-# 👉 If not installed: see above
+### Clone & Build
 
-git --version     # Git
-# 👉 If not installed: see above
-
-# Clone & build
+```bash
 git clone https://github.com/mobile-next/mobile-mcp.git
 cd mobile-mcp
 npm install && npm run build && npm run test
+```
 
 ## 📱 Platform Setup
 ```bash
