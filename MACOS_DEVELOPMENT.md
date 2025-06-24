@@ -11,7 +11,7 @@
 6. [Contributing](#contributing)
 7. [FAQ](#faq)
 
-## Project Setup 🚀
+## Project Setup🚀
 
 Before you start, make sure you have these tools installed:
 
@@ -87,7 +87,7 @@ cd mobile-mcp
 npm install && npm run build && npm run test
 ```
 
-## Platform Setup 📱
+## Platform Setup📱
 
 ### iOS Simulators
 
@@ -130,7 +130,7 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="$PATH:$ANDROID_HOME/platform-tools"
 ```
 
-## Add a Feature 🛠️
+## Add a Feature🛠️
 
 Want to contribute a new tool or capability? Here's how:
 
@@ -151,7 +151,7 @@ Want to contribute a new tool or capability? Here's how:
     ```
 7. Open a pull request with clear commits and a helpful description.
 
-## Workflow 🔄
+## Workflow🔄
 ```bash
 npm run watch   # Auto-rebuild
 npm run lint    # Lint code
@@ -159,7 +159,7 @@ npm run test    # Run tests
 node lib/index.js  # Start server
 ```
 
-## Architecture 🗂️
+## Architecture🗂️
 
 Project structure:
 ```
@@ -171,14 +171,14 @@ src/
 ├── iphone-simulator.ts # iOS simulator logic
 ```
 
-## Contributing 🤝
+## Contributing🤝
 - Follow patterns in `server.ts`
 - Cross-platform support preferred
 - Update types, add tests
 - Lint, test, document
 - Use clear, conventional commits
 
-## FAQ ❓
+## FAQ❓
 - **Xcode/Homebrew error?** Try `sudo` or check permissions.
 - **adb not detecting device?** Enable USB debugging, restart adb.
 - **Tests failing?** Check Node/npm versions, reinstall deps.
