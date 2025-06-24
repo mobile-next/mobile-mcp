@@ -130,7 +130,7 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="$PATH:$ANDROID_HOME/platform-tools"
 ```
 
-## Add a Feature🛠️
+## Add a Feature🔨
 
 Want to contribute a new tool or capability? Here's how:
 
@@ -159,7 +159,7 @@ npm run test    # Run tests
 node lib/index.js  # Start server
 ```
 
-## Architecture🗂️
+## Architecture📁
 
 Project structure:
 ```
