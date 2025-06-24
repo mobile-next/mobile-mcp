@@ -325,6 +325,308 @@ adb devices
 2. Push to your fork
 3. Create a pull request with clear description
 
+## 🛠️ Contributing a New Feature - Complete Walkthrough
+
+### Example: Adding "Get Device Info" Feature
+
+Let's walk through adding a new MCP tool that returns detailed device information. This demonstrates the complete development workflow.
+
+#### Step 1: Setup and Planning
+```bash
+# 1. Fork the repository on GitHub
+# 2. Clone your fork
+git clone https://github.com/YOUR_USERNAME/mobile-mcp.git
+cd mobile-mcp
+
+# 3. Follow the setup guide above to install dependencies
+npm install
+npm run build
+
+# 4. Create feature branch
+git checkout -b feature/get-device-info
+```
+
+#### Step 2: Understand the Architecture
+
+**Key Files for MCP Tools:**
+- `src/server.ts` - Register new MCP tools
+- `src/robot.ts` - Add interface method if needed
+- `src/android.ts` - Android implementation
+- `src/ios.ts` - iOS physical device implementation  
+- `src/iphone-simulator.ts` - iOS simulator implementation
+
+#### Step 3: Define the Interface
+
+**Add to `src/robot.ts`:**
+```typescript
+export interface DeviceInfo {
+  platform: "ios" | "android";
+  osVersion: string;
+  deviceModel: string;
+  screenResolution: string;
+  batteryLevel?: number;
+  isSimulator: boolean;
+}
+
+export interface Robot {
+  // ... existing methods ...
+  
+  /**
+   * Get detailed device information
+   */
+  getDeviceInfo(): Promise<DeviceInfo>;
+}
+```
+
+#### Step 4: Implement for Each Platform
+
+**Android Implementation (`src/android.ts`):**
+```typescript
+public async getDeviceInfo(): Promise<DeviceInfo> {
+  const model = this.adb("shell", "getprop", "ro.product.model").toString().trim();
+  const osVersion = this.adb("shell", "getprop", "ro.build.version.release").toString().trim();
+  const screenSize = await this.getScreenSize();
+  
+  return {
+    platform: "android",
+    osVersion,
+    deviceModel: model,
+    screenResolution: `${screenSize.width}x${screenSize.height}`,
+    isSimulator: false, // Could detect emulator vs physical
+  };
+}
+```
+
+**iOS Implementation (`src/ios.ts`):**
+```typescript
+public async getDeviceInfo(): Promise<DeviceInfo> {
+  const info = await this.ios("info");
+  const json = JSON.parse(info);
+  const screenSize = await this.getScreenSize();
+  
+  return {
+    platform: "ios",
+    osVersion: json.ProductVersion,
+    deviceModel: json.ProductType,
+    screenResolution: `${screenSize.width}x${screenSize.height}`,
+    isSimulator: false,
+  };
+}
+```
+
+**iOS Simulator Implementation (`src/iphone-simulator.ts`):**
+```typescript
+public async getDeviceInfo(): Promise<DeviceInfo> {
+  const screenSize = await this.getScreenSize();
+  // Get simulator info from simctl
+  const deviceInfo = execFileSync("xcrun", ["simctl", "list", "devices", "-j"]);
+  
+  return {
+    platform: "ios",
+    osVersion: "Simulator",
+    deviceModel: "iPhone Simulator",
+    screenResolution: `${screenSize.width}x${screenSize.height}`,
+    isSimulator: true,
+  };
+}
+```
+
+#### Step 5: Register the MCP Tool
+
+**Add to `src/server.ts`:**
+```typescript
+tool(
+  "mobile_get_device_info",
+  "Get detailed information about the connected device including platform, OS version, model, and screen resolution",
+  {
+    noParams
+  },
+  async () => {
+    requireRobot();
+    const deviceInfo = await robot!.getDeviceInfo();
+    
+    return JSON.stringify({
+      platform: deviceInfo.platform,
+      osVersion: deviceInfo.osVersion,
+      deviceModel: deviceInfo.deviceModel,
+      screenResolution: deviceInfo.screenResolution,
+      batteryLevel: deviceInfo.batteryLevel,
+      isSimulator: deviceInfo.isSimulator,
+    }, null, 2);
+  }
+);
+```
+
+#### Step 6: Test Your Implementation
+
+**Build and test:**
+```bash
+# Build the project
+npm run build
+
+# Test with a device connected
+node lib/index.js
+
+# In another terminal, test with MCP client or direct testing
+```
+
+**Testing script example:**
+```typescript
+// test/device-info.ts
+import { describe, it } from "mocha";
+import { AndroidRobot } from "../src/android";
+
+describe("device-info", () => {
+  it("should get Android device info", async () => {
+    // Test implementation
+  });
+  
+  it("should get iOS device info", async () => {
+    // Test implementation
+  });
+});
+```
+
+#### Step 7: Test with MCP Client
+
+**Cursor/Cline config:**
+```json
+{
+  "mcpServers": {
+    "mobile-mcp-dev": {
+      "command": "node", 
+      "args": ["~/mobile-mcp/lib/index.js"]
+    }
+  }
+}
+```
+
+**Test the tool:**
+```
+> Use the mobile_get_device_info tool to get information about my device
+```
+
+#### Step 8: Quality Checks
+
+```bash
+# Run linting
+npm run lint
+
+# Fix any issues
+npm run lint -- --fix
+
+# Run tests
+npm test
+
+# Test specific components
+npx mocha --require ts-node/register test/device-info.ts
+```
+
+#### Step 9: Documentation
+
+**Update appropriate files:**
+- Add tool description to README.md
+- Document any new dependencies
+- Add examples in wiki if complex
+
+#### Step 10: Commit and Submit
+
+```bash
+# Commit your changes
+git add .
+git commit -m "feat: add mobile_get_device_info tool
+
+- Add getDeviceInfo interface to Robot
+- Implement device info collection for Android, iOS, and simulators
+- Return platform, OS version, model, screen resolution
+- Add comprehensive device information MCP tool
+- Include tests for all platforms
+
+Closes #123" # if there was an issue
+
+# Push to your fork
+git push origin feature/get-device-info
+
+# Create pull request on GitHub
+```
+
+#### Step 11: Pull Request Best Practices
+
+**PR Description Template:**
+```markdown
+## 🚀 Feature: Get Device Info Tool
+
+### What does this PR do?
+Adds a new MCP tool `mobile_get_device_info` that returns detailed device information.
+
+### Changes Made
+- ✅ Added `getDeviceInfo()` interface to Robot
+- ✅ Implemented for Android devices
+- ✅ Implemented for iOS devices  
+- ✅ Implemented for iOS simulators
+- ✅ Added MCP tool registration
+- ✅ Added tests
+- ✅ Updated documentation
+
+### Testing
+- [x] Tested on iOS simulator
+- [x] Tested on Android emulator
+- [ ] Tested on physical iOS device
+- [ ] Tested on physical Android device
+
+### Screenshots/Output
+```json
+{
+  "platform": "ios",
+  "osVersion": "17.0",
+  "deviceModel": "iPhone15,2", 
+  "screenResolution": "1179x2556",
+  "isSimulator": false
+}
+```
+
+### Breaking Changes
+None
+
+### Related Issues
+Closes #123
+```
+
+### 🎯 Key Takeaways for Contributors
+
+1. **Follow the pattern**: Study existing tools in `server.ts`
+2. **Implement across platforms**: Android, iOS, iOS Simulator
+3. **Add proper TypeScript types**: Update `robot.ts` interface
+4. **Test thoroughly**: Multiple devices and scenarios
+5. **Document your changes**: README, code comments
+6. **Follow conventions**: Naming, error handling, logging
+7. **Write good commit messages**: Use conventional commits
+8. **Create detailed PRs**: Help reviewers understand your changes
+
+### 💡 Feature Ideas for New Contributors
+
+**Easy features:**
+- `mobile_get_battery_level` - Battery percentage
+- `mobile_get_wifi_info` - WiFi network details
+- `mobile_toggle_airplane_mode` - Airplane mode control
+
+**Medium features:**
+- `mobile_install_app` - Install app from file
+- `mobile_record_screen` - Screen recording
+- `mobile_get_logs` - Device logs
+
+**Advanced features:**
+- `mobile_simulate_location` - GPS mocking
+- `mobile_test_performance` - Performance metrics
+- `mobile_network_conditions` - Simulate network conditions
+
+### 🔗 Useful Resources for Feature Development
+
+- **MCP Spec**: [Model Context Protocol](https://modelcontextprotocol.io/)
+- **Android ADB**: [ADB Shell Commands](https://developer.android.com/studio/command-line/adb)
+- **iOS go-ios**: [go-ios Documentation](https://github.com/danielpaulus/go-ios)
+- **WebDriverAgent**: [WDA Protocol](https://github.com/appium/WebDriverAgent)
+
 ## 📚 Additional Resources
 
 - **Project Wiki**: [GitHub Wiki](https://github.com/mobile-next/mobile-mcp/wiki)
