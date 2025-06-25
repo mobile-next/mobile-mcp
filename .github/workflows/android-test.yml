@@ -32,11 +32,11 @@ jobs:
     - name: Create and start Android emulator
       shell: bash
       run: |
-        echo "y" | sdkmanager "system-images;android-35;google_apis;x86_64"
-        echo "no" | avdmanager create avd -n test_avd -k "system-images;android-35;google_apis;x86_64" --device "pixel" --force
+        echo "y" | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "system-images;android-35;google_apis;x86_64"
+        echo "no" | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n test_avd -k "system-images;android-35;google_apis;x86_64" --device "pixel" --force
 
         echo "Starting emulator..."
-        nohup $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+        nohup "$ANDROID_HOME/emulator/emulator" -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
 
         adb wait-for-device
         echo "Waiting for boot to complete..."
