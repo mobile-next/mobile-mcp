@@ -1,0 +1,50 @@
+name: Android Tests on Windows
+
+on:
+  workflow_dispatch: # Allows manual triggering
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-android:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Install Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Create and start Android emulator
+      shell: bash
+      run: |
+        echo "y" | sdkmanager "system-images;android-35;google_apis;x86_64"
+        echo "no" | avdmanager create avd -n test_avd -k "system-images;android-35;google_apis;x86_64" --device "pixel" --force
+
+        echo "Starting emulator..."
+        nohup $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+
+        adb wait-for-device
+        echo "Waiting for boot to complete..."
+        while [[ -z $(adb shell getprop sys.boot_completed) ]]; do
+          sleep 1;
+        done;
+        echo "Emulator booted."
+        adb shell wm dismiss-keyguard
+
+    - name: Run android tests
+      run: npm test
