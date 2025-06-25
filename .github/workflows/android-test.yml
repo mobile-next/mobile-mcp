@@ -26,6 +26,12 @@ jobs:
     - name: Install dependencies
       run: npm install
 
+    - name: Setup Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
     - name: Install Android SDK
       uses: android-actions/setup-android@v3
 
