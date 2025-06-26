@@ -1,5 +1,5 @@
-import path from "path";
-import { execFileSync } from "child_process";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
 
 import * as xml from "fast-xml-parser";
 

@@ -1,4 +1,4 @@
-import assert from "assert";
+import assert from "node:assert";
 
 import { IosManager, IosRobot } from "../src/ios";
 import { PNG } from "../src/png";

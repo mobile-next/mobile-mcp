@@ -1,4 +1,4 @@
-import assert from "assert";
+import assert from "node:assert";
 
 import { PNG } from "../src/png";
 import { AndroidRobot, AndroidDeviceManager } from "../src/android";

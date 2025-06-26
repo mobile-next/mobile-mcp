@@ -1,5 +1,5 @@
-import { execFileSync } from "child_process";
-import { Socket } from "net";
+import { Socket } from "node:net";
+import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";

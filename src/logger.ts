@@ -1,4 +1,4 @@
-import { appendFileSync } from "fs";
+import { appendFileSync } from "node:fs";
 
 const writeLog = (message: string) => {
 	if (process.env.LOG_FILE) {

@@ -1,8 +1,8 @@
-import assert from "assert";
+import assert from "node:assert";
+import { randomBytes } from "node:crypto";
 
 import { PNG } from "../src/png";
 import { SimctlManager } from "../src/iphone-simulator";
-import { randomBytes } from "crypto";
 
 describe("iphone-simulator", () => {
 
