@@ -164,4 +164,21 @@ describe("iphone-simulator", () => {
 			assert.ok(error.message.includes("Button \"NOT_A_BUTTON\" is not supported"));
 		}
 	});
+
+	it("should be able to get network info", async function() {
+		hasOneSimulator || this.skip();
+		const networkInfo = await simctl.getNetworkInfo();
+
+		// check that we get a valid network info object
+		assert.ok(typeof networkInfo === "object");
+		assert.ok(typeof networkInfo.type === "string");
+		assert.ok(typeof networkInfo.isConnected === "boolean");
+
+		// type should be one of the valid network types
+		const validTypes = ["wifi", "cellular", "none", "unknown"];
+		assert.ok(validTypes.includes(networkInfo.type));
+
+		// simulators typically use host network, so usually connected
+		// but we'll be flexible since host network can vary
+	});
 });

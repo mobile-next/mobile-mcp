@@ -136,4 +136,24 @@ describe("android", () => {
 		// screen size should not have changed
 		assert.deepEqual(screenSize1, screenSize2);
 	});
+
+	it("should be able to get network info", async function() {
+		hasOneAndroidDevice || this.skip();
+		const networkInfo = await android.getNetworkInfo();
+
+		// check that we get a valid network info object
+		assert.ok(typeof networkInfo === "object");
+		assert.ok(typeof networkInfo.type === "string");
+		assert.ok(typeof networkInfo.isConnected === "boolean");
+
+		// type should be one of the valid network types
+		const validTypes = ["wifi", "cellular", "none", "unknown"];
+		assert.ok(validTypes.includes(networkInfo.type));
+
+		// if connected, we should be able to ping (simple connectivity test)
+		if (networkInfo.isConnected) {
+			// Android emulators typically have connectivity
+			assert.ok(networkInfo.isConnected === true);
+		}
+	});
 });

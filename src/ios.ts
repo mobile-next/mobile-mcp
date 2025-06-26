@@ -2,7 +2,7 @@ import { execFileSync } from "child_process";
 import { Socket } from "net";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation, NetworkInfo } from "./robot";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -40,9 +40,7 @@ const getGoIosPath = (): string => {
 };
 
 export class IosRobot implements Robot {
-
-	public constructor(private deviceId: string) {
-	}
+	public constructor(private deviceId: string) {}
 
 	private isListeningOnPort(port: number): Promise<boolean> {
 		return new Promise((resolve, reject) => {
@@ -75,17 +73,20 @@ export class IosRobot implements Robot {
 	}
 
 	private async wda(): Promise<WebDriverAgent> {
-
 		await this.assertTunnelRunning();
 
 		if (!(await this.isWdaForwardRunning())) {
-			throw new ActionableError("Port forwarding to WebDriverAgent is not running (tunnel okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			throw new ActionableError(
+				"Port forwarding to WebDriverAgent is not running (tunnel okay), please see https://github.com/mobile-next/mobile-mcp/wiki/",
+			);
 		}
 
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
 
 		if (!(await wda.isRunning())) {
-			throw new ActionableError("WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			throw new ActionableError(
+				"WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/",
+			);
 		}
 
 		return wda;
@@ -126,15 +127,13 @@ export class IosRobot implements Robot {
 		await this.assertTunnelRunning();
 
 		const output = await this.ios("apps", "--all", "--list");
-		return output
-			.split("\n")
-			.map(line => {
-				const [packageName, appName] = line.split(" ");
-				return {
-					packageName,
-					appName,
-				};
-			});
+		return output.split("\n").map(line => {
+			const [packageName, appName] = line.split(" ");
+			return {
+				packageName,
+				appName,
+			};
+		});
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
@@ -195,10 +194,72 @@ export class IosRobot implements Robot {
 		const wda = await this.wda();
 		return await wda.getOrientation();
 	}
+
+	public async getNetworkInfo(): Promise<NetworkInfo> {
+		try {
+			const isConnected = await this.checkDeviceConnectivity();
+			if (!isConnected) {
+				return {
+					type: "none",
+					isConnected: false,
+				};
+			}
+
+			// Try to get detailed WiFi information
+			const wifiInfo = await this.getWifiInfo();
+			if (wifiInfo) {
+				return {
+					type: "wifi",
+					isConnected: true,
+					networkName: wifiInfo.ssid,
+					signalStrength: wifiInfo.rssi,
+				};
+			}
+
+			// Device is connected but WiFi details unavailable
+			return {
+				type: "unknown",
+				isConnected: true,
+				networkName: "iOS Device Connection",
+			};
+		} catch (error) {
+			// Fallback to connection test
+			const isConnected = await this.checkDeviceConnectivity();
+			return {
+				type: isConnected ? "unknown" : "none",
+				isConnected,
+				networkName: isConnected ? "iOS Device Connection" : undefined,
+			};
+		}
+	}
+
+	private async checkDeviceConnectivity(): Promise<boolean> {
+		try {
+			await this.ios("info");
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	private async getWifiInfo() {
+		try {
+			const wirelessInfo = await this.ios("wifi", "info");
+			const wifiData = JSON.parse(wirelessInfo);
+
+			return wifiData && wifiData.SSID
+				? {
+					ssid: wifiData.SSID,
+					rssi: wifiData.RSSI ? parseInt(wifiData.RSSI, 10) : undefined,
+				}
+				: null;
+		} catch {
+			return null;
+		}
+	}
 }
 
 export class IosManager {
-
 	public async isGoIosInstalled(): Promise<boolean> {
 		try {
 			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
