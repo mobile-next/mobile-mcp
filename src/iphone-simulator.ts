@@ -1,5 +1,6 @@
-import { execFileSync } from "child_process";
+import { execFileSync } from "node:child_process";
 
+import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
 
@@ -40,11 +41,47 @@ export class Simctl implements Robot {
 
 	constructor(private readonly simulatorUuid: string) {}
 
+	private async isWdaInstalled(): Promise<boolean> {
+		const apps = await this.listApps();
+		return apps.map(app => app.packageName).includes("com.facebook.WebDriverAgentRunner.xctrunner");
+	}
+
+	private async startWda(): Promise<void> {
+		if (!(await this.isWdaInstalled())) {
+			// wda is not even installed, won't attempt to start it
+			return;
+		}
+
+		trace("Starting WebDriverAgent");
+		const webdriverPackageName = "com.facebook.WebDriverAgentRunner.xctrunner";
+		this.simctl("launch", this.simulatorUuid, webdriverPackageName);
+
+		// now we wait for wda to have a successful status
+		const wda = new WebDriverAgent("localhost", WDA_PORT);
+		const timeout = +new Date() + 10000;
+		while (+new Date() < timeout) {
+			// cross fingers and see if wda is already running
+			if (await wda.isRunning()) {
+				trace("WebDriverAgent is now running");
+				return;
+			}
+
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
+
+		trace("Could not start WebDriverAgent in time, giving up");
+	}
+
 	private async wda(): Promise<WebDriverAgent> {
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
 
 		if (!(await wda.isRunning())) {
-			throw new ActionableError("WebDriverAgent is not running on simulator, please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			await this.startWda();
+			if (!(await wda.isRunning())) {
+				throw new ActionableError("WebDriverAgent is not running on simulator, please see https://github.com/mobile-next/mobile-mcp/wiki/");
+			}
+
+			// was successfully started
 		}
 
 		return wda;
