@@ -58,7 +58,9 @@ export class Simctl implements Robot {
 
 		// now we wait for wda to have a successful status
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
-		const timeout = +new Date() + 10000;
+
+		// wait up to 10 seconds for wda to start
+		const timeout = +new Date() + 10 * 1000;
 		while (+new Date() < timeout) {
 			// cross fingers and see if wda is already running
 			if (await wda.isRunning()) {
@@ -66,6 +68,7 @@ export class Simctl implements Robot {
 				return;
 			}
 
+			// wait 100ms before trying again
 			await new Promise(resolve => setTimeout(resolve, 100));
 		}
 
