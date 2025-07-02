@@ -199,7 +199,7 @@ export class IosRobot implements Robot {
 
 export class IosManager {
 
-	public async isGoIosInstalled(): Promise<boolean> {
+	public isGoIosInstalled(): boolean {
 		try {
 			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
 			const json: VersionCommandOutput = JSON.parse(output);
