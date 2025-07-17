@@ -173,6 +173,33 @@ export class WebDriverAgent {
 		});
 	}
 
+	public async longPress(x: number, y: number) {
+		await this.withinSession(async sessionUrl => {
+			const url = `${sessionUrl}/actions`;
+			await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					actions: [
+						{
+							type: "pointer",
+							id: "finger1",
+							parameters: { pointerType: "touch" },
+							actions: [
+								{ type: "pointerMove", duration: 0, x, y },
+								{ type: "pointerDown", button: 0 },
+								{ type: "pause", duration: 1000 },
+								{ type: "pointerUp", button: 0 }
+							]
+						}
+					]
+				}),
+			});
+		});
+	}
+
 	private isVisible(rect: SourceTreeElementRect): boolean {
 		return rect.x >= 0 && rect.y >= 0;
 	}
