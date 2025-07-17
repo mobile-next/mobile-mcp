@@ -289,6 +289,20 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_long_press_on_screen_at_coordinates",
+		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
+		{
+			x: z.number().describe("The x coordinate to long press on the screen, in pixels"),
+			y: z.number().describe("The y coordinate to long press on the screen, in pixels"),
+		},
+		async ({ x, y }) => {
+			requireRobot();
+			await robot!.longPress(x, y);
+			return `Long pressed on screen at coordinates: ${x}, ${y}`;
+		}
+	);
+
+	tool(
 		"mobile_list_elements_on_screen",
 		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
 		{
