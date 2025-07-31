@@ -450,7 +450,10 @@ export const createMcpServer = (): McpServer => {
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
 
 				return {
-					content: [{ type: "image", data: screenshot64, mimeType }]
+					content: [{ type: "image", data: screenshot64, mimeType }],
+					_meta: {
+						"copilot-vision-request": "1"
+					}
 				};
 			} catch (err: any) {
 				error(`Error taking screenshot: ${err.message} ${err.stack}`);
