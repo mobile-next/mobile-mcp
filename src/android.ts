@@ -66,6 +66,12 @@ export class AndroidRobot implements Robot {
 		});
 	}
 
+	public getFirstDisplayId(): string | null {
+		const output = this.adb("shell", "dumpsys", "SurfaceFlinger", "--display-id").toString();
+		const match = output.match(/Display (\d+) \(/);
+		return match ? match[1] : null;
+	}
+
 	public getSystemFeatures(): string[] {
 		return this.adb("shell", "pm", "list", "features")
 			.toString()
@@ -201,7 +207,15 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
-		return this.adb("exec-out", "screencap", "-p");
+		const displayId = this.getFirstDisplayId();
+
+		if (displayId !== null) {
+			// always good to provide displayId. required for multi-display devices such as fold
+			return this.adb("exec-out", "screencap", "-p", "-d", displayId);
+		} else {
+			// backward compatibility for android 10 and below
+			return this.adb("exec-out", "screencap", "-p");
+		}
 	}
 
 	private collectElements(node: UiAutomatorXmlNode): ScreenElement[] {
