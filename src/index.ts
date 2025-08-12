@@ -1,34 +1,29 @@
 #!/usr/bin/env node
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createMcpServer, getAgentVersion } from "./server";
 import { error } from "./logger";
 import express from "express";
 import { program } from "commander";
 
-const startSseServer = async (port: number) => {
+const startHttpServer = async (port: number) => {
 	const app = express();
 	const server = createMcpServer();
 
-	let transport: SSEServerTransport | null = null;
-
-	app.post("/mcp", (req, res) => {
-		if (transport) {
-			transport.handlePostMessage(req, res);
-		}
+	const transport = new StreamableHTTPServerTransport({
+		// Stateless mode (no session management). Set a generator to enable stateful sessions.
+		sessionIdGenerator: undefined,
 	});
 
-	app.get("/mcp", (req, res) => {
-		if (transport) {
-			transport.close();
-		}
+	server.connect(transport);
 
-		transport = new SSEServerTransport("/mcp", res);
-		server.connect(transport);
+	app.all("/mcp", (req, res) => {
+		// Delegate all methods (GET for SSE stream, POST for requests, DELETE to end session)
+		transport.handleRequest(req, res);
 	});
 
 	app.listen(port, () => {
-		error(`mobile-mcp ${getAgentVersion()} sse server listening on http://localhost:${port}/mcp`);
+		error(`mobile-mcp ${getAgentVersion()} http streamable server listening on http://localhost:${port}/mcp`);
 	});
 };
 
@@ -50,14 +45,14 @@ const startStdioServer = async () => {
 const main = async () => {
 	program
 		.version(getAgentVersion())
-		.option("--port <port>", "Start SSE server on this port")
+		.option("--port <port>", "Start HTTP Streamable server on this port")
 		.option("--stdio", "Start stdio server (default)")
 		.parse(process.argv);
 
 	const options = program.opts();
 
 	if (options.port) {
-		await startSseServer(+options.port);
+		await startHttpServer(+options.port);
 	} else {
 		await startStdioServer();
 	}

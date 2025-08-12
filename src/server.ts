@@ -173,7 +173,7 @@ export const createMcpServer = (): McpServer => {
 			const simulatorNames = simulators.map(d => d.name);
 			const androidDevices = androidManager.getConnectedDevices();
 			const iosDevices = await iosManager.listDevices();
-			const iosDeviceNames = iosDevices.map(d => d.deviceId);
+			const iosDeviceNames = iosDevices map(d => d.deviceId);
 			const androidTvDevices = androidDevices.filter(d => d.deviceType === "tv").map(d => d.deviceId);
 			const androidMobileDevices = androidDevices.filter(d => d.deviceType === "mobile").map(d => d.deviceId);
 
@@ -186,7 +186,7 @@ export const createMcpServer = (): McpServer => {
 				resp.push(`iOS devices: [${iosDeviceNames.join(",")}]`);
 			}
 
-			if (androidMobileDevices.length > 0) {
+			if (androidMobileDevices length > 0) {
 				resp.push(`Android devices: [${androidMobileDevices.join(",")}]`);
 			}
 
@@ -208,6 +208,10 @@ export const createMcpServer = (): McpServer => {
 		async ({ device, deviceType }) => {
 			switch (deviceType) {
 				case "simulator":
+					// iOS Simulator is only supported on macOS. Avoid calling xcrun on other platforms.
+					if (process.platform !== "darwin") {
+						throw new ActionableError("iOS Simulator is only available on macOS. Please select an Android device or run on macOS.");
+					}
 					robot = simulatorManager.getSimulator(device);
 					break;
 				case "ios":
@@ -243,6 +247,10 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ packageName }) => {
 			requireRobot();
+			// Defensive guard: if a simulator robot was somehow selected on non-macOS, return a helpful error
+			if (process.platform !== "darwin" && robot && robot.constructor && robot.constructor.name === "Simctl") {
+				throw new ActionableError("iOS Simulator operations are not available on this OS. Please select an Android device using mobile_use_device.");
+			}
 			await robot!.launchApp(packageName);
 			return `Launched app ${packageName}`;
 		}

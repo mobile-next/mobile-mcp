@@ -22,7 +22,7 @@
     "lib"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@modelcontextprotocol/sdk": "^1.13.2",
     "commander": "^14.0.0",
     "express": "^5.1.0",
     "fast-xml-parser": "^5.0.9",
