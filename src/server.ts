@@ -173,7 +173,7 @@ export const createMcpServer = (): McpServer => {
 			const simulatorNames = simulators.map(d => d.name);
 			const androidDevices = androidManager.getConnectedDevices();
 			const iosDevices = await iosManager.listDevices();
-			const iosDeviceNames = iosDevices map(d => d.deviceId);
+			const iosDeviceNames = iosDevices.map(d => d.deviceId);
 			const androidTvDevices = androidDevices.filter(d => d.deviceType === "tv").map(d => d.deviceId);
 			const androidMobileDevices = androidDevices.filter(d => d.deviceType === "mobile").map(d => d.deviceId);
 
@@ -186,7 +186,7 @@ export const createMcpServer = (): McpServer => {
 				resp.push(`iOS devices: [${iosDeviceNames.join(",")}]`);
 			}
 
-			if (androidMobileDevices length > 0) {
+			if (androidMobileDevices.length > 0) {
 				resp.push(`Android devices: [${androidMobileDevices.join(",")}]`);
 			}
 
