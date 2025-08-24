@@ -190,7 +190,7 @@ export class WebDriverAgent {
 							actions: [
 								{ type: "pointerMove", duration: 0, x, y },
 								{ type: "pointerDown", button: 0 },
-								{ type: "pause", duration: 1000 },
+								{ type: "pause", duration: 500 },
 								{ type: "pointerUp", button: 0 }
 							]
 						}
