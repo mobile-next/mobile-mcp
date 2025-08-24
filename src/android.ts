@@ -309,7 +309,7 @@ export class AndroidRobot implements Robot {
 
 	public async longPress(x: number, y: number): Promise<void> {
 		// a long press is a swipe with no movement and a long duration
-		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "1000");
+		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500");
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
