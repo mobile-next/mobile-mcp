@@ -105,6 +105,11 @@ export interface Robot {
 	tap(x: number, y: number): Promise<void>;
 
 	/**
+	 * Long press on a specific coordinate on the screen.
+	 */
+	longPress(x: number, y: number): Promise<void>;
+
+	/**
 	 * Get all elements on the screen. Works only on native apps (not webviews). Will
 	 * return a filtered list of elements that make sense to interact with.
 	 */

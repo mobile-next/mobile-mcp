@@ -313,19 +313,25 @@ export class AndroidRobot implements Robot {
 			throw new ActionableError(`Button "${button}" is not supported`);
 		}
 
-		this.adb("shell", "input", "keyevent", BUTTON_MAP[button]);
+		const mapped = BUTTON_MAP[button];
+		this.adb("shell", "input", "keyevent", mapped);
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
 	}
 
+	public async longPress(x: number, y: number): Promise<void> {
+		// a long press is a swipe with no movement and a long duration
+		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500");
+	}
+
 	public async setOrientation(orientation: Orientation): Promise<void> {
-		const orientationValue = orientation === "portrait" ? 0 : 1;
+		const value = orientation === "portrait" ? 0 : 1;
 
 		// disable auto-rotation prior to setting the orientation
 		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
-		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
+		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${value}`);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
