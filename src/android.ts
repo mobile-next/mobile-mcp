@@ -96,11 +96,7 @@ export class AndroidRobot implements Robot {
 			.split(" ")
 			.pop();
 
-		if (!screenDensity) {
-			throw new Error("Failed to get screen density");
-		}
-
-		const scale = +screenDensity / 160;
+		const scale = screenDensity ? +screenDensity / 160 : 1;
 		const [width, height] = screenSize.split("x").map(Number);
 		return { width, height, scale };
 	}
