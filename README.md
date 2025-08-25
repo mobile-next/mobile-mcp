@@ -1,6 +1,6 @@
-# Mobile Next - MCP server for Mobile Development and Automation  | iOS, Android, Simulator, Emulator, and physical devices
+# Mobile Next - MCP server for Mobile Development and Automation | iOS, Android, Simulator, Emulator, and Real Devices
 
-This is a [Model Context Protocol (MCP) server](https://github.com/modelcontextprotocol) that enables scalable mobile automation, development through a platform-agnostic interface, eliminating the need for distinct iOS or Android knowledge. You can run it on emulators, simulators, and physical devices (iOS and Android).
+This is a [Model Context Protocol (MCP) server](https://github.com/modelcontextprotocol) that enables scalable mobile automation, development through a platform-agnostic interface, eliminating the need for distinct iOS or Android knowledge. You can run it on emulators, simulators, and real devices (iOS and Android).
 This server allows Agents and LLMs to interact with native iOS/Android applications and devices through structured accessibility snapshots or coordinate-based taps based on screenshots.
 
 <h4 align="center">
@@ -51,7 +51,7 @@ Check out our detailed roadmap to see upcoming features, improvements, and miles
 How we help to scale mobile automation:
 
 - 📲 Native app automation (iOS and Android) for testing or data-entry scenarios.
-- 📝 Scripted flows and form interactions without manually controlling simulators/emulators or physical devices (iPhone, Samsung, Google Pixel etc)
+- 📝 Scripted flows and form interactions without manually controlling simulators/emulators or real devices (iPhone, Samsung, Google Pixel etc)
 - 🧭 Automating multi-step user journeys driven by an LLM
 - 👆 General-purpose mobile application interaction for agent-based frameworks
 - 🤖 Enables agent-to-agent communication for mobile automation usecases, data extraction
@@ -180,18 +180,18 @@ What you will need to connect MCP with your agent and mobile devices:
 - [node.js](https://nodejs.org/en/download/) v22+
 - [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
 
-### Simulators, Emulators, and Physical Devices
+### Simulators, Emulators, and Real Devices
 
 When launched, Mobile MCP can connect to:
 - iOS Simulators on macOS/Linux
 - Android Emulators on Linux/Windows/macOS
-- Physical iOS or Android devices (requires proper platform tools and drivers)
+- iOS or Android real devices (requires proper platform tools and drivers)
 
 Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and configured properly before running Mobile Next Mobile MCP.
 
 ### Running in "headless" mode on Simulators/Emulators
 
-When you do not have a physical phone connected to your machine, you can run Mobile MCP with an emulator or simulator in the background.
+When you do not have a real device connected to your machine, you can run Mobile MCP with an emulator or simulator in the background.
 
 For example, on Android:
 1. Start an emulator (avdmanager / emulator command).
