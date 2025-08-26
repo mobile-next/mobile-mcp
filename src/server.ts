@@ -451,66 +451,6 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"mobile_tap_element",
-		"Find an element on screen by query and tap it. This combines list_elements and tap functionality.",
-		{
-			query: z.string().describe("Search query to find the element (matches against text, label, name, value, or identifier)")
-		},
-		async ({ query }) => {
-			requireRobot();
-			const elements = await robot!.getElementsOnScreen();
-
-			// Find all matching elements by searching text, label, name, value, and identifier
-			const matchingElements = elements.filter(element => {
-				const searchFields = [
-					element.text,
-					element.label,
-					element.name,
-					element.value,
-					element.identifier
-				].filter(field => field && field.trim() !== "");
-
-				return searchFields.some(field =>
-					field && field.toLowerCase().includes(query.toLowerCase())
-				);
-			});
-
-			if (matchingElements.length === 0) {
-				throw new ActionableError(`No element found matching query: "${query}". Available elements: ${elements.map(e => e.text || e.label || e.name || e.value || e.identifier).filter(t => t).join(", ")}`);
-			}
-
-			if (matchingElements.length > 1) {
-				const matchingElementsJson = matchingElements.map(element => ({
-					type: element.type,
-					text: element.text,
-					label: element.label,
-					name: element.name,
-					value: element.value,
-					identifier: element.identifier,
-					coordinates: {
-						x: element.rect.x + (element.rect.width / 2),
-						y: element.rect.y + (element.rect.height / 2)
-					},
-					rect: element.rect
-				}));
-
-				throw new ActionableError(`Multiple elements found matching query: "${query}". Found ${matchingElements.length} matches:\n${JSON.stringify(matchingElementsJson, null, 2)}`);
-			}
-
-			const matchingElement = matchingElements[0];
-
-			// Calculate center coordinates of the element
-			const centerX = matchingElement.rect.x + (matchingElement.rect.width / 2);
-			const centerY = matchingElement.rect.y + (matchingElement.rect.height / 2);
-
-			// Tap the element
-			await robot!.tap(centerX, centerY);
-
-			return `Tapped element "${matchingElement.text || matchingElement.label || matchingElement.name || matchingElement.value || matchingElement.identifier}" at coordinates: ${centerX}, ${centerY}`;
-		}
-	);
-
-	tool(
 		"mobile_get_log",
 		"Get device logs with optional filtering. For iOS simulators, gets logs from running apps using log show command. For iOS physical devices, gets system logs. For Android devices, gets logcat output.",
 		{
