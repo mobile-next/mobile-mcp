@@ -1,6 +1,12 @@
+## [0.0.24](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.24) (2025-08-24)
+
+* iOS: new tool for long press ([#143](https://github.com/mobile-next/mobile-mcp/pull/143))
+* Android: new tool for long press ([#143](https://github.com/mobile-next/mobile-mcp/pull/143))
+* Android: fixed screenshot from devices with multiple devices (foldables) again ([#171](https://github.com/mobile-next/mobile-mcp/pull/171))
+
 ## [0.0.23](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.23) (2025-07-31)
 
-* Andrid: fixed a bug where devices with multiple screens (such as foldables) failed to take and save screenshot ([#159](https://github.com/mobile-next/mobile-mcp/pull/159))
+* Android: fixed a bug where devices with multiple screens (such as foldables) failed to take and save screenshot ([#159](https://github.com/mobile-next/mobile-mcp/pull/159))
 
 ## [0.0.22](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.22) (2025-07-17)
 

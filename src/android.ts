@@ -66,12 +66,6 @@ export class AndroidRobot implements Robot {
 		});
 	}
 
-	public getFirstDisplayId(): string | null {
-		const output = this.adb("shell", "dumpsys", "SurfaceFlinger", "--display-id").toString();
-		const match = output.match(/Display (\d+) \(/);
-		return match ? match[1] : null;
-	}
-
 	public getSystemFeatures(): string[] {
 		return this.adb("shell", "pm", "list", "features")
 			.toString()
@@ -211,16 +205,48 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
 	}
 
-	public async getScreenshot(): Promise<Buffer> {
-		const displayId = this.getFirstDisplayId();
+	private getDisplayCount(): number {
+		return this.adb("shell", "dumpsys", "SurfaceFlinger", "--display-id")
+			.toString()
+			.split("\n")
+			.filter(s => s.startsWith("Display "))
+			.length;
+	}
 
-		if (displayId !== null) {
-			// always good to provide displayId. required for multi-display devices such as fold
-			return this.adb("exec-out", "screencap", "-p", "-d", displayId);
-		} else {
-			// backward compatibility for android 10 and below
+	private getFirstDisplayId(): string | null {
+		const displays = this.adb("shell", "cmd", "display", "get-displays")
+			.toString()
+			.split("\n")
+			.filter(s => s.startsWith("Display id "))
+			// filter for state ON even though get-displays only returns turned on displays
+			.filter(s => s.indexOf(", state ON,") >= 0)
+			// another paranoia check
+			.filter(s => s.indexOf(", uniqueId ") >= 0);
+
+		if (displays.length > 0) {
+			const m = displays[0].match(/uniqueId \"([^\"]+)\"/);
+			if (m !== null) {
+				const displayId = m[1];
+				if (displayId.indexOf("local:") === 0) {
+					return displayId.split(":")[1];
+				}
+
+				return displayId;
+			}
+		}
+
+		return null;
+	}
+
+	public async getScreenshot(): Promise<Buffer> {
+		if (this.getDisplayCount() <= 1) {
+			// backward compatibility for android 10 and below, and for single display devices
 			return this.adb("exec-out", "screencap", "-p");
 		}
+
+		// find the first display that is turned on, and capture that one
+		const displayId = this.getFirstDisplayId();
+		return this.adb("exec-out", "screencap", "-p", "-d", `${displayId}`);
 	}
 
 	private collectElements(node: UiAutomatorXmlNode): ScreenElement[] {
@@ -318,19 +344,25 @@ export class AndroidRobot implements Robot {
 			throw new ActionableError(`Button "${button}" is not supported`);
 		}
 
-		this.adb("shell", "input", "keyevent", BUTTON_MAP[button]);
+		const mapped = BUTTON_MAP[button];
+		this.adb("shell", "input", "keyevent", mapped);
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
 	}
 
+	public async longPress(x: number, y: number): Promise<void> {
+		// a long press is a swipe with no movement and a long duration
+		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500");
+	}
+
 	public async setOrientation(orientation: Orientation): Promise<void> {
-		const orientationValue = orientation === "portrait" ? 0 : 1;
+		const value = orientation === "portrait" ? 0 : 1;
 
 		// disable auto-rotation prior to setting the orientation
 		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
-		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
+		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${value}`);
 	}
 
 	public async getOrientation(): Promise<Orientation> {

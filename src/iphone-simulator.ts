@@ -155,6 +155,11 @@ export class Simctl implements Robot {
 		return wda.tap(x, y);
 	}
 
+	public async longPress(x: number, y: number) {
+		const wda = await this.wda();
+		return wda.longPress(x, y);
+	}
+
 	public async pressButton(button: Button) {
 		const wda = await this.wda();
 		return wda.pressButton(button);
