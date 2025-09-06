@@ -303,10 +303,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	private escapeShellText(text: string): string {
-		// Escape all shell special characters that could be used for injection
-		// This includes: space, tab, newline, carriage return, backslash, single quote,
-		// double quote, backtick, pipe, ampersand, semicolon, parentheses, brackets,
-		// braces, less than, greater than, dollar sign, asterisk, question mark
+		// escape all shell special characters that could be used for injection
 		return text.replace(/[\\'"` \t\n\r|&;()<>{}[\]$*?]/g, "\\$&");
 	}
 
