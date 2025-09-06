@@ -125,4 +125,9 @@ export interface Robot {
 	 * Get the current screen orientation.
 	 */
 	getOrientation(): Promise<Orientation>;
+
+	/**
+	 * Get device logs with optional filtering.
+	 */
+	getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string>;
 }

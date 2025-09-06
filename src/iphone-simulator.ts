@@ -179,6 +179,69 @@ export class Simctl implements Robot {
 		const wda = await this.wda();
 		return wda.getOrientation();
 	}
+
+	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
+		const timeWindow = options?.timeWindow || "1m";
+		const filter = options?.filter;
+		const processFilter = options?.process;
+		const deviceUuid = this.simulatorUuid;
+
+		let predicate = "";
+		let currentApp: string | null = null;
+
+		// If a specific process is provided, use that
+		if (processFilter) {
+			currentApp = processFilter;
+			predicate = `subsystem == "${processFilter}"`;
+		} else {
+			// Try to detect currently running user apps from installed apps
+			try {
+				const runningApps = await this.listApps();
+
+				// Filter to non-Apple user apps
+				const userApps = runningApps
+					.map((app: InstalledApp) => app.packageName)
+					.filter((appId: string) => !appId.startsWith("com.apple.") && appId.includes("."));
+
+				if (userApps.length > 0) {
+					// For now, just use the first user app found
+					// In the future, we could try to detect which is actually running
+					currentApp = userApps[0];
+					predicate = `subsystem == "${currentApp}"`;
+				}
+			} catch (error) {
+				// Failed to get apps, continue with fallback
+			}
+
+			// If no user app detected, use broader filter for non-Apple apps
+			if (!predicate) {
+				predicate = "subsystem CONTAINS \"com.\" AND NOT subsystem BEGINSWITH \"com.apple.\"";
+			}
+		}
+		if (filter) {
+			predicate += ` AND composedMessage CONTAINS[c] "${filter}"`;
+		}
+
+		const args = [
+			"spawn", deviceUuid, "log", "show",
+			"--last", timeWindow,
+			"--predicate", predicate,
+			"--info",
+			"--debug"
+		];
+
+		try {
+			const logs = this.simctl(...args).toString();
+			const appInfo = currentApp ? ` (focused on: ${currentApp})` : " (all non-Apple apps)";
+			const debugInfo = `DEBUG: Using predicate: ${predicate}${appInfo}\n\n`;
+			return `${debugInfo}${logs}`;
+		} catch (error) {
+			if (error instanceof Error && error.message.includes("No logging subsystem")) {
+				return "No logs found for the current running applications.";
+			}
+			throw error;
+		}
+	}
 }
 
 export class SimctlManager {
