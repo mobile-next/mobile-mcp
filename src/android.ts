@@ -302,6 +302,11 @@ export class AndroidRobot implements Robot {
 		return /^[\x00-\x7F]*$/.test(text);
 	}
 
+	private escapeShellText(text: string): string {
+		// escape all shell special characters that could be used for injection
+		return text.replace(/[\\'"` \t\n\r|&;()<>{}[\]$*?]/g, "\\$&");
+	}
+
 	private async isDeviceKitInstalled(): Promise<boolean> {
 		const packages = await this.listPackages();
 		return packages.includes("com.mobilenext.devicekit");
@@ -317,7 +322,7 @@ export class AndroidRobot implements Robot {
 		if (this.isAscii(text)) {
 			// adb shell input only supports ascii characters. and
 			// some of the keys have to be escaped.
-			const _text = text.replace(/ /g, "\\ ");
+			const _text = this.escapeShellText(text);
 			this.adb("shell", "input", "text", _text);
 		} else if (await this.isDeviceKitInstalled()) {
 			// try sending over clipboard
