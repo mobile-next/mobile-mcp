@@ -1,8 +1,8 @@
 ## [0.0.25](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.25) (2025-09-08)
 
-* Chore: install mobile-mcp in vscode with a single-click in README ([#173](https://github.com/mobile-next/mobile-mcp/pull/173))
+* Server: install mobile-mcp in vscode with a single-click in README ([#173](https://github.com/mobile-next/mobile-mcp/pull/173))
 * Android: try finding 'adb' under $HOME/Library/Android if $ANDROID_HOME is not defined ([#183](https://github.com/mobile-next/mobile-mcp/pull/183))
-* Android: better escaping of text input, for better security ([#182](https://github.com/mobile-next/mobile-mcp/pull/183))
+* Android: better escaping of text input, for improved security ([#182](https://github.com/mobile-next/mobile-mcp/pull/183))
 
 ## [0.0.24](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.24) (2025-08-24)
 
