@@ -1,5 +1,6 @@
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 import * as xml from "fast-xml-parser";
 
@@ -28,12 +29,16 @@ interface UiAutomatorXml {
 }
 
 const getAdbPath = (): string => {
-	let executable = "adb";
 	if (process.env.ANDROID_HOME) {
-		executable = path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
+		return path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
 	}
 
-	return executable;
+	const defaultAndroidSdk = path.join(process.env.HOME || "", "Library", "Android", "sdk", "platform-tools", "adb");
+	if (existsSync(defaultAndroidSdk)) {
+		return defaultAndroidSdk;
+	}
+
+	return "adb";
 };
 
 const BUTTON_MAP: Record<Button, string> = {
