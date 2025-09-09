@@ -1,5 +1,6 @@
 {
   "name": "@mobilenext/mobile-mcp",
+  "mcpName": "io.github.mobile-next/mobile-mcp",
   "version": "0.0.1",
   "description": "Mobile MCP",
   "repository": {
