@@ -1,5 +1,8 @@
 import { execFileSync, spawnSync } from "child_process";
 import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
+import { trace } from "./logger";
 
 const DEFAULT_JPEG_QUALITY = 75;
 
@@ -29,6 +32,7 @@ export class ImageTransformer {
 
 	public toBuffer(): Buffer {
 		if (os.platform() === "darwin" && isSipsInstalled()) {
+			trace("on darwin and sips is available");
 			try {
 				return this.toBufferWithSips();
 			} catch (error) {
@@ -40,20 +44,42 @@ export class ImageTransformer {
 	}
 
 	private toBufferWithSips(): Buffer {
-		const proc = spawnSync("/usr/bin/sips", ["-s", "format", this.newFormat === "jpg" ? "jpeg" : "png", "-Z", `${this.newWidth}`, "--out", "-", "-"], {
-			maxBuffer: 8 * 1024 * 1024,
-			input: this.buffer
-		});
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "image-"));
+		const inputFile = path.join(tempDir, "input");
+		const outputFile = path.join(tempDir, `output.${this.newFormat === "jpg" ? "jpg" : "png"}`);
 
-		if (proc.status !== 0) {
-			throw new Error(`SIPS failed with status ${proc.status}`);
+		try {
+			fs.writeFileSync(inputFile, this.buffer);
+
+			const sipsArgs = ["-s", "format", this.newFormat === "jpg" ? "jpeg" : "png", "-Z", `${this.newWidth}`, "--out", outputFile, inputFile];
+			trace(`running sips command: /usr/bin/sips ${sipsArgs.join(" ")}`);
+
+			const proc = spawnSync("/usr/bin/sips", sipsArgs, {
+				maxBuffer: 8 * 1024 * 1024
+			});
+
+			trace("sips returned status " + proc.status);
+			if (proc.status !== 0) {
+				throw new Error(`SIPS failed with status ${proc.status}`);
+			}
+
+			const outputBuffer = fs.readFileSync(outputFile);
+			trace("sips returned buffer of size: " + outputBuffer.length);
+			return outputBuffer;
+		} finally {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch (error) {
+				// Ignore cleanup errors
+			}
 		}
-
-		return proc.stdout;
 	}
 
 	private toBufferWithImageMagick(): Buffer {
-		const proc = spawnSync("magick", ["-", "-resize", `${this.newWidth}x`, "-quality", `${this.jpegOptions.quality}`, `${this.newFormat}:-`], {
+		const magickArgs = ["-", "-resize", `${this.newWidth}x`, "-quality", `${this.jpegOptions.quality}`, `${this.newFormat}:-`];
+		trace(`running magick command: magick ${magickArgs.join(" ")}`);
+
+		const proc = spawnSync("magick", magickArgs, {
 			maxBuffer: 8 * 1024 * 1024,
 			input: this.buffer
 		});
