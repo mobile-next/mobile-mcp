@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
   "name": "io.github.mobile-next/mobile-mcp",
-  "description": "MCP server for iOS and Android Mobile Development, Automation and Testing. Automate Simulators, Emulators, and Real Devices. From Mobile Next",
+  "description": "MCP server for iOS and Android Mobile Development, Automation and Testing",
   "status": "active",
   "repository": {
     "url": "https://github.com/mobile-next/mobile-mcp",
@@ -18,7 +18,7 @@
         "type": "stdio"
       },
       "environment_variables": [
-        {          
+        {
         }
       ]
     }
