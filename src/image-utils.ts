@@ -31,16 +31,36 @@ export class ImageTransformer {
 	}
 
 	public toBuffer(): Buffer {
-		if (os.platform() === "darwin" && isSipsInstalled()) {
-			trace("on darwin and sips is available");
+		if (isSipsInstalled()) {
 			try {
 				return this.toBufferWithSips();
 			} catch (error) {
-				// Fall back to ImageMagick
+				trace(`Sips failed, falling back to ImageMagick: ${error}`);
 			}
 		}
 
-		return this.toBufferWithImageMagick();
+		try {
+			return this.toBufferWithImageMagick();
+		} catch (error) {
+			trace(`ImageMagick failed: ${error}`);
+			throw new Error("Image scaling unavailable (requires Sips or ImageMagick).");
+		}
+	}
+
+	private qualityToSips(q: number): "low" | "normal" | "high" | "best" {
+		if (q >= 90) {
+			return "best";
+		}
+
+		if (q >= 75) {
+			return "high";
+		}
+
+		if (q >= 50) {
+			return "normal";
+		}
+
+		return "low";
 	}
 
 	private toBufferWithSips(): Buffer {
@@ -51,20 +71,24 @@ export class ImageTransformer {
 		try {
 			fs.writeFileSync(inputFile, this.buffer);
 
-			const sipsArgs = ["-s", "format", this.newFormat === "jpg" ? "jpeg" : "png", "-Z", `${this.newWidth}`, "--out", outputFile, inputFile];
-			trace(`running sips command: /usr/bin/sips ${sipsArgs.join(" ")}`);
+			const sipsArgs = ["-s", "format", this.newFormat === "jpg" ? "jpeg" : "png"];
+			if (this.newFormat === "jpg") {
+				sipsArgs.push("-s", "formatOptions", this.qualityToSips(this.jpegOptions.quality));
+			}
+			sipsArgs.push("-Z", `${this.newWidth}`, "--out", outputFile, inputFile);
+			trace(`Running sips command: /usr/bin/sips ${sipsArgs.join(" ")}`);
 
 			const proc = spawnSync("/usr/bin/sips", sipsArgs, {
 				maxBuffer: 8 * 1024 * 1024
 			});
 
-			trace("sips returned status " + proc.status);
+			trace("Sips returned status " + proc.status);
 			if (proc.status !== 0) {
 				throw new Error(`SIPS failed with status ${proc.status}`);
 			}
 
 			const outputBuffer = fs.readFileSync(outputFile);
-			trace("sips returned buffer of size: " + outputBuffer.length);
+			trace("Sips returned buffer of size: " + outputBuffer.length);
 			return outputBuffer;
 		} finally {
 			try {
@@ -77,7 +101,7 @@ export class ImageTransformer {
 
 	private toBufferWithImageMagick(): Buffer {
 		const magickArgs = ["-", "-resize", `${this.newWidth}x`, "-quality", `${this.jpegOptions.quality}`, `${this.newFormat}:-`];
-		trace(`running magick command: magick ${magickArgs.join(" ")}`);
+		trace(`Running magick command: magick ${magickArgs.join(" ")}`);
 
 		const proc = spawnSync("magick", magickArgs, {
 			maxBuffer: 8 * 1024 * 1024,
@@ -104,7 +128,15 @@ export class Image {
 	}
 }
 
+const isDarwin = (): boolean => {
+	return os.platform() === "darwin";
+};
+
 export const isSipsInstalled = (): boolean => {
+	if (!isDarwin()) {
+		return false;
+	}
+
 	try {
 		execFileSync("/usr/bin/sips", ["--version"]);
 		return true;
@@ -123,4 +155,8 @@ export const isImageMagickInstalled = (): boolean => {
 	} catch (error) {
 		return false;
 	}
+};
+
+export const isScalingAvailable = (): boolean => {
+	return isImageMagickInstalled() || isSipsInstalled();
 };
