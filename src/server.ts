@@ -502,6 +502,7 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	/*
 	tool(
 		"mobile_get_logs",
 		"Get device logs",
@@ -519,6 +520,7 @@ export const createMcpServer = (): McpServer => {
 			return `Device logs${timeText}${filterText}${processText}:\n${logs}`;
 		}
 	);
+	*/
 
 	// async check for latest agent version
 	checkForLatestAgentVersion().then();
