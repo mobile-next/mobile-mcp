@@ -366,7 +366,7 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"swipe_on_screen",
+		"mobile_swipe_on_screen",
 		"Swipe on the screen",
 		{
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
@@ -507,16 +507,19 @@ export const createMcpServer = (): McpServer => {
 		"Get device logs",
 		{
 			timeWindow: z.string().optional().describe("Time window to look back (e.g., '5m' for 5 minutes, '1h' for 1 hour). Defaults to '1m'"),
-			filter: z.string().optional().describe("Filter logs containing this query (case-insensitive). For Android: supports 'package:mine <query>' (user apps only), 'package:com.app.bundle <query>' (specific app), or '<query>' (text search). For iOS: simple text search only."),
-			process: z.string().optional().describe("Filter logs to a specific process/app bundle ID")
+			filter: z.string().optional().describe("Filter logs containing this query (case-insensitive), similar to String.indexOf"),
+			process: z.string().optional().describe("Filter by specific process/app bundle ID. By default will fetch logs from all processes."),
+			limit: z.number().optional().describe("Maximum number of log records to return. Defaults to 100."),
 		},
-		async ({ timeWindow, filter, process }) => {
+		async ({ timeWindow, filter, process, limit }) => {
 			requireRobot();
-			const logs = await robot!.getDeviceLogs({ timeWindow, filter, process });
-			const filterText = filter ? ` (filtered by: ${filter})` : "";
-			const processText = process ? ` (process: ${process})` : "";
-			const timeText = timeWindow ? ` from last ${timeWindow}` : "";
-			return `Device logs${timeText}${filterText}${processText}:\n${logs}`;
+
+			// apply defaults here
+			timeWindow = timeWindow || "1m";
+			limit = limit || 100;
+
+			const logs = await robot!.getDeviceLogs({ timeWindow, filter, process, limit });
+			return "Device logs: " + JSON.stringify(logs);
 		}
 	);
 

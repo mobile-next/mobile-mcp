@@ -4,7 +4,8 @@ import { existsSync } from "node:fs";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation, DeviceLog } from "./robot";
+import { trace } from "./logger";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -375,63 +376,23 @@ export class AndroidRobot implements Robot {
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
-	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
-		const timeWindow = options?.timeWindow || "1m";
-		const filter = options?.filter;
-		const processFilter = options?.process;
-		let packageFilter: string | null = null;
-		let searchQuery: string | null = null;
-		let effectiveFilter = filter;
-		// For Android: if both process and filter are provided, combine them as "package:<process> <filter>"
-		if (processFilter && filter && !filter.includes("package:")) {
-			effectiveFilter = `package:${processFilter} ${filter}`;
-		} else if (processFilter && !filter) {
-			effectiveFilter = `package:${processFilter}`;
-		}
-		// Handle Android package filtering syntax
-		if (effectiveFilter) {
-			if (effectiveFilter.startsWith("package:mine")) {
-				// Filter to user apps only
-				const query = effectiveFilter.replace("package:mine", "").trim();
-				searchQuery = query || null;
-				// Will filter user packages in post-processing
-			} else if (effectiveFilter.includes("package:")) {
-				// Handle specific package filters like package:com.example.app search_term
-				const packageMatch = effectiveFilter.match(/package:([^\s]+)(?:\s+(.+))?/);
-				if (packageMatch) {
-					packageFilter = packageMatch[1];
-					searchQuery = packageMatch[2] || null;
-				}
-			} else {
-				// Regular search filter
-				searchQuery = effectiveFilter;
-			}
-		}
+	public async getDeviceLogs(options: { timeWindow: string; filter?: string; process?: string, limit: number }): Promise<Array<DeviceLog>> {
+		const args = ["logcat"];
 
-		const args = ["shell", "logcat"];
-		if (timeWindow) {
-			// Calculate timestamp for time-based filtering using -T
-			const timeInSeconds = this.parseTimeWindow(timeWindow);
-			const startTime = new Date(Date.now() - (timeInSeconds * 1000));
-			// Format as MM-dd HH:mm:ss.mmm
-			const month = String(startTime.getMonth() + 1).padStart(2, "0");
-			const day = String(startTime.getDate()).padStart(2, "0");
-			const hours = String(startTime.getHours()).padStart(2, "0");
-			const minutes = String(startTime.getMinutes()).padStart(2, "0");
-			const seconds = String(startTime.getSeconds()).padStart(2, "0");
-			const milliseconds = String(startTime.getMilliseconds()).padStart(3, "0");
+		// parse time
+		const timeInSeconds = this.parseTimeWindow(options.timeWindow);
+		const startTime = new Date(Date.now() - (timeInSeconds * 1000));
+		const timeFormat = this.toTimeFormat(startTime);
+		args.push("-T", timeFormat);
 
-			const timeFormat = `${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
-			args.push("-T", timeFormat);
-		} else {
-			args.push("-d");
-		}
-		// Add package filtering directly to logcat if we have a specific package
-		if (packageFilter && packageFilter !== "mine") {
-			// Use logcat's native package filtering with --pid
+		// don't block, exit after writing the logs
+		args.push("-d");
+
+		args.push("--format", "time,year,UTC");
+
+		if (options.process) {
 			try {
-				// First get the PID(s) for this package
-				const pidOutput = this.adb("shell", "pidof", packageFilter).toString().trim();
+				const pidOutput = this.adb("shell", "pidof", options.process).toString().trim();
 				if (pidOutput) {
 					const pids = pidOutput.split(/\s+/);
 					for (const pid of pids) {
@@ -439,37 +400,91 @@ export class AndroidRobot implements Robot {
 					}
 				}
 			} catch (error) {
-				// If pidof fails, fall back to post-processing
+				// ignored
 			}
 		}
+
+		trace("Fetching logs with " + JSON.stringify(args));
 		const output = this.adb(...args).toString();
 
 		// Post-process filtering
-		const lines = output.split("\n").filter(line => line.trim());
+		const lines = output.split("\n");
+
 		let filteredLines = lines;
-		// Filter by specific package if provided (fallback if --pid didn't work)
-		if (packageFilter && packageFilter !== "mine") {
-			filteredLines = filteredLines.filter(line => {
-				return line.includes(packageFilter!);
-			});
+
+		if (options.filter) {
+			const s = options.filter.toLowerCase();
+			filteredLines = filteredLines.filter(line => line.toLowerCase().includes(s));
 		}
-		// Filter for user packages if package:mine
-		if (filter && filter.startsWith("package:mine")) {
-			filteredLines = filteredLines.filter(line => {
-				// Look for user app indicators - avoid system/Android logs
-				return !line.includes("com.android.") &&
-					!line.includes("android.") &&
-					!line.includes("system_") &&
-					(line.includes("com.") || line.includes("io.") || line.includes("net.") || line.includes("app."));
-			});
+
+		if (options.limit > 0) {
+			filteredLines = filteredLines.slice(0, options.limit);
 		}
-		// Apply text search if provided
-		if (searchQuery) {
-			filteredLines = filteredLines.filter(line => {
-				return line.toLowerCase().includes(searchQuery!.toLowerCase());
-			});
+
+		return filteredLines.map(line => this.toDeviceLog(line));
+	}
+
+	private toTimeFormat(time: Date): string {
+		const year = time.getFullYear();
+		const month = String(time.getMonth() + 1).padStart(2, "0");
+		const day = String(time.getDate()).padStart(2, "0");
+		const hours = String(time.getHours()).padStart(2, "0");
+		const minutes = String(time.getMinutes()).padStart(2, "0");
+		const seconds = String(time.getSeconds()).padStart(2, "0");
+		const milliseconds = String(time.getMilliseconds()).padStart(3, "0");
+
+		const timeFormat = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+		return timeFormat;
+	}
+
+	private toDeviceLog(line: string): DeviceLog {
+		// Parse Android logcat format: "YYYY-MM-DD HH:mm:ss.mmm L/Tag(PID): Message"
+		const match = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \+0000 ([VDIWEF])\/([^(]+)\(\s*(\d+)\): (.*)$/);
+
+		if (!match) {
+			// Fallback for unparseable lines
+			return {
+				timestamp: new Date().toISOString(),
+				level: "INFO",
+				tag: "unknown",
+				pid: 0,
+				text: line,
+			};
 		}
-		return filteredLines.join("\n");
+
+		const [, timestamp, levelChar, tag, pidStr, text] = match;
+
+		// Map Android logcat levels to DeviceLog levels
+		let level: DeviceLog["level"];
+		switch (levelChar) {
+			case "V":
+				level = "VERBOSE";
+				break;
+			case "D":
+				level = "DEBUG";
+				break;
+			case "I":
+				level = "INFO";
+				break;
+			case "W":
+				level = "WARNING";
+				break;
+			case "E":
+			case "F": // Fatal maps to ERROR
+				level = "ERROR";
+				break;
+			default:
+				level = "INFO";
+				break;
+		}
+
+		return {
+			timestamp,
+			level,
+			tag: tag.trim(),
+			pid: parseInt(pidStr, 10),
+			text,
+		};
 	}
 
 	private parseTimeWindow(timeWindow: string): number {
