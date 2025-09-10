@@ -1,3 +1,11 @@
+## [0.0.27](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.27) (2025-09-10)
+
+* Server: use 'sips' image scaling on mac if found, removes requirement to install ImageMagick for image scaling ([#188](https://github.com/mobile-next/mobile-mcp/pull/188))
+
+## [0.0.26](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.26) (2025-09-09)
+
+* Server: support listing of mobile-mcp in github's mcp registry ([e96404e](https://github.com/mobile-next/mobile-mcp/commit/e96404e0e513e48ebcfe7956800203cc0f363526))
+
 ## [0.0.25](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.25) (2025-09-08)
 
 * Server: install mobile-mcp in vscode with a single-click in README ([#173](https://github.com/mobile-next/mobile-mcp/pull/173))
