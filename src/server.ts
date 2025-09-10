@@ -11,7 +11,7 @@ import { ActionableError, Robot } from "./robot";
 import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
-import { isImageMagickInstalled, Image } from "./image-utils";
+import { isScalingAvailable, Image } from "./image-utils";
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -446,8 +446,8 @@ export const createMcpServer = (): McpServer => {
 					throw new ActionableError("Screenshot is invalid. Please try again.");
 				}
 
-				if (isImageMagickInstalled()) {
-					trace("ImageMagick is installed, resizing screenshot");
+				if (isScalingAvailable()) {
+					trace("Image scaling is available, resizing screenshot");
 					const image = Image.fromBuffer(screenshot);
 					const beforeSize = screenshot.length;
 					screenshot = image.resize(Math.floor(pngSize.width / screenSize.scale))
