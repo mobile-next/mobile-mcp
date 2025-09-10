@@ -71,20 +71,22 @@ export class ImageTransformer {
 		try {
 			fs.writeFileSync(inputFile, this.buffer);
 
-			const sipsArgs = ["-s", "format", this.newFormat === "jpg" ? "jpeg" : "png"];
+			const args = ["-s", "format", this.newFormat === "jpg" ? "jpeg" : "png"];
 			if (this.newFormat === "jpg") {
-				sipsArgs.push("-s", "formatOptions", this.qualityToSips(this.jpegOptions.quality));
+				args.push("-s", "formatOptions", this.qualityToSips(this.jpegOptions.quality));
 			}
-			sipsArgs.push("-Z", `${this.newWidth}`, "--out", outputFile, inputFile);
-			trace(`Running sips command: /usr/bin/sips ${sipsArgs.join(" ")}`);
 
-			const proc = spawnSync("/usr/bin/sips", sipsArgs, {
+			args.push("-Z", `${this.newWidth}`);
+			args.push("--out", outputFile);
+			args.push(inputFile);
+
+			trace(`Running sips command: /usr/bin/sips ${args.join(" ")}`);
+			const proc = spawnSync("/usr/bin/sips", args, {
 				maxBuffer: 8 * 1024 * 1024
 			});
 
-			trace("Sips returned status " + proc.status);
 			if (proc.status !== 0) {
-				throw new Error(`SIPS failed with status ${proc.status}`);
+				throw new Error(`Sips failed with status ${proc.status}`);
 			}
 
 			const outputBuffer = fs.readFileSync(outputFile);
