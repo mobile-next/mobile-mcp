@@ -451,12 +451,12 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"mobile_get_log",
-		"Get device logs with optional filtering. For iOS simulators, gets logs from running apps using log show command. For iOS physical devices, gets system logs. For Android devices, gets logcat output.",
+		"mobile_get_logs",
+		"Get device logs",
 		{
 			timeWindow: z.string().optional().describe("Time window to look back (e.g., '5m' for 5 minutes, '1h' for 1 hour). Defaults to '1m'"),
 			filter: z.string().optional().describe("Filter logs containing this query (case-insensitive). For Android: supports 'package:mine <query>' (user apps only), 'package:com.app.bundle <query>' (specific app), or '<query>' (text search). For iOS: simple text search only."),
-			process: z.string().optional().describe("Filter logs to a specific process/app bundle ID (e.g., 'com.ramp.Ramp.ios'). Can be combined with 'filter' for text search within that process. If not provided, attempts to auto-detect running user apps.")
+			process: z.string().optional().describe("Filter logs to a specific process/app bundle ID")
 		},
 		async ({ timeWindow, filter, process }) => {
 			requireRobot();
