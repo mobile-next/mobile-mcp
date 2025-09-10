@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation, DeviceLog } from "./robot";
 
 export interface Simulator {
 	name: string;
@@ -180,10 +180,10 @@ export class Simctl implements Robot {
 		return wda.getOrientation();
 	}
 
-	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
-		const timeWindow = options?.timeWindow || "1m";
-		const filter = options?.filter;
-		const processFilter = options?.process;
+	public async getDeviceLogs(options: { timeWindow: string; filter?: string; process?: string, limit: number }): Promise<Array<DeviceLog>> {
+		const timeWindow = options.timeWindow;
+		const filter = options.filter;
+		const processFilter = options.process;
 		const deviceUuid = this.simulatorUuid;
 
 		let predicate = "";
@@ -218,12 +218,14 @@ export class Simctl implements Robot {
 				predicate = "subsystem CONTAINS \"com.\" AND NOT subsystem BEGINSWITH \"com.apple.\"";
 			}
 		}
+
 		if (filter) {
 			predicate += ` AND composedMessage CONTAINS[c] "${filter}"`;
 		}
 
 		const args = [
-			"spawn", deviceUuid, "log", "show",
+			"spawn", deviceUuid,
+			"log", "show",
 			"--last", timeWindow,
 			"--predicate", predicate,
 			"--info",
@@ -234,11 +236,13 @@ export class Simctl implements Robot {
 			const logs = this.simctl(...args).toString();
 			const appInfo = currentApp ? ` (focused on: ${currentApp})` : " (all non-Apple apps)";
 			const debugInfo = `DEBUG: Using predicate: ${predicate}${appInfo}\n\n`;
-			return `${debugInfo}${logs}`;
+			trace("logs: "  + JSON.stringify(logs) + " and " + debugInfo);
+			return [];
 		} catch (error) {
 			if (error instanceof Error && error.message.includes("No logging subsystem")) {
-				return "No logs found for the current running applications.";
+				return [];
 			}
+
 			throw error;
 		}
 	}

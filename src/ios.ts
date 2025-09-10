@@ -2,7 +2,8 @@ import { Socket } from "node:net";
 import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation, DeviceLog } from "./robot";
+import { trace } from "./logger";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -201,16 +202,16 @@ export class IosRobot implements Robot {
 		return await wda.getOrientation();
 	}
 
-	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
-		await this.assertTunnelRunning();
-		const timeWindow = options?.timeWindow || "1m";
-		const filter = options?.filter;
+	public async getDeviceLogs(options: { timeWindow: string; filter?: string; process?: string, limit: number }): Promise<Array<DeviceLog>> {
+		const timeWindow = options.timeWindow;
+		const filter = options.filter;
 		const args = ["syslog"];
 		if (timeWindow) {
 			const timeInSeconds = this.parseTimeWindow(timeWindow);
 			args.push("--since");
 			args.push(`${timeInSeconds}s`);
 		}
+
 		let output = await this.ios(...args);
 		if (filter) {
 			const lines = output.split("\n");
@@ -219,7 +220,10 @@ export class IosRobot implements Robot {
 			);
 			output = filteredLines.join("\n");
 		}
-		return output;
+
+		trace("logs : " + JSON.stringify(output));
+
+		return [];
 	}
 
 	private parseTimeWindow(timeWindow: string): number {

@@ -36,6 +36,14 @@ export interface ScreenElement {
 	focused?: boolean;
 }
 
+export interface DeviceLog {
+	timestamp: string;
+	level: "WARNING" | "INFO" | "ERROR"	| "DEBUG" | "VERBOSE";
+	tag: string;
+	pid: number;
+	text: string;
+}
+
 export class ActionableError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -129,5 +137,5 @@ export interface Robot {
 	/**
 	 * Get device logs with optional filtering.
 	 */
-	getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string>;
+	getDeviceLogs(options: { timeWindow: string; filter?: string; process?: string, limit: number }): Promise<Array<DeviceLog>>;
 }
