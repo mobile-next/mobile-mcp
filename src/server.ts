@@ -502,6 +502,24 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_get_logs",
+		"Get device logs",
+		{
+			timeWindow: z.string().optional().describe("Time window to look back (e.g., '5m' for 5 minutes, '1h' for 1 hour). Defaults to '1m'"),
+			filter: z.string().optional().describe("Filter logs containing this query (case-insensitive). For Android: supports 'package:mine <query>' (user apps only), 'package:com.app.bundle <query>' (specific app), or '<query>' (text search). For iOS: simple text search only."),
+			process: z.string().optional().describe("Filter logs to a specific process/app bundle ID")
+		},
+		async ({ timeWindow, filter, process }) => {
+			requireRobot();
+			const logs = await robot!.getDeviceLogs({ timeWindow, filter, process });
+			const filterText = filter ? ` (filtered by: ${filter})` : "";
+			const processText = process ? ` (process: ${process})` : "";
+			const timeText = timeWindow ? ` from last ${timeWindow}` : "";
+			return `Device logs${timeText}${filterText}${processText}:\n${logs}`;
+		}
+	);
+
 	// async check for latest agent version
 	checkForLatestAgentVersion().then();
 
