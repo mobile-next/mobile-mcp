@@ -114,51 +114,35 @@ export const createMcpServer = (): McpServer => {
 
 	posthog("launch", {}).then();
 
-	let robot: Robot | null;
 	const simulatorManager = new SimctlManager();
 
-	const requireRobot = () => {
-		if (!robot) {
-			throw new ActionableError("No device selected. Use the mobile_use_device tool to select a device.");
+	const getRobotFromDevice = (device: string): Robot => {
+		const iosManager = new IosManager();
+		const androidManager = new AndroidDeviceManager();
+		const simulators = simulatorManager.listBootedSimulators();
+		const androidDevices = androidManager.getConnectedDevices();
+		const iosDevices = iosManager.listDevices();
+
+		// Check if it's a simulator
+		const simulator = simulators.find(s => s.name === device);
+		if (simulator) {
+			return simulatorManager.getSimulator(device);
 		}
+
+		// Check if it's an Android device
+		const androidDevice = androidDevices.find(d => d.deviceId === device);
+		if (androidDevice) {
+			return new AndroidRobot(device);
+		}
+
+		// Check if it's an iOS device
+		const iosDevice = iosDevices.find(d => d.deviceId === device);
+		if (iosDevice) {
+			return new IosRobot(device);
+		}
+
+		throw new ActionableError(`Device "${device}" not found. Use the mobile_list_available_devices tool to see available devices.`);
 	};
-
-	tool(
-		"mobile_use_default_device",
-		"Use the default device. This is a shortcut for mobile_use_device with deviceType=simulator and device=simulator_name",
-		{
-			noParams
-		},
-		async () => {
-			const iosManager = new IosManager();
-			const androidManager = new AndroidDeviceManager();
-			const simulators = simulatorManager.listBootedSimulators();
-			const androidDevices = androidManager.getConnectedDevices();
-			const iosDevices = iosManager.listDevices();
-
-			const sum = simulators.length + androidDevices.length + iosDevices.length;
-			if (sum === 0) {
-				throw new ActionableError("No devices found. Please connect a device and try again.");
-			} else if (sum >= 2) {
-				throw new ActionableError("Multiple devices found. Please use the mobile_list_available_devices tool to list available devices and select one.");
-			}
-
-			// only one device connected, let's find it now
-			if (simulators.length === 1) {
-				robot = simulatorManager.getSimulator(simulators[0].name);
-				return `Selected default device: ${simulators[0].name}`;
-			} else if (androidDevices.length === 1) {
-				robot = new AndroidRobot(androidDevices[0].deviceId);
-				return `Selected default device: ${androidDevices[0].deviceId}`;
-			} else if (iosDevices.length === 1) {
-				robot = new IosRobot(iosDevices[0].deviceId);
-				return `Selected default device: ${iosDevices[0].deviceId}`;
-			}
-
-			// how did this happen?
-			throw new ActionableError("No device selected. Please use the mobile_list_available_devices tool to list available devices and select one.");
-		}
-	);
 
 	tool(
 		"mobile_list_available_devices",
@@ -198,39 +182,16 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	tool(
-		"mobile_use_device",
-		"Select a device to use. This can be a simulator or an Android device. Use the list_available_devices tool to get a list of available devices.",
-		{
-			device: z.string().describe("The name of the device to select"),
-			deviceType: z.enum(["simulator", "ios", "android"]).describe("The type of device to select"),
-		},
-		async ({ device, deviceType }) => {
-			switch (deviceType) {
-				case "simulator":
-					robot = simulatorManager.getSimulator(device);
-					break;
-				case "ios":
-					robot = new IosRobot(device);
-					break;
-				case "android":
-					robot = new AndroidRobot(device);
-					break;
-			}
-
-			return `Selected device: ${device}`;
-		}
-	);
 
 	tool(
 		"mobile_list_apps",
 		"List all the installed apps on the device",
 		{
-			noParams
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		async ({}) => {
-			requireRobot();
-			const result = await robot!.listApps();
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			const result = await robot.listApps();
 			return `Found these apps on device: ${result.map(app => `${app.appName} (${app.packageName})`).join(", ")}`;
 		}
 	);
@@ -239,11 +200,12 @@ export const createMcpServer = (): McpServer => {
 		"mobile_launch_app",
 		"Launch an app on mobile device. Use this to open a specific app. You can find the package name of the app by calling list_apps_on_device.",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to launch"),
 		},
-		async ({ packageName }) => {
-			requireRobot();
-			await robot!.launchApp(packageName);
+		async ({ device, packageName }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.launchApp(packageName);
 			return `Launched app ${packageName}`;
 		}
 	);
@@ -252,11 +214,12 @@ export const createMcpServer = (): McpServer => {
 		"mobile_terminate_app",
 		"Stop and terminate an app on mobile device",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to terminate"),
 		},
-		async ({ packageName }) => {
-			requireRobot();
-			await robot!.terminateApp(packageName);
+		async ({ device, packageName }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.terminateApp(packageName);
 			return `Terminated app ${packageName}`;
 		}
 	);
@@ -265,11 +228,11 @@ export const createMcpServer = (): McpServer => {
 		"mobile_get_screen_size",
 		"Get the screen size of the mobile device in pixels",
 		{
-			noParams
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		async ({}) => {
-			requireRobot();
-			const screenSize = await robot!.getScreenSize();
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			const screenSize = await robot.getScreenSize();
 			return `Screen size is ${screenSize.width}x${screenSize.height} pixels`;
 		}
 	);
@@ -278,12 +241,13 @@ export const createMcpServer = (): McpServer => {
 		"mobile_click_on_screen_at_coordinates",
 		"Click on the screen at given x,y coordinates. If clicking on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			x: z.number().describe("The x coordinate to click on the screen, in pixels"),
 			y: z.number().describe("The y coordinate to click on the screen, in pixels"),
 		},
-		async ({ x, y }) => {
-			requireRobot();
-			await robot!.tap(x, y);
+		async ({ device, x, y }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.tap(x, y);
 			return `Clicked on screen at coordinates: ${x}, ${y}`;
 		}
 	);
@@ -292,12 +256,13 @@ export const createMcpServer = (): McpServer => {
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			x: z.number().describe("The x coordinate to long press on the screen, in pixels"),
 			y: z.number().describe("The y coordinate to long press on the screen, in pixels"),
 		},
-		async ({ x, y }) => {
-			requireRobot();
-			await robot!.longPress(x, y);
+		async ({ device, x, y }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.longPress(x, y);
 			return `Long pressed on screen at coordinates: ${x}, ${y}`;
 		}
 	);
@@ -306,11 +271,11 @@ export const createMcpServer = (): McpServer => {
 		"mobile_list_elements_on_screen",
 		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
 		{
-			noParams
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		async ({}) => {
-			requireRobot();
-			const elements = await robot!.getElementsOnScreen();
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			const elements = await robot.getElementsOnScreen();
 
 			const result = elements.map(element => {
 				const out: any = {
@@ -343,11 +308,12 @@ export const createMcpServer = (): McpServer => {
 		"mobile_press_button",
 		"Press a button on device",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
 		},
-		async ({ button }) => {
-			requireRobot();
-			await robot!.pressButton(button);
+		async ({ device, button }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.pressButton(button);
 			return `Pressed the button: ${button}`;
 		}
 	);
@@ -356,11 +322,12 @@ export const createMcpServer = (): McpServer => {
 		"mobile_open_url",
 		"Open a URL in browser on device",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			url: z.string().describe("The URL to open"),
 		},
-		async ({ url }) => {
-			requireRobot();
-			await robot!.openUrl(url);
+		async ({ device, url }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.openUrl(url);
 			return `Opened URL: ${url}`;
 		}
 	);
@@ -369,22 +336,23 @@ export const createMcpServer = (): McpServer => {
 		"swipe_on_screen",
 		"Swipe on the screen",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
 			x: z.number().optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			y: z.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			distance: z.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
-		async ({ direction, x, y, distance }) => {
-			requireRobot();
+		async ({ device, direction, x, y, distance }) => {
+			const robot = getRobotFromDevice(device);
 
 			if (x !== undefined && y !== undefined) {
 				// Use coordinate-based swipe
-				await robot!.swipeFromCoordinate(x, y, direction, distance);
+				await robot.swipeFromCoordinate(x, y, direction, distance);
 				const distanceText = distance ? ` ${distance} pixels` : "";
 				return `Swiped ${direction}${distanceText} from coordinates: ${x}, ${y}`;
 			} else {
 				// Use center-based swipe
-				await robot!.swipe(direction);
+				await robot.swipe(direction);
 				return `Swiped ${direction} on screen`;
 			}
 		}
@@ -394,15 +362,16 @@ export const createMcpServer = (): McpServer => {
 		"mobile_type_keys",
 		"Type text into the focused element",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			text: z.string().describe("The text to type"),
 			submit: z.boolean().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
 		},
-		async ({ text, submit }) => {
-			requireRobot();
-			await robot!.sendKeys(text);
+		async ({ device, text, submit }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.sendKeys(text);
 
 			if (submit) {
-				await robot!.pressButton("ENTER");
+				await robot.pressButton("ENTER");
 			}
 
 			return `Typed text: ${text}`;
@@ -413,12 +382,13 @@ export const createMcpServer = (): McpServer => {
 		"mobile_save_screenshot",
 		"Save a screenshot of the mobile device to a file",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			saveTo: z.string().describe("The path to save the screenshot to"),
 		},
-		async ({ saveTo }) => {
-			requireRobot();
+		async ({ device, saveTo }) => {
+			const robot = getRobotFromDevice(device);
 
-			const screenshot = await robot!.getScreenshot();
+			const screenshot = await robot.getScreenshot();
 			fs.writeFileSync(saveTo, screenshot);
 			return `Screenshot saved to: ${saveTo}`;
 		}
@@ -428,15 +398,14 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 		{
-			noParams
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		async ({}) => {
-			requireRobot();
-
+		async ({ device }) => {
 			try {
-				const screenSize = await robot!.getScreenSize();
+				const robot = getRobotFromDevice(device);
+				const screenSize = await robot.getScreenSize();
 
-				let screenshot = await robot!.getScreenshot();
+				let screenshot = await robot.getScreenshot();
 				let mimeType = "image/png";
 
 				// validate we received a png, will throw exception otherwise
@@ -480,11 +449,12 @@ export const createMcpServer = (): McpServer => {
 		"mobile_set_orientation",
 		"Change the screen orientation of the device",
 		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			orientation: z.enum(["portrait", "landscape"]).describe("The desired orientation"),
 		},
-		async ({ orientation }) => {
-			requireRobot();
-			await robot!.setOrientation(orientation);
+		async ({ device, orientation }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.setOrientation(orientation);
 			return `Changed device orientation to ${orientation}`;
 		}
 	);
@@ -493,11 +463,11 @@ export const createMcpServer = (): McpServer => {
 		"mobile_get_orientation",
 		"Get the current screen orientation of the device",
 		{
-			noParams
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		async () => {
-			requireRobot();
-			const orientation = await robot!.getOrientation();
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			const orientation = await robot.getOrientation();
 			return `Current device orientation is ${orientation}`;
 		}
 	);
