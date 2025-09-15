@@ -1,3 +1,9 @@
+## [0.0.28](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.28) (2025-09-15)
+
+* Server: added 'device' parameter to all tools ([#181](https://github.com/mobile-next/mobile-mcp/pull/181))
+* Server: enable agents to access multiple devices at once (eg, 'explain what's on screen on all devices connected')
+  ([#181](https://github.com/mobile-next/mobile-mcp/pull/181))
+
 ## [0.0.27](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.27) (2025-09-10)
 
 * Server: use 'sips' image scaling on mac if found, removes requirement to install ImageMagick for image scaling ([#188](https://github.com/mobile-next/mobile-mcp/pull/188))
