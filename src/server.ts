@@ -394,7 +394,7 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	server.tool(
+	tool(
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 		{
@@ -432,15 +432,10 @@ export const createMcpServer = (): McpServer => {
 				const screenshot64 = screenshot.toString("base64");
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
 
-				return {
-					content: [{ type: "image", data: screenshot64, mimeType }]
-				};
+				return `data:${mimeType};base64,${screenshot64}`;
 			} catch (err: any) {
 				error(`Error taking screenshot: ${err.message} ${err.stack}`);
-				return {
-					content: [{ type: "text", text: `Error: ${err.message}` }],
-					isError: true,
-				};
+				throw new ActionableError(`Error taking screenshot: ${err.message}`);
 			}
 		}
 	);
