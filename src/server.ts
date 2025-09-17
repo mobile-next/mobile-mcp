@@ -12,6 +12,7 @@ import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
+import { Mobilecli } from "./mobilecli";
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -123,10 +124,10 @@ export const createMcpServer = (): McpServer => {
 		const androidDevices = androidManager.getConnectedDevices();
 		const iosDevices = iosManager.listDevices();
 
-		// Check if it's a simulator
-		const simulator = simulators.find(s => s.name === device);
+		// Check if it's a simulator (search by UUID first, then fallback to name)
+		const simulator = simulators.find(s => s.uuid === device || s.name === device);
 		if (simulator) {
-			return simulatorManager.getSimulator(device);
+			return simulatorManager.getSimulator(simulator.uuid);
 		}
 
 		// Check if it's an Android device
@@ -151,34 +152,8 @@ export const createMcpServer = (): McpServer => {
 			noParams
 		},
 		async ({}) => {
-			const iosManager = new IosManager();
-			const androidManager = new AndroidDeviceManager();
-			const simulators = simulatorManager.listBootedSimulators();
-			const simulatorNames = simulators.map(d => d.name);
-			const androidDevices = androidManager.getConnectedDevices();
-			const iosDevices = await iosManager.listDevices();
-			const iosDeviceNames = iosDevices.map(d => d.deviceId);
-			const androidTvDevices = androidDevices.filter(d => d.deviceType === "tv").map(d => d.deviceId);
-			const androidMobileDevices = androidDevices.filter(d => d.deviceType === "mobile").map(d => d.deviceId);
-
-			const resp = ["Found these devices:"];
-			if (simulatorNames.length > 0) {
-				resp.push(`iOS simulators: [${simulatorNames.join(".")}]`);
-			}
-
-			if (iosDevices.length > 0) {
-				resp.push(`iOS devices: [${iosDeviceNames.join(",")}]`);
-			}
-
-			if (androidMobileDevices.length > 0) {
-				resp.push(`Android devices: [${androidMobileDevices.join(",")}]`);
-			}
-
-			if (androidTvDevices.length > 0) {
-				resp.push(`Android TV devices: [${androidTvDevices.join(",")}]`);
-			}
-
-			return resp.join("\n");
+			const devices = Mobilecli.listDevices();
+			return JSON.stringify(devices);
 		}
 	);
 
@@ -471,26 +446,6 @@ export const createMcpServer = (): McpServer => {
 			return `Current device orientation is ${orientation}`;
 		}
 	);
-
-	/*
-	tool(
-		"mobile_get_logs",
-		"Get device logs",
-		{
-			timeWindow: z.string().optional().describe("Time window to look back (e.g., '5m' for 5 minutes, '1h' for 1 hour). Defaults to '1m'"),
-			filter: z.string().optional().describe("Filter logs containing this query (case-insensitive). For Android: supports 'package:mine <query>' (user apps only), 'package:com.app.bundle <query>' (specific app), or '<query>' (text search). For iOS: simple text search only."),
-			process: z.string().optional().describe("Filter logs to a specific process/app bundle ID")
-		},
-		async ({ timeWindow, filter, process }) => {
-			requireRobot();
-			const logs = await robot!.getDeviceLogs({ timeWindow, filter, process });
-			const filterText = filter ? ` (filtered by: ${filter})` : "";
-			const processText = process ? ` (process: ${process})` : "";
-			const timeText = timeWindow ? ` from last ${timeWindow}` : "";
-			return `Device logs${timeText}${filterText}${processText}:\n${logs}`;
-		}
-	);
-	*/
 
 	// async check for latest agent version
 	checkForLatestAgentVersion().then();

@@ -3,17 +3,10 @@ import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
+import { Mobilecli, getMobilecliPath } from "./mobilecli";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
-
-interface ListCommandOutput {
-	deviceList: string[];
-}
-
-interface VersionCommandOutput {
-	version: string;
-}
 
 interface InfoCommandOutput {
 	DeviceClass: string;
@@ -25,19 +18,28 @@ interface InfoCommandOutput {
 	TimeZone: string;
 }
 
+interface MobilecliResponse<T> {
+	status: string;
+	data: T;
+}
+
+
+interface MobilecliDevice {
+	id: string;
+	name: string;
+	platform: string;
+	type: string;
+}
+
+interface MobilecliDevicesResponse {
+	devices: MobilecliDevice[];
+}
+
 export interface IosDevice {
 	deviceId: string;
 	deviceName: string;
 }
 
-const getGoIosPath = (): string => {
-	if (process.env.GO_IOS_PATH) {
-		return process.env.GO_IOS_PATH;
-	}
-
-	// fallback to go-ios in PATH via `npm install -g go-ios`
-	return "ios";
-};
 
 export class IosRobot implements Robot {
 
@@ -66,17 +68,7 @@ export class IosRobot implements Robot {
 		return await this.isListeningOnPort(WDA_PORT);
 	}
 
-	private async assertTunnelRunning(): Promise<void> {
-		if (await this.isTunnelRequired()) {
-			if (!(await this.isTunnelRunning())) {
-				throw new ActionableError("iOS tunnel is not running, please see https://github.com/mobile-next/mobile-mcp/wiki/");
-			}
-		}
-	}
-
 	private async wda(): Promise<WebDriverAgent> {
-
-		await this.assertTunnelRunning();
 
 		if (!(await this.isWdaForwardRunning())) {
 			throw new ActionableError("Port forwarding to WebDriverAgent is not running (tunnel okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
@@ -91,20 +83,15 @@ export class IosRobot implements Robot {
 		return wda;
 	}
 
-	private async ios(...args: string[]): Promise<string> {
-		return execFileSync(getGoIosPath(), ["--udid", this.deviceId, ...args], {}).toString();
-	}
 
 	public async getIosVersion(): Promise<string> {
-		const output = await this.ios("info");
-		const json = JSON.parse(output);
-		return json.ProductVersion;
-	}
+		const output = execFileSync(getMobilecliPath(), ["--device", this.deviceId, "device", "info"], {}).toString();
+		const response: MobilecliResponse<InfoCommandOutput> = JSON.parse(output);
+		if (response.status !== "ok") {
+			throw new Error(`Failed to get device info: ${response.status}`);
+		}
 
-	private async isTunnelRequired(): Promise<boolean> {
-		const version = await this.getIosVersion();
-		const args = version.split(".");
-		return parseInt(args[0], 10) >= 17;
+		return response.data.ProductVersion;
 	}
 
 	public async getScreenSize(): Promise<ScreenSize> {
@@ -123,28 +110,15 @@ export class IosRobot implements Robot {
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
-		await this.assertTunnelRunning();
-
-		const output = await this.ios("apps", "--all", "--list");
-		return output
-			.split("\n")
-			.map(line => {
-				const [packageName, appName] = line.split(" ");
-				return {
-					packageName,
-					appName,
-				};
-			});
+		return await Mobilecli.listApps(this.deviceId);
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
-		await this.assertTunnelRunning();
-		await this.ios("launch", packageName);
+		Mobilecli.launchApp(this.deviceId, packageName);
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
-		await this.assertTunnelRunning();
-		await this.ios("kill", packageName);
+		Mobilecli.terminateApp(this.deviceId, packageName);
 	}
 
 	public async openUrl(url: string): Promise<void> {
@@ -178,17 +152,7 @@ export class IosRobot implements Robot {
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
-		const wda = await this.wda();
-		return await wda.getScreenshot();
-
-		/* alternative:
-		await this.assertTunnelRunning();
-		const tmpFilename = path.join(tmpdir(), `screenshot-${randomBytes(8).toString("hex")}.png`);
-		await this.ios("screenshot", "--output", tmpFilename);
-		const buffer = readFileSync(tmpFilename);
-		unlinkSync(tmpFilename);
-		return buffer;
-		*/
+		return Mobilecli.getScreenshot(this.deviceId);
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
@@ -200,79 +164,46 @@ export class IosRobot implements Robot {
 		const wda = await this.wda();
 		return await wda.getOrientation();
 	}
-
-	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
-		await this.assertTunnelRunning();
-		const timeWindow = options?.timeWindow || "1m";
-		const filter = options?.filter;
-		const args = ["syslog"];
-		if (timeWindow) {
-			const timeInSeconds = this.parseTimeWindow(timeWindow);
-			args.push("--since");
-			args.push(`${timeInSeconds}s`);
-		}
-		let output = await this.ios(...args);
-		if (filter) {
-			const lines = output.split("\n");
-			const filteredLines = lines.filter(line =>
-				line.toLowerCase().includes(filter.toLowerCase())
-			);
-			output = filteredLines.join("\n");
-		}
-		return output;
-	}
-
-	private parseTimeWindow(timeWindow: string): number {
-		const match = timeWindow.match(/^(\d+)([smh])$/);
-		if (!match) {
-			return 60;
-		}
-		const value = parseInt(match[1], 10);
-		const unit = match[2];
-		switch (unit) {
-			case "s":
-				return value;
-			case "m":
-				return value * 60;
-			case "h":
-				return value * 3600;
-			default:
-				return 60;
-		}
-	}
 }
 
 export class IosManager {
 
-	public isGoIosInstalled(): boolean {
+	public isMobilecliInstalled(): boolean {
 		try {
-			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
-			const json: VersionCommandOutput = JSON.parse(output);
-			return json.version !== undefined && (json.version.startsWith("v") || json.version === "local-build");
+			const output = execFileSync(getMobilecliPath(), ["--version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
+			return output.includes("mobilecli");
 		} catch (error) {
 			return false;
 		}
 	}
 
 	public getDeviceName(deviceId: string): string {
-		const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
-		const json: InfoCommandOutput = JSON.parse(output);
-		return json.DeviceName;
+		const output = execFileSync(getMobilecliPath(), ["device", "info", "--device", deviceId]).toString();
+		const response: MobilecliResponse<InfoCommandOutput> = JSON.parse(output);
+		if (response.status !== "ok") {
+			throw new Error(`Failed to get device info: ${response.status}`);
+		}
+
+		return response.data.DeviceName;
 	}
 
 	public listDevices(): IosDevice[] {
-		if (!this.isGoIosInstalled()) {
-			console.error("go-ios is not installed, no physical iOS devices can be detected");
+		if (!this.isMobilecliInstalled()) {
+			console.error("mobilecli is not installed, no physical iOS devices can be detected");
 			return [];
 		}
 
-		const output = execFileSync(getGoIosPath(), ["list"]).toString();
-		const json: ListCommandOutput = JSON.parse(output);
-		const devices = json.deviceList.map(device => ({
-			deviceId: device,
-			deviceName: this.getDeviceName(device),
-		}));
+		const output = execFileSync(getMobilecliPath(), ["devices"]).toString();
+		const response: MobilecliResponse<MobilecliDevicesResponse> = JSON.parse(output);
+		if (response.status !== "ok") {
+			throw new Error(`Failed to list devices: ${response.status}`);
+		}
 
-		return devices;
+		return response.data.devices
+			.filter(device => device.platform === "ios" && device.type === "real")
+			.map(device => ({
+				deviceId: device.id,
+				deviceName: device.name,
+			}));
 	}
 }

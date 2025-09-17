@@ -24,6 +24,7 @@
     "lib"
   ],
   "dependencies": {
+    "@mobilenext/mobilecli": "^0.0.22",
     "@modelcontextprotocol/sdk": "^1.6.1",
     "commander": "^14.0.0",
     "express": "^5.1.0",
