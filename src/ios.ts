@@ -167,6 +167,11 @@ export class IosRobot implements Robot {
 		await wda.tap(x, y);
 	}
 
+	public async doubleTap(x: number, y: number): Promise<void> {
+		// const wda = await this.wda();
+		// await wda.tap(x, y);
+	}
+
 	public async longPress(x: number, y: number): Promise<void> {
 		const wda = await this.wda();
 		await wda.longPress(x, y);

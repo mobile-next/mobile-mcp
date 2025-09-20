@@ -105,6 +105,11 @@ export interface Robot {
 	tap(x: number, y: number): Promise<void>;
 
 	/**
+	 * Tap on a specific coordinate on the screen.
+	 */
+	doubleTap(x: number, y: number): Promise<void>;
+
+	/**
 	 * Long press on a specific coordinate on the screen.
 	 */
 	longPress(x: number, y: number): Promise<void>;
