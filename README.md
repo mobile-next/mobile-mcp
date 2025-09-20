@@ -105,6 +105,12 @@ Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
 claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
+[Gemini CLI:](https://cloud.google.com/gemini/docs/codeassist/gemini-cli)
+
+```
+gemini mcp add mobile npx -y @mobilenext/mobile-mcp@latest
+```
+
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
 
