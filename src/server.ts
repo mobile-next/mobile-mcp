@@ -253,6 +253,33 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_double_tap_on_screen",
+		"Double-tap on the screen at given x,y coordinates.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			x: z.number().describe("The x coordinate to double-tap, in pixels"),
+			y: z.number().describe("The y coordinate to double-tap, in pixels"),
+		},
+		async ({ device, x, y }) => {
+			const robot = getRobotFromDevice(device);
+			await robot!.doubleTap(x, y);
+			return `Double-tapped on screen at coordinates: ${x}, ${y}`;
+		}
+	);
+
+	tool(
+		"mobile_wait",
+		"Pause execution for a specified number of seconds.",
+		{
+			seconds: z.number().describe("Number of seconds to wait"),
+		},
+		async ({ seconds }) => {
+			await new Promise(res => setTimeout(res, seconds * 1000));
+			return `Waited for ${seconds} seconds`;
+		}
+	);
+
+	tool(
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{

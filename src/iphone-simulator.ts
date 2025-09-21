@@ -155,6 +155,13 @@ export class Simctl implements Robot {
 		return wda.tap(x, y);
 	}
 
+	public async doubleTap(x: number, y: number): Promise<void> {
+		// const wda = await this.wda();
+		// await wda.tap(x, y);
+		// await new Promise(r => setTimeout(r, 100)); // short delay
+		// await wda.tap(x, y);
+	}
+
 	public async longPress(x: number, y: number) {
 		const wda = await this.wda();
 		return wda.longPress(x, y);

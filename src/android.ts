@@ -362,6 +362,12 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500");
 	}
 
+	public async doubleTap(x: number, y: number): Promise<void> {
+		await this.tap(x, y);
+		await new Promise(r => setTimeout(r, 100)); // short delay
+		await this.tap(x, y);
+	}
+
 	public async setOrientation(orientation: Orientation): Promise<void> {
 		const value = orientation === "portrait" ? 0 : 1;
 

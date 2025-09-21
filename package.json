@@ -12,7 +12,7 @@
   },
   "license": "Apache-2.0",
   "scripts": {
-    "build": "tsc && chmod +x lib/index.js",
+    "build": "tsc",
     "lint": "eslint .",
     "fixlint": "eslint . --fix",
     "test": "nyc mocha --require ts-node/register test/*.ts",
