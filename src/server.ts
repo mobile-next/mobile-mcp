@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
+import { Transport } from "@modelcontextprotocol/sdk/shared/transport";
+import { CallToolResult, JSONRPCMessage, JSONRPCRequest, InitializeRequest } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
 import os from "node:os";
@@ -494,6 +495,21 @@ export const createMcpServer = (): McpServer => {
 
 	// async check for latest agent version
 	checkForLatestAgentVersion().then();
+
+	const hook = server.connect;
+	server.connect = (transport: Transport): Promise<void> => {
+		transport.onmessage = (message: JSONRPCMessage) => {
+			if ("method" in message) {
+				const request = message as JSONRPCRequest;
+				if (request.method === "initialize") {
+					const initialize = request as unknown as InitializeRequest;
+					trace(`hello to ${initialize.params.clientInfo.name}`);
+				}
+			}
+		};
+
+		return hook.apply(server, [transport]);
+	};
 
 	return server;
 };
