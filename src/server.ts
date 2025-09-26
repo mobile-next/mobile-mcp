@@ -51,6 +51,9 @@ export const createMcpServer = (): McpServer => {
 	// an empty object to satisfy windsurf
 	const noParams = z.object({});
 
+	// will be replaced later by 'initialize' jsonrpc request
+	let clientName = "unknown";
+
 	const tool = (name: string, description: string, paramsSchema: ZodRawShape, cb: (args: z.objectOutputType<ZodRawShape, ZodTypeAny>) => Promise<string>) => {
 		const wrappedCb = async (args: ZodRawShape): Promise<CallToolResult> => {
 			try {
@@ -91,6 +94,7 @@ export const createMcpServer = (): McpServer => {
 				Product: "mobile-mcp",
 				Version: getAgentVersion(),
 				NodeVersion: process.version,
+				AgentName: clientName,
 			};
 
 			await fetch(url, {
@@ -483,7 +487,7 @@ export const createMcpServer = (): McpServer => {
 				const request = message as JSONRPCRequest;
 				if (request.method === "initialize") {
 					const initialize = request as unknown as InitializeRequest;
-					trace(`hello to ${initialize.params.clientInfo.name}`);
+					clientName = initialize.params.clientInfo.name || "unknown";
 				}
 			}
 		};
