@@ -28,7 +28,8 @@
     "commander": "^14.0.0",
     "express": "^5.1.0",
     "fast-xml-parser": "^5.0.9",
-    "zod-to-json-schema": "^3.24.4"
+    "zod-to-json-schema": "^3.24.4",
+    "@mobilenext/mobilecli": "0.0.24"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
