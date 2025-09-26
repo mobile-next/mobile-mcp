@@ -333,7 +333,7 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"swipe_on_screen",
+		"mobile_swipe_on_screen",
 		"Swipe on the screen",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
