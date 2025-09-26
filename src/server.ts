@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
+import { Transport } from "@modelcontextprotocol/sdk/shared/transport";
+import { CallToolResult, JSONRPCMessage, JSONRPCRequest, InitializeRequest } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
 import os from "node:os";
@@ -50,6 +51,9 @@ export const createMcpServer = (): McpServer => {
 	// an empty object to satisfy windsurf
 	const noParams = z.object({});
 
+	// will be replaced later by 'initialize' jsonrpc request
+	let clientName = "unknown";
+
 	const tool = (name: string, description: string, paramsSchema: ZodRawShape, cb: (args: z.objectOutputType<ZodRawShape, ZodTypeAny>) => Promise<string>) => {
 		const wrappedCb = async (args: ZodRawShape): Promise<CallToolResult> => {
 			try {
@@ -90,6 +94,7 @@ export const createMcpServer = (): McpServer => {
 				Product: "mobile-mcp",
 				Version: getAgentVersion(),
 				NodeVersion: process.version,
+				AgentName: clientName,
 			};
 
 			await fetch(url, {
@@ -474,6 +479,21 @@ export const createMcpServer = (): McpServer => {
 
 	// async check for latest agent version
 	checkForLatestAgentVersion().then();
+
+	const hook = server.connect;
+	server.connect = (transport: Transport): Promise<void> => {
+		transport.onmessage = (message: JSONRPCMessage) => {
+			if ("method" in message) {
+				const request = message as JSONRPCRequest;
+				if (request.method === "initialize") {
+					const initialize = request as unknown as InitializeRequest;
+					clientName = initialize.params.clientInfo.name || "unknown";
+				}
+			}
+		};
+
+		return hook.apply(server, [transport]);
+	};
 
 	return server;
 };
