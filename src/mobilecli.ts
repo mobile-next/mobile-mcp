@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-import { InstalledApp, ScreenSize, Button } from "./robot";
+import { InstalledApp, ScreenSize, Button, Orientation, ScreenElement } from "./robot";
 
 interface MobilecliResponse<T> {
 	status: string;
@@ -31,11 +31,7 @@ interface MobilecliDeviceInfo {
 		platform: string;
 		type: string;
 		version: string;
-		screenSize: {
-			width: number;
-			height: number;
-			scale: number;
-		};
+		screenSize: ScreenSize;
 	};
 }
 
@@ -69,6 +65,10 @@ export const getMobilecliPath = (): string => {
 
 export class Mobilecli {
 
+	private static mobilecli(...args: string[]): string {
+		return execFileSync(getMobilecliPath(), args).toString();
+	}
+
 	public static isInstalled(): boolean {
 		try {
 			const output = execFileSync(getMobilecliPath(), ["--version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
@@ -85,7 +85,7 @@ export class Mobilecli {
 		}
 
 		try {
-			const output = execFileSync(getMobilecliPath(), ["devices"]).toString();
+			const output = this.mobilecli("devices");
 			const response: MobilecliResponse<MobilecliDevicesResponse> = JSON.parse(output);
 			if (response.status !== "ok") {
 				throw new Error(`Failed to list devices: ${response.status}`);
@@ -103,11 +103,12 @@ export class Mobilecli {
 			encoding: null,
 			maxBuffer: 32 * 1024 * 1024 // 32MB
 		});
+
 		return output as unknown as Buffer;
 	}
 
 	public static async listApps(deviceId: string): Promise<InstalledApp[]> {
-		const output = execFileSync(getMobilecliPath(), ["--device", deviceId, "apps", "list"], {}).toString();
+		const output = this.mobilecli("--device", deviceId, "apps", "list");
 		const response: MobilecliResponse<MobilecliApp[]> = JSON.parse(output);
 
 		if (response.status !== "ok") {
@@ -121,41 +122,85 @@ export class Mobilecli {
 	}
 
 	public static launchApp(deviceId: string, packageName: string): void {
-		execFileSync(getMobilecliPath(), ["--device", deviceId, "apps", "launch", packageName], {});
+		this.mobilecli("--device", deviceId, "apps", "launch", packageName);
 	}
 
 	public static terminateApp(deviceId: string, packageName: string): void {
-		execFileSync(getMobilecliPath(), ["--device", deviceId, "apps", "terminate", packageName], {});
+		this.mobilecli("--device", deviceId, "apps", "terminate", packageName);
 	}
 
 	public static getScreenSize(deviceId: string): ScreenSize {
-		const output = execFileSync(getMobilecliPath(), ["device", "info", "--device", deviceId], {}).toString();
+		const output = this.mobilecli("device", "info", "--device", deviceId);
 		const response: MobilecliResponse<MobilecliDeviceInfo> = JSON.parse(output);
 
 		if (response.status !== "ok") {
 			throw new Error(`Failed to get device info: ${response.status}`);
 		}
 
-		return {
-			width: response.data.device.screenSize.width,
-			height: response.data.device.screenSize.height,
-			scale: response.data.device.screenSize.scale,
-		};
+		return response.data.device.screenSize;
 	}
 
 	public static pressButton(deviceId: string, button: Button): void {
-		execFileSync(getMobilecliPath(), ["io", "button", button, "--device", deviceId], {});
+		this.mobilecli("io", "button", button, "--device", deviceId);
 	}
 
 	public static tap(deviceId: string, x: number, y: number): void {
-		execFileSync(getMobilecliPath(), ["io", "tap", `${x},${y}`, "--device", deviceId], {});
+		this.mobilecli("io", "tap", `${x},${y}`, "--device", deviceId);
+	}
+
+	public static longPress(deviceId: string, x: number, y: number): void {
+		this.mobilecli("io", "longpress", `${x},${y}`, "--device", deviceId);
 	}
 
 	public static sendKeys(deviceId: string, text: string): void {
-		execFileSync(getMobilecliPath(), ["io", "text", text, "--device", deviceId], {});
+		this.mobilecli("io", "text", text, "--device", deviceId);
 	}
 
 	public static openUrl(deviceId: string, url: string): void {
-		execFileSync(getMobilecliPath(), ["url", url, "--device", deviceId], {});
+		this.mobilecli("url", url, "--device", deviceId);
+	}
+
+	public static getDeviceInfo(deviceId: string): string {
+		return this.mobilecli("--device", deviceId, "device", "info");
+	}
+
+	public static getDeviceInfoByDeviceId(deviceId: string): string {
+		return this.mobilecli("device", "info", "--device", deviceId);
+	}
+
+	public static getOrientation(deviceId: string): Orientation {
+		const output = this.mobilecli("device", "orientation", "get", "--device", deviceId);
+		const response: MobilecliResponse<{ orientation: string }> = JSON.parse(output);
+		if (response.status !== "ok") {
+			throw new Error(`Failed to get orientation: ${response.status}`);
+		}
+
+		return response.data.orientation as Orientation;
+	}
+
+	public static setOrientation(deviceId: string, orientation: Orientation): void {
+		this.mobilecli("device", "orientation", "set", orientation, "--device", deviceId);
+	}
+
+	public static getElementsOnScreen(deviceId: string): ScreenElement[] {
+		const output = this.mobilecli("dump", "ui", "--device", deviceId);
+		const response: MobilecliResponse<{ elements: any[] }> = JSON.parse(output);
+		if (response.status !== "ok") {
+			throw new Error(`Failed to get elements on screen: ${response.status}`);
+		}
+
+		return response.data.elements.map(element => ({
+			type: element.type,
+			label: element.label,
+			text: element.label || element.name || element.value || "",
+			name: element.name,
+			value: element.value,
+			rect: {
+				x: element.rect.x,
+				y: element.rect.y,
+				width: element.rect.width,
+				height: element.rect.height,
+			},
+		}));
 	}
 }

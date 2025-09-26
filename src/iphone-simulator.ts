@@ -59,8 +59,7 @@ export class Simctl implements Robot {
 	}
 
 	public async longPress(x: number, y: number) {
-		const wda = await this.wda();
-		return wda.longPress(x, y);
+		return Mobilecli.longPress(this.deviceId, x, y);
 	}
 
 	public async pressButton(button: Button) {
@@ -68,40 +67,14 @@ export class Simctl implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const wda = await this.wda();
-		return wda.getElementsOnScreen();
+		return Mobilecli.getElementsOnScreen(this.deviceId);
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
-		const wda = await this.wda();
-		return wda.setOrientation(orientation);
+		return Mobilecli.setOrientation(this.deviceId, orientation);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
-		const wda = await this.wda();
-		return wda.getOrientation();
-	}
-}
-
-export class SimctlManager {
-
-	public listSimulators(): Simulator[] {
-		const devices = Mobilecli.listDevices();
-		return devices
-			.filter(device => device.platform === "ios" && device.type === "simulator")
-			.map(device => ({
-				name: device.name,
-				uuid: device.id,
-				state: "Booted",
-			}));
-	}
-
-	public listBootedSimulators(): Simulator[] {
-		return this.listSimulators()
-			.filter(simulator => simulator.state === "Booted");
-	}
-
-	public getSimulator(deviceId: string): Simctl {
-		return new Simctl(deviceId);
+		return Mobilecli.getOrientation(this.deviceId);
 	}
 }
