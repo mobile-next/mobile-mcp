@@ -5,6 +5,7 @@ import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
 import os from "node:os";
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
@@ -13,28 +14,11 @@ import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
+import { getMobilecliPath } from "./mobilecli";
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
-};
-
-const getLatestAgentVersion = async (): Promise<string> => {
-	const response = await fetch("https://api.github.com/repos/mobile-next/mobile-mcp/tags?per_page=1");
-	const json = await response.json();
-	return json[0].name;
-};
-
-const checkForLatestAgentVersion = async (): Promise<void> => {
-	try {
-		const latestVersion = await getLatestAgentVersion();
-		const currentVersion = getAgentVersion();
-		if (latestVersion !== currentVersion) {
-			trace(`You are running an older version of the agent. Please update to the latest version: ${latestVersion}.`);
-		}
-	} catch (error: any) {
-		// ignore
-	}
 };
 
 export const createMcpServer = (): McpServer => {
@@ -114,6 +98,19 @@ export const createMcpServer = (): McpServer => {
 			});
 		} catch (err: any) {
 			// ignore
+		}
+	};
+
+	const reportMobilecliVersion = async (): Promise<void> => {
+		try {
+			const path = getMobilecliPath();
+			const output = execFileSync(path, ["--version"], { encoding: "utf8" }).toString().trim();
+			const version = output.startsWith("mobilecli version ")
+				? output.split(" ").pop()
+				: output;
+			await posthog("mobilecli_check", { MobilecliVersion: version || output });
+		} catch (error: any) {
+			await posthog("mobilecli_check", { MobilecliVersion: "failed" });
 		}
 	};
 
@@ -477,8 +474,21 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	// async check for latest agent version
-	checkForLatestAgentVersion().then();
+	tool(
+		"mobile_test_mobilecli",
+		"Test mobilecli integration and report status",
+		{
+			noParams,
+		},
+		async () => {
+			const path = getMobilecliPath();
+			const output = execFileSync(path, ["devices"], { encoding: "utf8" }).toString().trim();
+			return `Here are the available devices: ${output}`;
+		}
+	);
+
+	// async report mobilecli version
+	reportMobilecliVersion().then();
 
 	const hook = server.connect;
 	server.connect = (transport: Transport): Promise<void> => {
