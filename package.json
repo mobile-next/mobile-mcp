@@ -1,7 +1,7 @@
 {
   "name": "@mobilenext/mobile-mcp",
   "mcpName": "io.github.mobile-next/mobile-mcp",
-  "version": "0.0.30-beta",
+  "version": "0.0.31-beta",
   "description": "Mobile MCP",
   "repository": {
     "type": "git",
