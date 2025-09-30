@@ -1,20 +1,9 @@
-import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
 import { Mobilecli } from "./mobilecli";
 
-export interface Simulator {
-	name: string;
-	uuid: string;
-	state: string;
-}
-
-export class Simctl implements Robot {
+export class MobileDeviceRobot implements Robot {
 
 	constructor(private readonly deviceId: string) {}
-
-	private async wda(): Promise<WebDriverAgent> {
-		throw new ActionableError("WebDriverAgent is not running on simulator, please see https://github.com/mobile-next/mobile-mcp/wiki/");
-	}
 
 	public async getScreenshot(): Promise<Buffer> {
 		return Mobilecli.getScreenshot(this.deviceId);
@@ -45,13 +34,76 @@ export class Simctl implements Robot {
 	}
 
 	public async swipe(direction: SwipeDirection): Promise<void> {
-		const wda = await this.wda();
-		return wda.swipe(direction);
+		const screenSize = await this.getScreenSize();
+		let x0: number, y0: number, x1: number, y1: number;
+
+		// Use 60% of the width/height for swipe distance
+		const verticalDistance = Math.floor(screenSize.height * 0.6);
+		const horizontalDistance = Math.floor(screenSize.width * 0.6);
+		const centerX = Math.floor(screenSize.width / 2);
+		const centerY = Math.floor(screenSize.height / 2);
+
+		switch (direction) {
+			case "up":
+				x0 = x1 = centerX;
+				y0 = centerY + Math.floor(verticalDistance / 2);
+				y1 = centerY - Math.floor(verticalDistance / 2);
+				break;
+
+			case "down":
+				x0 = x1 = centerX;
+				y0 = centerY - Math.floor(verticalDistance / 2);
+				y1 = centerY + Math.floor(verticalDistance / 2);
+				break;
+
+			case "left":
+				y0 = y1 = centerY;
+				x0 = centerX + Math.floor(horizontalDistance / 2);
+				x1 = centerX - Math.floor(horizontalDistance / 2);
+				break;
+
+			case "right":
+				y0 = y1 = centerY;
+				x0 = centerX - Math.floor(horizontalDistance / 2);
+				x1 = centerX + Math.floor(horizontalDistance / 2);
+				break;
+
+			default:
+				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
+		}
+
+		return Mobilecli.swipe(this.deviceId, x0, y0, x1, y1);
 	}
 
-	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void> {
-		const wda = await this.wda();
-		return wda.swipeFromCoordinate(x, y, direction, distance);
+	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance: number = 400): Promise<void> {
+		const x0 = x;
+		const y0 = y;
+		let x1 = x;
+		let y1 = y;
+
+		// Calculate target position based on direction and distance
+		switch (direction) {
+			case "up":
+				y1 = y - distance; // Move up by specified distance
+				break;
+
+			case "down":
+				y1 = y + distance; // Move down by specified distance
+				break;
+
+			case "left":
+				x1 = x - distance; // Move left by specified distance
+				break;
+
+			case "right":
+				x1 = x + distance; // Move right by specified distance
+				break;
+
+			default:
+				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
+		}
+
+		return Mobilecli.swipe(this.deviceId, x0, y0, x1, y1);
 	}
 
 	public async tap(x: number, y: number) {

@@ -156,6 +156,10 @@ export class Mobilecli {
 		this.mobilecli("io", "text", text, "--device", deviceId);
 	}
 
+	public static swipe(deviceId: string, x1: number, y1: number, x2: number, y2: number): void {
+		this.mobilecli("io", "swipe", `${x1},${y1},${x2},${y2}`, "--device", deviceId);
+	}
+
 	public static openUrl(deviceId: string, url: string): void {
 		this.mobilecli("url", url, "--device", deviceId);
 	}

@@ -2,39 +2,18 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
-import os from "node:os";
-import crypto from "node:crypto";
 
 import { error, trace } from "./logger";
-import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
-import { SimctlManager } from "./iphone-simulator";
-import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
+import { posthog } from "./posthog";
+import { MobileDeviceRobot } from "./iphone-simulator";
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
-};
-
-const getLatestAgentVersion = async (): Promise<string> => {
-	const response = await fetch("https://api.github.com/repos/mobile-next/mobile-mcp/tags?per_page=1");
-	const json = await response.json();
-	return json[0].name;
-};
-
-const checkForLatestAgentVersion = async (): Promise<void> => {
-	try {
-		const latestVersion = await getLatestAgentVersion();
-		const currentVersion = getAgentVersion();
-		if (latestVersion !== currentVersion) {
-			trace(`You are running an older version of the agent. Please update to the latest version: ${latestVersion}.`);
-		}
-	} catch (error: any) {
-		// ignore
-	}
 };
 
 export const createMcpServer = (): McpServer => {
@@ -80,69 +59,17 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
-	const posthog = async (event: string, properties: Record<string, string>) => {
-		try {
-			const url = "https://us.i.posthog.com/i/v0/e/";
-			const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";
-			const name = os.hostname() + process.execPath;
-			const distinct_id = crypto.createHash("sha256").update(name).digest("hex");
-			const systemProps = {
-				Platform: os.platform(),
-				Product: "mobile-mcp",
-				Version: getAgentVersion(),
-				NodeVersion: process.version,
-			};
-
-			await fetch(url, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify({
-					api_key,
-					event,
-					properties: {
-						...systemProps,
-						...properties,
-					},
-					distinct_id,
-				})
-			});
-		} catch (err: any) {
-			// ignore
-		}
-	};
-
 	posthog("launch", {}).then();
 
-	const simulatorManager = new SimctlManager();
-
-	const getRobotFromDevice = (device: string): Robot => {
-		const iosManager = new IosManager();
-		const androidManager = new AndroidDeviceManager();
-		const simulators = simulatorManager.listBootedSimulators();
-		const androidDevices = androidManager.getConnectedDevices();
-		const iosDevices = iosManager.listDevices();
-
-		// Check if it's a simulator (search by UUID first, then fallback to name)
-		const simulator = simulators.find(s => s.uuid === device || s.name === device);
-		if (simulator) {
-			return simulatorManager.getSimulator(simulator.uuid);
+	const getRobotFromDevice = (deviceId: string): Robot => {
+		const devices = Mobilecli.listDevices();
+		for (const device of devices) {
+			if (device.id === deviceId) {
+				return new MobileDeviceRobot(device.id);
+			}
 		}
 
-		// Check if it's an Android device
-		const androidDevice = androidDevices.find(d => d.deviceId === device);
-		if (androidDevice) {
-			return new AndroidRobot(device);
-		}
-
-		// Check if it's an iOS device
-		const iosDevice = iosDevices.find(d => d.deviceId === device);
-		if (iosDevice) {
-			return new IosRobot(device);
-		}
-
-		throw new ActionableError(`Device "${device}" not found. Use the mobile_list_available_devices tool to see available devices.`);
+		throw new ActionableError(`Device "${deviceId}" not found. Use the mobile_list_available_devices tool to see available devices.`);
 	};
 
 	tool(
@@ -446,9 +373,6 @@ export const createMcpServer = (): McpServer => {
 			return `Current device orientation is ${orientation}`;
 		}
 	);
-
-	// async check for latest agent version
-	checkForLatestAgentVersion().then();
 
 	return server;
 };
