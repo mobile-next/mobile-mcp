@@ -147,6 +147,30 @@ export class IosRobot implements Robot {
 		await this.ios("kill", packageName);
 	}
 
+	public async installApp(path: string): Promise<void> {
+		await this.assertTunnelRunning();
+		try {
+			await this.ios("install", "--path", path);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
+	}
+
+	public async uninstallApp(bundleId: string): Promise<void> {
+		await this.assertTunnelRunning();
+		try {
+			await this.ios("uninstall", "--bundleid", bundleId);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
+	}
+
 	public async openUrl(url: string): Promise<void> {
 		const wda = await this.wda();
 		await wda.openUrl(url);

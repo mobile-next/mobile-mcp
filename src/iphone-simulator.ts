@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, basename, extname } from "node:path";
 
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
@@ -115,6 +118,110 @@ export class Simctl implements Robot {
 
 	public async terminateApp(packageName: string) {
 		this.simctl("terminate", this.simulatorUuid, packageName);
+	}
+
+	private isPathSecure(basePath: string, targetPath: string): boolean {
+		const resolvedBase = resolve(basePath);
+		const resolvedTarget = resolve(targetPath);
+		return resolvedTarget.startsWith(resolvedBase);
+	}
+
+	private findAppBundle(dir: string): string | null {
+		const entries = readdirSync(dir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			if (entry.isDirectory() && entry.name.endsWith(".app")) {
+				return join(dir, entry.name);
+			}
+		}
+
+		return null;
+	}
+
+	public async installApp(path: string): Promise<void> {
+		let tempDir: string | null = null;
+		let installPath = path;
+
+		try {
+			// Check if this is a .zip file
+			if (extname(path).toLowerCase() === ".zip") {
+				trace(`Detected .zip file, extracting to temporary directory`);
+
+				// Create a temporary directory
+				tempDir = mkdtempSync(join(tmpdir(), "ios-app-"));
+
+				// Unzip the file with security checks
+				try {
+					execFileSync("unzip", ["-q", path, "-d", tempDir], {
+						timeout: TIMEOUT,
+						maxBuffer: MAX_BUFFER_SIZE,
+					});
+				} catch (error: any) {
+					throw new ActionableError(`Failed to unzip file: ${error.message}`);
+				}
+
+				// Verify all extracted files are within the temp directory (zipslip protection)
+				const verifyExtraction = (dir: string): void => {
+					const entries = readdirSync(dir, { withFileTypes: true });
+
+					for (const entry of entries) {
+						const fullPath = join(dir, entry.name);
+
+						// Check for zipslip attack
+						if (!this.isPathSecure(tempDir!, fullPath)) {
+							throw new ActionableError(`Security violation: File path ${entry.name} attempts to escape extraction directory`);
+						}
+
+						if (entry.isDirectory()) {
+							verifyExtraction(fullPath);
+						}
+					}
+				};
+
+				verifyExtraction(tempDir);
+
+				// Find the .app bundle in the extracted files
+				const appBundle = this.findAppBundle(tempDir);
+
+				if (!appBundle) {
+					throw new ActionableError("No .app bundle found in the .zip file");
+				}
+
+				installPath = appBundle;
+				trace(`Found .app bundle at: ${basename(appBundle)}`);
+			}
+
+			// Install the app
+			this.simctl("install", this.simulatorUuid, installPath);
+
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+
+		} finally {
+			// Clean up temporary directory if it was created
+			if (tempDir) {
+				try {
+					trace(`Cleaning up temporary directory`);
+					rmSync(tempDir, { recursive: true, force: true });
+				} catch (cleanupError) {
+					trace(`Warning: Failed to cleanup temporary directory: ${cleanupError}`);
+				}
+			}
+		}
+	}
+
+	public async uninstallApp(bundleId: string): Promise<void> {
+		try {
+			this.simctl("uninstall", this.simulatorUuid, bundleId);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {

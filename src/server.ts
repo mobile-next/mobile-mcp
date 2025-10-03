@@ -225,6 +225,34 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_install_app",
+		"Install an app on mobile device",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
+		},
+		async ({ device, path }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.installApp(path);
+			return `Installed app from ${path}`;
+		}
+	);
+
+	tool(
+		"mobile_uninstall_app",
+		"Uninstall an app from mobile device",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			bundle_id: z.string().describe("Bundle identifier (iOS) or package name (Android) of the app to be uninstalled"),
+		},
+		async ({ device, bundle_id }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.uninstallApp(bundle_id);
+			return `Uninstalled app ${bundle_id}`;
+		}
+	);
+
+	tool(
 		"mobile_get_screen_size",
 		"Get the screen size of the mobile device in pixels",
 		{
