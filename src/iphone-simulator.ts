@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, basename, extname } from "node:path";
+import { join, basename, extname } from "node:path";
 
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
@@ -120,12 +120,6 @@ export class Simctl implements Robot {
 		this.simctl("terminate", this.simulatorUuid, packageName);
 	}
 
-	private isPathSecure(basePath: string, targetPath: string): boolean {
-		const resolvedBase = resolve(basePath);
-		const resolvedTarget = resolve(targetPath);
-		return resolvedTarget.startsWith(resolvedBase);
-	}
-
 	private findAppBundle(dir: string): string | null {
 		const entries = readdirSync(dir, { withFileTypes: true });
 
@@ -138,6 +132,23 @@ export class Simctl implements Robot {
 		return null;
 	}
 
+	private validateZipPaths(zipPath: string): void {
+		const output = execFileSync("/usr/bin/zipinfo", ["-1", zipPath], {
+			timeout: TIMEOUT,
+			maxBuffer: MAX_BUFFER_SIZE,
+		}).toString();
+
+		const invalidPath = output
+			.split("\n")
+			.map(s => s.trim())
+			.filter(s => s)
+			.find(s => s.startsWith("/") || s.includes(".."));
+
+		if (invalidPath) {
+			throw new ActionableError(`Security violation: File path '${invalidPath}' contains invalid characters`);
+		}
+	}
+
 	public async installApp(path: string): Promise<void> {
 		let tempDir: string | null = null;
 		let installPath = path;
@@ -145,12 +156,17 @@ export class Simctl implements Robot {
 		try {
 			// Check if this is a .zip file
 			if (extname(path).toLowerCase() === ".zip") {
-				trace(`Detected .zip file, extracting to temporary directory`);
+				trace(`Detected .zip file, validating contents`);
+
+				// Validate zip contents before extraction
+				this.validateZipPaths(path);
+
+				trace(`Zip validation passed, extracting to temporary directory`);
 
 				// Create a temporary directory
 				tempDir = mkdtempSync(join(tmpdir(), "ios-app-"));
 
-				// Unzip the file with security checks
+				// Unzip the file
 				try {
 					execFileSync("unzip", ["-q", path, "-d", tempDir], {
 						timeout: TIMEOUT,
@@ -159,26 +175,6 @@ export class Simctl implements Robot {
 				} catch (error: any) {
 					throw new ActionableError(`Failed to unzip file: ${error.message}`);
 				}
-
-				// Verify all extracted files are within the temp directory (zipslip protection)
-				const verifyExtraction = (dir: string): void => {
-					const entries = readdirSync(dir, { withFileTypes: true });
-
-					for (const entry of entries) {
-						const fullPath = join(dir, entry.name);
-
-						// Check for zipslip attack
-						if (!this.isPathSecure(tempDir!, fullPath)) {
-							throw new ActionableError(`Security violation: File path ${entry.name} attempts to escape extraction directory`);
-						}
-
-						if (entry.isDirectory()) {
-							verifyExtraction(fullPath);
-						}
-					}
-				};
-
-				verifyExtraction(tempDir);
 
 				// Find the .app bundle in the extracted files
 				const appBundle = this.findAppBundle(tempDir);
