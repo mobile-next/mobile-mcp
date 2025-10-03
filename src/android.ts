@@ -214,25 +214,54 @@ export class AndroidRobot implements Robot {
 	}
 
 	private getFirstDisplayId(): string | null {
-		const displays = this.adb("shell", "cmd", "display", "get-displays")
-			.toString()
-			.split("\n")
-			.filter(s => s.startsWith("Display id "))
-			// filter for state ON even though get-displays only returns turned on displays
-			.filter(s => s.indexOf(", state ON,") >= 0)
-			// another paranoia check
-			.filter(s => s.indexOf(", uniqueId ") >= 0);
+		try {
+			// Try using cmd display get-displays (Android 11+)
+			const displays = this.adb("shell", "cmd", "display", "get-displays")
+				.toString()
+				.split("\n")
+				.filter(s => s.startsWith("Display id "))
+				// filter for state ON even though get-displays only returns turned on displays
+				.filter(s => s.indexOf(", state ON,") >= 0)
+				// another paranoia check
+				.filter(s => s.indexOf(", uniqueId ") >= 0);
 
-		if (displays.length > 0) {
-			const m = displays[0].match(/uniqueId \"([^\"]+)\"/);
-			if (m !== null) {
-				const displayId = m[1];
-				if (displayId.indexOf("local:") === 0) {
-					return displayId.split(":")[1];
+			if (displays.length > 0) {
+				const m = displays[0].match(/uniqueId \"([^\"]+)\"/);
+				if (m !== null) {
+					const displayId = m[1];
+					if (displayId.indexOf("local:") === 0) {
+						return displayId.split(":")[1];
+					}
+
+					return displayId;
 				}
-
-				return displayId;
 			}
+		} catch (error) {
+			// cmd display get-displays not available on this device, try fallback
+		}
+
+		// Fallback: parse dumpsys display for display info (compatible with older Android versions)
+		try {
+			const dumpsys = this.adb("shell", "dumpsys", "display")
+				.toString();
+
+			// Look for DisplayViewport entries with isActive=true and type=INTERNAL
+			const viewportMatch = dumpsys.match(/DisplayViewport\{type=INTERNAL[^}]*isActive=true[^}]*uniqueId='([^']+)'/);
+			if (viewportMatch) {
+				const uniqueId = viewportMatch[1];
+				if (uniqueId.indexOf("local:") === 0) {
+					return uniqueId.split(":")[1];
+				}
+				return uniqueId;
+			}
+
+			// Alternative: look for active display with state ON
+			const displayStateMatch = dumpsys.match(/Display Id=(\d+)[\s\S]*?Display State=ON/);
+			if (displayStateMatch) {
+				return displayStateMatch[1];
+			}
+		} catch (error) {
+			// dumpsys display also failed
 		}
 
 		return null;
