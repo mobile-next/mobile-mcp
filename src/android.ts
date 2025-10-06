@@ -299,6 +299,28 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "am", "force-stop", packageName);
 	}
 
+	public async installApp(path: string): Promise<void> {
+		try {
+			this.adb("install", "-r", path);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
+	}
+
+	public async uninstallApp(bundleId: string): Promise<void> {
+		try {
+			this.adb("uninstall", bundleId);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
+	}
+
 	public async openUrl(url: string): Promise<void> {
 		this.adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url);
 	}

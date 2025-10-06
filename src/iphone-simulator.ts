@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, basename, extname } from "node:path";
 
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
@@ -115,6 +118,99 @@ export class Simctl implements Robot {
 
 	public async terminateApp(packageName: string) {
 		this.simctl("terminate", this.simulatorUuid, packageName);
+	}
+
+	private findAppBundle(dir: string): string | null {
+		const entries = readdirSync(dir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			if (entry.isDirectory() && entry.name.endsWith(".app")) {
+				return join(dir, entry.name);
+			}
+		}
+
+		return null;
+	}
+
+	private validateZipPaths(zipPath: string): void {
+		const output = execFileSync("/usr/bin/zipinfo", ["-1", zipPath], {
+			timeout: TIMEOUT,
+			maxBuffer: MAX_BUFFER_SIZE,
+		}).toString();
+
+		const invalidPath = output
+			.split("\n")
+			.map(s => s.trim())
+			.filter(s => s)
+			.find(s => s.startsWith("/") || s.includes(".."));
+
+		if (invalidPath) {
+			throw new ActionableError(`Security violation: File path '${invalidPath}' contains invalid characters`);
+		}
+	}
+
+	public async installApp(path: string): Promise<void> {
+		let tempDir: string | null = null;
+		let installPath = path;
+
+		try {
+			// zip files need to be extracted prior to installation
+			if (extname(path).toLowerCase() === ".zip") {
+				trace(`Detected .zip file, validating contents`);
+
+				// before extracting, let's make sure there's no zip-slip bombs here
+				this.validateZipPaths(path);
+
+				tempDir = mkdtempSync(join(tmpdir(), "ios-app-"));
+
+				try {
+					execFileSync("unzip", ["-q", path, "-d", tempDir], {
+						timeout: TIMEOUT,
+					});
+				} catch (error: any) {
+					throw new ActionableError(`Failed to unzip file: ${error.message}`);
+				}
+
+				const appBundle = this.findAppBundle(tempDir);
+				if (!appBundle) {
+					throw new ActionableError("No .app bundle found in the .zip file, please visit wiki at https://github.com/mobile-next/mobile-mcp/wiki for assistance.");
+				}
+
+				installPath = appBundle;
+				trace(`Found .app bundle at: ${basename(appBundle)}`);
+			}
+
+			// continue with installation
+			this.simctl("install", this.simulatorUuid, installPath);
+
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+
+		} finally {
+			// Clean up temporary directory if it was created
+			if (tempDir) {
+				try {
+					trace(`Cleaning up temporary directory`);
+					rmSync(tempDir, { recursive: true, force: true });
+				} catch (cleanupError) {
+					trace(`Warning: Failed to cleanup temporary directory: ${cleanupError}`);
+				}
+			}
+		}
+	}
+
+	public async uninstallApp(bundleId: string): Promise<void> {
+		try {
+			this.simctl("uninstall", this.simulatorUuid, bundleId);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
