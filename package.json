@@ -28,7 +28,9 @@
     "commander": "14.0.0",
     "express": "5.1.0",
     "fast-xml-parser": "5.2.5",
-    "zod-to-json-schema": "3.24.6",
+    "zod-to-json-schema": "3.24.6"
+  },
+  "optionalDependencies": {
     "@mobilenext/mobilecli": "0.0.27"
   },
   "devDependencies": {

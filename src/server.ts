@@ -96,20 +96,22 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	const reportMobilecliVersion = async (): Promise<void> => {
+	const getMobilecliVersion = (): string => {
 		try {
 			const path = getMobilecliPath();
 			const output = execFileSync(path, ["--version"], { encoding: "utf8" }).toString().trim();
-			const version = output.startsWith("mobilecli version ")
-				? output.split(" ").pop()
-				: output;
-			await posthog("mobilecli_check", { MobilecliVersion: version || output });
+			if (output.startsWith("mobilecli version ")) {
+				return output.substring("mobilecli version ".length);
+			}
+
+			return "failed";
 		} catch (error: any) {
-			await posthog("mobilecli_check", { MobilecliVersion: "failed" });
+			return "failed " + error.message;
 		}
 	};
 
-	posthog("launch", {}).then();
+	const mobilecliVersion = getMobilecliVersion();
+	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
 
 	const simulatorManager = new SimctlManager();
 
@@ -468,9 +470,6 @@ export const createMcpServer = (): McpServer => {
 			return `Current device orientation is ${orientation}`;
 		}
 	);
-
-	// async report mobilecli version
-	reportMobilecliVersion().then();
 
 	return server;
 };
