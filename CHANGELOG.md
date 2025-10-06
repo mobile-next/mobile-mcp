@@ -1,3 +1,10 @@
+## [0.0.30](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.30) (2025-10-06)
+
+* Server: introduction of mobilecli tool, will replace imagemagick, sips, go-ios and adb in the future
+  ([#196](https://github.com/mobile-next/mobile-mcp/pull/196))
+* iOS: app installation and uninstallation ([#202](https://github.com/mobile-next/mobile-mcp/pull/202))
+* Android: app installation and uninstallation ([#202](https://github.com/mobile-next/mobile-mcp/pull/202))
+
 ## [0.0.29](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.29) (2025-09-26)
 
 * Server: bumped mcp sdk to latest version ([#199](https://github.com/mobile-next/mobile-mcp/pull/199))
