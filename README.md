@@ -83,7 +83,7 @@ More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) 
 
 ## Installation and configuration
 
-Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
+**Standard config** works in most of the tools:
 
 ```json
 {
@@ -94,22 +94,73 @@ Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
     }
   }
 }
-
 ```
-[Cline:](https://docs.cline.bot/mcp/configuring-mcp-servers) To setup Cline, just add the json above to your MCP settings file.
+
+<details>
+<summary>Cline</summary>
+
+To setup Cline, just add the json above to your MCP settings file.
+
 [More in our wiki](https://github.com/mobile-next/mobile-mcp/wiki/Cline)
 
-[Claude Code:](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
+</details>
 
-```
-claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest
+<details>
+<summary>Claude Code</summary>
+
+Use the Claude Code CLI to add the Mobile MCP server:
+
+```bash
+claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
-[Gemini CLI:](https://cloud.google.com/gemini/docs/codeassist/gemini-cli)
+</details>
 
+<details>
+<summary>Cursor</summary>
+
+#### Click the button to install:
+
+[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=Mobile%20MCP&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBtb2JpbGVuZXh0L21vYmlsZS1tY3BAbGF0ZXN0Il19)
+
+#### Or install manually:
+
+Go to `Cursor Settings` -> `MCP` -> `Add new MCP Server`. Name to your liking, use `command` type with the command `npx -y @mobilenext/mobile-mcp@latest`. You can also verify config or add command like arguments via clicking `Edit`.
+
+</details>
+
+<details>
+<summary>Gemini CLI</summary>
+
+Use the Gemini CLI to add the Mobile MCP server:
+
+```bash
+gemini mcp add mobile-mcp npx -y @mobilenext/mobile-mcp@latest
 ```
-gemini mcp add mobile npx -y @mobilenext/mobile-mcp@latest
-```
+
+</details>
+
+<details>
+<summary>Goose</summary>
+
+#### Click the button to install:
+
+[![Install in Goose](https://block.github.io/goose/img/extension-install-dark.svg)](https://block.github.io/goose/extension?cmd=npx&arg=-y&arg=%40mobilenext%2Fmobile-mcp%40latest&id=mobile-mcp&name=Mobile%20MCP&description=Mobile%20automation%20and%20development%20for%20iOS%2C%20Android%2C%20simulators%2C%20emulators%2C%20and%20real%20devices)
+
+#### Or install manually:
+
+Go to `Advanced settings` -> `Extensions` -> `Add custom extension`. Name to your liking, use type `STDIO`, and set the `command` to `npx -y @mobilenext/mobile-mcp@latest`. Click "Add Extension".
+
+</details>
+
+<details>
+<summary>Qodo Gen</summary>
+
+Open [Qodo Gen](https://docs.qodo.ai/qodo-documentation/qodo-gen) chat panel in VSCode or IntelliJ → Connect more tools → + Add new MCP → Paste the standard config above.
+
+Click <code>Save</code>.
+
+</details>
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
