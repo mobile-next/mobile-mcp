@@ -1,3 +1,9 @@
+## [0.0.29](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.29) (2025-09-26)
+
+* Server: bumped mcp sdk to latest version ([#199](https://github.com/mobile-next/mobile-mcp/pull/199))
+* Server: locked production npm packages to specific version ([#199](https://github.com/mobile-next/mobile-mcp/pull/199))
+* Server: renamed tool 'swipe_on_screen' to 'mobile_swipe_on_screen' ([#197](https://github.com/mobile-next/mobile-mcp/pull/197))
+
 ## [0.0.28](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.28) (2025-09-15)
 
 * Server: added 'device' parameter to all tools ([#181](https://github.com/mobile-next/mobile-mcp/pull/181))

@@ -24,12 +24,12 @@
     "lib"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
-    "commander": "^14.0.0",
-    "express": "^5.1.0",
-    "fast-xml-parser": "^5.0.9",
-    "zod-to-json-schema": "^3.24.4",
-    "@mobilenext/mobilecli": "0.0.24"
+    "@modelcontextprotocol/sdk": "1.13.2",
+    "commander": "14.0.0",
+    "express": "5.1.0",
+    "fast-xml-parser": "5.2.5",
+    "zod-to-json-schema": "3.24.6",
+    "@mobilenext/mobilecli": "0.0.27"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
