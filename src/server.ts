@@ -4,6 +4,7 @@ import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
 import os from "node:os";
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
@@ -12,28 +13,11 @@ import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
+import { getMobilecliPath } from "./mobilecli";
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
-};
-
-const getLatestAgentVersion = async (): Promise<string> => {
-	const response = await fetch("https://api.github.com/repos/mobile-next/mobile-mcp/tags?per_page=1");
-	const json = await response.json();
-	return json[0].name;
-};
-
-const checkForLatestAgentVersion = async (): Promise<void> => {
-	try {
-		const latestVersion = await getLatestAgentVersion();
-		const currentVersion = getAgentVersion();
-		if (latestVersion !== currentVersion) {
-			trace(`You are running an older version of the agent. Please update to the latest version: ${latestVersion}.`);
-		}
-	} catch (error: any) {
-		// ignore
-	}
 };
 
 export const createMcpServer = (): McpServer => {
@@ -112,7 +96,22 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	posthog("launch", {}).then();
+	const getMobilecliVersion = (): string => {
+		try {
+			const path = getMobilecliPath();
+			const output = execFileSync(path, ["--version"], { encoding: "utf8" }).toString().trim();
+			if (output.startsWith("mobilecli version ")) {
+				return output.substring("mobilecli version ".length);
+			}
+
+			return "failed";
+		} catch (error: any) {
+			return "failed " + error.message;
+		}
+	};
+
+	const mobilecliVersion = getMobilecliVersion();
+	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
 
 	const simulatorManager = new SimctlManager();
 
@@ -221,6 +220,34 @@ export const createMcpServer = (): McpServer => {
 			const robot = getRobotFromDevice(device);
 			await robot.terminateApp(packageName);
 			return `Terminated app ${packageName}`;
+		}
+	);
+
+	tool(
+		"mobile_install_app",
+		"Install an app on mobile device",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
+		},
+		async ({ device, path }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.installApp(path);
+			return `Installed app from ${path}`;
+		}
+	);
+
+	tool(
+		"mobile_uninstall_app",
+		"Uninstall an app from mobile device",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			bundle_id: z.string().describe("Bundle identifier (iOS) or package name (Android) of the app to be uninstalled"),
+		},
+		async ({ device, bundle_id }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.uninstallApp(bundle_id);
+			return `Uninstalled app ${bundle_id}`;
 		}
 	);
 
@@ -471,9 +498,6 @@ export const createMcpServer = (): McpServer => {
 			return `Current device orientation is ${orientation}`;
 		}
 	);
-
-	// async check for latest agent version
-	checkForLatestAgentVersion().then();
 
 	return server;
 };

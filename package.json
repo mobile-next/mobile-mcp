@@ -30,6 +30,9 @@
     "fast-xml-parser": "5.2.5",
     "zod-to-json-schema": "3.24.6"
   },
+  "optionalDependencies": {
+    "@mobilenext/mobilecli": "0.0.27"
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.19.0",

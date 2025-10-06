@@ -84,6 +84,16 @@ export interface Robot {
 	terminateApp(packageName: string): Promise<void>;
 
 	/**
+	 * Install an app on the device from a file path.
+	 */
+	installApp(path: string): Promise<void>;
+
+	/**
+	 * Uninstall an app from the device.
+	 */
+	uninstallApp(bundleId: string): Promise<void>;
+
+	/**
 	 * Open a URL in the device's web browser. Can be an https:// url, or a
 	 * custom scheme (e.g. "myapp://").
 	 */
