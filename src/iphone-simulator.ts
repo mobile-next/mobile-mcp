@@ -154,40 +154,33 @@ export class Simctl implements Robot {
 		let installPath = path;
 
 		try {
-			// Check if this is a .zip file
+			// zip files need to be extracted prior to installation
 			if (extname(path).toLowerCase() === ".zip") {
 				trace(`Detected .zip file, validating contents`);
 
-				// Validate zip contents before extraction
+				// before extracting, let's make sure there's no zip-slip bombs here
 				this.validateZipPaths(path);
 
-				trace(`Zip validation passed, extracting to temporary directory`);
-
-				// Create a temporary directory
 				tempDir = mkdtempSync(join(tmpdir(), "ios-app-"));
 
-				// Unzip the file
 				try {
 					execFileSync("unzip", ["-q", path, "-d", tempDir], {
 						timeout: TIMEOUT,
-						maxBuffer: MAX_BUFFER_SIZE,
 					});
 				} catch (error: any) {
 					throw new ActionableError(`Failed to unzip file: ${error.message}`);
 				}
 
-				// Find the .app bundle in the extracted files
 				const appBundle = this.findAppBundle(tempDir);
-
 				if (!appBundle) {
-					throw new ActionableError("No .app bundle found in the .zip file");
+					throw new ActionableError("No .app bundle found in the .zip file, please visit wiki at https://github.com/mobile-next/mobile-mcp/wiki for assistance.");
 				}
 
 				installPath = appBundle;
 				trace(`Found .app bundle at: ${basename(appBundle)}`);
 			}
 
-			// Install the app
+			// continue with installation
 			this.simctl("install", this.simulatorUuid, installPath);
 
 		} catch (error: any) {
