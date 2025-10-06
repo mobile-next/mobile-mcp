@@ -83,7 +83,7 @@ More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) 
 
 ## Installation and configuration
 
-Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
+**Standard config** works in most of the tools:
 
 ```json
 {
@@ -94,22 +94,38 @@ Setup our MCP with Cline, Cursor, Claude, VS Code, Github Copilot:
     }
   }
 }
-
 ```
-[Cline:](https://docs.cline.bot/mcp/configuring-mcp-servers) To setup Cline, just add the json above to your MCP settings file.
+
+<details>
+<summary>Cline</summary>
+
+To setup Cline, just add the json above to your MCP settings file.
+
 [More in our wiki](https://github.com/mobile-next/mobile-mcp/wiki/Cline)
 
-[Claude Code:](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
+</details>
 
-```
+<details>
+<summary>Claude Code</summary>
+
+Use the Claude Code CLI to add the Mobile MCP server:
+
+```bash
 claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
-[Gemini CLI:](https://cloud.google.com/gemini/docs/codeassist/gemini-cli)
+</details>
 
-```
+<details>
+<summary>Gemini CLI</summary>
+
+Use the Gemini CLI to add the Mobile MCP server:
+
+```bash
 gemini mcp add mobile npx -y @mobilenext/mobile-mcp@latest
 ```
+
+</details>
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
