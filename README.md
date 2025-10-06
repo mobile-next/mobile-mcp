@@ -111,7 +111,7 @@ To setup Cline, just add the json above to your MCP settings file.
 Use the Claude Code CLI to add the Mobile MCP server:
 
 ```bash
-claude mcp add mobile -- npx -y @mobilenext/mobile-mcp@latest
+claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
 </details>
@@ -135,7 +135,7 @@ Go to `Cursor Settings` -> `MCP` -> `Add new MCP Server`. Name to your liking, u
 Use the Gemini CLI to add the Mobile MCP server:
 
 ```bash
-gemini mcp add mobile npx -y @mobilenext/mobile-mcp@latest
+gemini mcp add mobile-mcp npx -y @mobilenext/mobile-mcp@latest
 ```
 
 </details>
