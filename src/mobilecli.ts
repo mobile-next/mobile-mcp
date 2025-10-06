@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join, sep } from "node:path";
 
 import { InstalledApp, ScreenSize, Button, Orientation, ScreenElement } from "./robot";
 
@@ -41,26 +43,53 @@ export const getMobilecliPath = (): string => {
 	}
 
 	const platform = process.platform;
-	const basePath = "./node_modules/@mobilenext/mobilecli/bin/mobilecli";
+	let binaryName = "mobilecli";
 
-	if (platform === "darwin") {
-		return `${basePath}-darwin`;
+	switch (platform) {
+		case "darwin":
+			binaryName += "-darwin";
+			break;
+		case "linux":
+			const arch = process.arch;
+			if (arch === "arm64") {
+				binaryName += "-linux-arm64";
+			} else {
+				binaryName += "-linux-amd64";
+			}
+			break;
+		case "win32":
+			binaryName += "-windows-amd64.exe";
+			break;
+		default:
+			throw new Error(`Unsupported platform: ${platform}`);
 	}
 
-	if (platform === "linux") {
-		const arch = process.arch;
-		if (arch === "arm64") {
-			return `${basePath}-linux-arm64`;
+	// Check if mobile-mcp is installed as a package
+	const currentPath = __filename;
+	const pathParts = currentPath.split(sep);
+	const lastNodeModulesIndex = pathParts.lastIndexOf("node_modules");
+
+	if (lastNodeModulesIndex !== -1) {
+		// We're inside node_modules, go to the last node_modules in the path
+		const nodeModulesParts = pathParts.slice(0, lastNodeModulesIndex + 1);
+		const lastNodeModulesPath = nodeModulesParts.join(sep);
+		const mobilecliPath = join(lastNodeModulesPath, "@mobilenext", "mobilecli", "bin", binaryName);
+
+		if (existsSync(mobilecliPath)) {
+			return mobilecliPath;
 		}
-
-		return `${basePath}-linux-amd64`;
 	}
 
-	if (platform === "win32") {
-		return `${basePath}-windows-amd64.exe`;
+	// Not in node_modules, look one directory up from current script
+	const scriptDir = dirname(__filename);
+	const parentDir = dirname(scriptDir);
+	const mobilecliPath = join(parentDir, "node_modules", "@mobilenext", "mobilecli", "bin", binaryName);
+
+	if (existsSync(mobilecliPath)) {
+		return mobilecliPath;
 	}
 
-	throw new Error(`Unsupported platform: ${platform}`);
+	throw new Error(`Could not find mobilecli binary for platform: ${platform}`);
 };
 
 export class Mobilecli {

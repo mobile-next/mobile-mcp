@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 
 import { error, trace } from "./logger";
 import { ActionableError, Robot } from "./robot";
@@ -9,7 +10,8 @@ import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { posthog } from "./posthog";
-import { MobileDeviceRobot } from "./iphone-simulator";
+import { getMobilecliPath } from "./mobilecli";
+import { MobileDeviceRobot } from "./mobile-device-robot";
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -59,7 +61,22 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
-	posthog("launch", {}).then();
+	const getMobilecliVersion = (): string => {
+		try {
+			const path = getMobilecliPath();
+			const output = execFileSync(path, ["--version"], { encoding: "utf8" }).toString().trim();
+			if (output.startsWith("mobilecli version ")) {
+				return output.substring("mobilecli version ".length);
+			}
+
+			return "failed";
+		} catch (error: any) {
+			return "failed " + error.message;
+		}
+	};
+
+	const mobilecliVersion = getMobilecliVersion();
+	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
 
 	const getRobotFromDevice = (deviceId: string): Robot => {
 		const devices = Mobilecli.listDevices();
@@ -123,6 +140,34 @@ export const createMcpServer = (): McpServer => {
 			const robot = getRobotFromDevice(device);
 			await robot.terminateApp(packageName);
 			return `Terminated app ${packageName}`;
+		}
+	);
+
+	tool(
+		"mobile_install_app",
+		"Install an app on mobile device",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
+		},
+		async ({ device, path }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.installApp(path);
+			return `Installed app from ${path}`;
+		}
+	);
+
+	tool(
+		"mobile_uninstall_app",
+		"Uninstall an app from mobile device",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			bundle_id: z.string().describe("Bundle identifier (iOS) or package name (Android) of the app to be uninstalled"),
+		},
+		async ({ device, bundle_id }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.uninstallApp(bundle_id);
+			return `Uninstalled app ${bundle_id}`;
 		}
 	);
 
@@ -235,7 +280,7 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"swipe_on_screen",
+		"mobile_swipe_on_screen",
 		"Swipe on the screen",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
