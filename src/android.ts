@@ -1,8 +1,10 @@
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import http from "node:http";
 
 import * as xml from "fast-xml-parser";
+import WebSocket from "ws";
 
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
 
@@ -424,6 +426,62 @@ export class AndroidRobot implements Robot {
 		return parser.parse(dump) as UiAutomatorXml;
 	}
 
+	public async getBrowserSource(): Promise<void> {
+		this.adb("forward", "--remove-all");
+		this.adb("forward", "tcp:9222", "localabstract:chrome_devtools_remote");
+
+		const response = await new Promise<string>((resolve, reject) => {
+			http.get("http://localhost:9222/json", res => {
+				let data = "";
+				res.on("data", chunk => data += chunk);
+				res.on("end", () => resolve(data));
+			}).on("error", reject);
+		});
+
+		const tabs = JSON.parse(response);
+		const webSocketDebuggerUrl = tabs[0].webSocketDebuggerUrl;
+
+		console.log(webSocketDebuggerUrl);
+
+		const ws = new WebSocket(webSocketDebuggerUrl);
+
+		ws.on("open", () => {
+			ws.send(JSON.stringify({
+				id: 1,
+				method: "Target.getTargets"
+			}));
+		});
+
+		ws.on("message", (data: WebSocket.Data) => {
+			const message = JSON.parse(data.toString());
+			console.log(data.toString());
+
+			if (message.id === 1 && message.result?.targetInfos) {
+				const targetId = message.result.targetInfos[0].targetId;
+				ws.send(JSON.stringify({
+					id: 2,
+					method: "Target.attachToTarget",
+					params: { targetId }
+				}));
+			}
+
+			if (message.id === 2 && message.result?.sessionId) {
+				const sessionId = message.result.sessionId;
+				console.log("Connecting to " + sessionId);
+				ws.send(JSON.stringify({
+					id: 3,
+					method: "DOM.getDocument",
+					params: { sessionId: sessionId, depth: 1000 }
+				}));
+			}
+		});
+
+		setTimeout(() => {
+			ws.close();
+			process.exit(0);
+		}, 10000);
+	}
+
 	private getScreenElementRect(node: UiAutomatorXmlNode): ScreenElementRect {
 		const bounds = String(node.bounds);
 
@@ -469,3 +527,6 @@ export class AndroidDeviceManager {
 		}
 	}
 }
+
+const device = new AndroidRobot("emulator-5554");
+device.getBrowserSource();

@@ -25,9 +25,11 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.13.2",
+    "@types/ws": "^8.18.1",
     "commander": "14.0.0",
     "express": "5.1.0",
     "fast-xml-parser": "5.2.5",
+    "ws": "^8.18.3",
     "zod-to-json-schema": "3.24.6"
   },
   "optionalDependencies": {
