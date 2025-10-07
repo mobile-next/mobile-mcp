@@ -35,9 +35,13 @@ export const createMcpServer = (): McpServer => {
 	const noParams = z.object({});
 
 	const getClientName = (): string => {
-		const clientInfo = server.server.getClientVersion();
-		const clientName = clientInfo?.name || "unknown";
-		return clientName;
+		try {
+			const clientInfo = server.server.getClientVersion();
+			const clientName = clientInfo?.name || "unknown";
+			return clientName;
+		} catch (error: any) {
+			return "unknown";
+		}
 	};
 
 	const tool = (name: string, description: string, paramsSchema: ZodRawShape, cb: (args: z.objectOutputType<ZodRawShape, ZodTypeAny>) => Promise<string>) => {
