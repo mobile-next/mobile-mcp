@@ -268,18 +268,6 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"mobile_wait",
-		"Pause execution for a specified number of seconds.",
-		{
-			seconds: z.number().describe("Number of seconds to wait"),
-		},
-		async ({ seconds }) => {
-			await new Promise(res => setTimeout(res, seconds * 1000));
-			return `Waited for ${seconds} seconds`;
-		}
-	);
-
-	tool(
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
