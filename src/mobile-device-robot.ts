@@ -22,40 +22,37 @@ export class MobileDeviceRobot implements Robot {
 
 	async swipe(direction: SwipeDirection): Promise<void> {
 		const screenSize = await this.getScreenSize();
-		const centerX = screenSize.width / 2;
-		const centerY = screenSize.height / 2;
-		const margin = 100;
+		const centerX = Math.floor(screenSize.width / 2);
+		const centerY = Math.floor(screenSize.height / 2);
+		const verticalDistance = Math.floor(screenSize.height * 0.6);
+		const horizontalDistance = Math.floor(screenSize.width * 0.6);
 
-		let x1: number, y1: number, x2: number, y2: number;
+		let x0: number, y0: number, x1: number, y1: number;
 
 		switch (direction) {
 			case "up":
-				x1 = centerX;
-				y1 = screenSize.height - margin;
-				x2 = centerX;
-				y2 = margin;
+				x0 = x1 = centerX;
+				y0 = centerY + Math.floor(verticalDistance / 2);
+				y1 = centerY - Math.floor(verticalDistance / 2);
 				break;
 			case "down":
-				x1 = centerX;
-				y1 = margin;
-				x2 = centerX;
-				y2 = screenSize.height - margin;
+				x0 = x1 = centerX;
+				y0 = centerY - Math.floor(verticalDistance / 2);
+				y1 = centerY + Math.floor(verticalDistance / 2);
 				break;
 			case "left":
-				x1 = screenSize.width - margin;
-				y1 = centerY;
-				x2 = margin;
-				y2 = centerY;
+				y0 = y1 = centerY;
+				x0 = centerX + Math.floor(horizontalDistance / 2);
+				x1 = centerX - Math.floor(horizontalDistance / 2);
 				break;
 			case "right":
-				x1 = margin;
-				y1 = centerY;
-				x2 = screenSize.width - margin;
-				y2 = centerY;
+				y0 = y1 = centerY;
+				x0 = centerX - Math.floor(horizontalDistance / 2);
+				x1 = centerX + Math.floor(horizontalDistance / 2);
 				break;
 		}
 
-		Mobilecli.swipe(this.deviceId, x1, y1, x2, y2);
+		Mobilecli.swipe(this.deviceId, x0, y0, x1, y1);
 	}
 
 	async swipeFromCoordinate(
