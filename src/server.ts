@@ -34,6 +34,12 @@ export const createMcpServer = (): McpServer => {
 	// an empty object to satisfy windsurf
 	const noParams = z.object({});
 
+	const getClientName = (): string => {
+		const clientInfo = server.server.getClientVersion();
+		const clientName = clientInfo?.name || "unknown";
+		return clientName;
+	};
+
 	const tool = (name: string, description: string, paramsSchema: ZodRawShape, cb: (args: z.objectOutputType<ZodRawShape, ZodTypeAny>) => Promise<string>) => {
 		const wrappedCb = async (args: ZodRawShape): Promise<CallToolResult> => {
 			try {
@@ -69,12 +75,17 @@ export const createMcpServer = (): McpServer => {
 			const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";
 			const name = os.hostname() + process.execPath;
 			const distinct_id = crypto.createHash("sha256").update(name).digest("hex");
-			const systemProps = {
+			const systemProps: any = {
 				Platform: os.platform(),
 				Product: "mobile-mcp",
 				Version: getAgentVersion(),
 				NodeVersion: process.version,
 			};
+
+			const clientName = getClientName();
+			if (clientName !== "unknown") {
+				systemProps.AgentName = clientName;
+			}
 
 			await fetch(url, {
 				method: "POST",
