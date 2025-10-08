@@ -177,7 +177,7 @@ export const createMcpServer = (): McpServer => {
 
 			const resp = ["Found these devices:"];
 			if (simulatorNames.length > 0) {
-				resp.push(`iOS simulators: [${simulatorNames.join(".")}]`);
+				resp.push(`iOS simulators: [${simulatorNames.join(",")}]`);
 			}
 
 			if (iosDevices.length > 0) {
