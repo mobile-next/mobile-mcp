@@ -62,7 +62,7 @@ jobs:
       #if: github.ref_type == 'tag'
       run: |
         # get homebrew in path
-        $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         brew install mcp-publisher
         mcp-publisher login github-oidc
         # patch version
