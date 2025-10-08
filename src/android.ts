@@ -120,7 +120,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
-		this.adb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
+		this.adb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1", "1>/dev/null", "2>/dev/null");
 	}
 
 	public async listRunningProcesses(): Promise<string[]> {
