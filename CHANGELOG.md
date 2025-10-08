@@ -1,3 +1,11 @@
+## [0.0.32](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.32) (2025-10-08)
+
+* Server: fixed wrong separator when listing iOS simulators ([#208](https://github.com/mobile-next/mobile-mcp/pull/208))
+* iOS: double tap at screen location ([#207](https://github.com/mobile-next/mobile-mcp/pull/207))
+* Android: reduce stdout pollution by adb shell monkey ([#211](https://github.com/mobile-next/mobile-mcp/pull/211))
+* Android: fix mobile_take_screenshot on very old android devices ([#204](https://github.com/mobile-next/mobile-mcp/pull/204)) by [@boulaycote](https://github.com/boulaycote)
+* Android: double tap at screen location ([#194](https://github.com/mobile-next/mobile-mcp/pull/194)) by [@SakshamSahgal](https://github.com/SakshamSahgal)
+
 ## [0.0.31](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.31) (2025-10-07)
 
 * Server: resolve mobilecli libc issues on very old linux distros ([#206](https://github.com/mobile-next/mobile-mcp/pull/206))
