@@ -58,22 +58,11 @@ jobs:
         echo "//registry.npmjs.org/:_authToken=$NPM_AUTH_TOKEN" >> ~/.npmrc
         npm publish
 
-#    - name: Install Android SDK
-#      uses: android-actions/setup-android@v3
-#
-#    - name: Create and start Android emulator
-#      run: |
-#        # create avd
-#        echo "y" | sdkmanager "system-images;android-31;google_apis;x86_64"
-#        avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --device "pixel"
-#        # start emulator
-#        sudo ANDROID_AVD_HOME="$HOME/.config/.android/avd" nohup $ANDROID_HOME/emulator/emulator -avd test -no-metrics -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
-#        # wait for device
-#        adb wait-for-device
-#        echo "Waiting for sys.boot_completed"
-#        while [[ -z $(adb shell getprop dev.bootcomplete) ]]; do sleep 1; done;
-#      timeout-minutes: 10
-#
-#    - name: Run android tests
-#      run: |
-#        npm test
+    - name: Publish on github mcp registry
+    - run: |
+        # get homebrew in path
+        $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+        brew install mcp-publisher
+        mcp-publisher login github-oidc
+        mcp-publisher publish
+        mcp-publisher logout
