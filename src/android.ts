@@ -228,34 +228,35 @@ export class AndroidRobot implements Robot {
 			if (displays.length > 0) {
 				const m = displays[0].match(/uniqueId \"([^\"]+)\"/);
 				if (m !== null) {
-					const displayId = m[1];
-					if (displayId.indexOf("local:") === 0) {
-						return displayId.split(":")[1];
+					let displayId = m[1];
+					if (displayId.startsWith("local:")) {
+						displayId = displayId.substring("local:".length);
 					}
 
 					return displayId;
 				}
 			}
 		} catch (error) {
-			// cmd display get-displays not available on this device, try fallback
+			// cmd display get-displays not available on this device
 		}
 
-		// Fallback: parse dumpsys display for display info (compatible with older Android versions)
+		// fallback: parse dumpsys display for display info (compatible with older Android versions)
 		try {
 			const dumpsys = this.adb("shell", "dumpsys", "display")
 				.toString();
 
-			// Look for DisplayViewport entries with isActive=true and type=INTERNAL
+			// look for DisplayViewport entries with isActive=true and type=INTERNAL
 			const viewportMatch = dumpsys.match(/DisplayViewport\{type=INTERNAL[^}]*isActive=true[^}]*uniqueId='([^']+)'/);
 			if (viewportMatch) {
-				const uniqueId = viewportMatch[1];
-				if (uniqueId.indexOf("local:") === 0) {
-					return uniqueId.split(":")[1];
+				let uniqueId = viewportMatch[1];
+				if (uniqueId.startsWith("local:")) {
+					uniqueId = uniqueId.substring("local:".length);
 				}
+
 				return uniqueId;
 			}
 
-			// Alternative: look for active display with state ON
+			// fallback: look for active display with state ON
 			const displayStateMatch = dumpsys.match(/Display Id=(\d+)[\s\S]*?Display State=ON/);
 			if (displayStateMatch) {
 				return displayStateMatch[1];
@@ -275,6 +276,12 @@ export class AndroidRobot implements Robot {
 
 		// find the first display that is turned on, and capture that one
 		const displayId = this.getFirstDisplayId();
+		if (displayId === null) {
+			// no idea why, but we have displayCount >= 2, yet we failed to parse
+			// let's go with screencap's defaults and hope for the best
+			return this.adb("exec-out", "screencap", "-p");
+		}
+
 		return this.adb("exec-out", "screencap", "-p", "-d", `${displayId}`);
 	}
 
