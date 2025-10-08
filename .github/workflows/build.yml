@@ -65,7 +65,7 @@ jobs:
         $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
         brew install mcp-publisher
         mcp-publisher login github-oidc
-	# patch version
-	# sed -i "s/{{VERSION}}/${{ github.ref_name }}/g" server.json
+        # patch version
+        # sed -i "s/{{VERSION}}/${{ github.ref_name }}/g" server.json
         mcp-publisher publish
         mcp-publisher logout
