@@ -7,13 +7,13 @@
     "url": "https://github.com/mobile-next/mobile-mcp",
     "source": "github"
   },
-  "version": "0.0.31",
+  "version": "{{VERSION}}",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@mobilenext/mobile-mcp",
-      "version": "0.0.31",
+      "version": "{{VERSION}}",
       "transport": {
         "type": "stdio"
       },
