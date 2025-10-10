@@ -50,7 +50,7 @@ export const createMcpServer = (): McpServer => {
 				trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
 				const response = await cb(args);
 				trace(`=> ${response}`);
-				posthog("tool_invoked", {}).then();
+				posthog("tool_invoked", { "ToolName": name }).then();
 				return {
 					content: [{ type: "text", text: response }],
 				};
@@ -73,7 +73,7 @@ export const createMcpServer = (): McpServer => {
 		server.tool(name, description, paramsSchema, args => wrappedCb(args));
 	};
 
-	const posthog = async (event: string, properties: Record<string, string>) => {
+	const posthog = async (event: string, properties: Record<string, string | number>) => {
 		try {
 			const url = "https://us.i.posthog.com/i/v0/e/";
 			const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";
@@ -488,6 +488,13 @@ export const createMcpServer = (): McpServer => {
 
 				const screenshot64 = screenshot.toString("base64");
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
+				posthog("tool_invoked", {
+					"ToolName": "mobile_take_screenshot",
+					"ScreenshotFilesize": screenshot64.length,
+					"ScreenshotMimeType": mimeType,
+					"ScreenshotWidth": pngSize.width,
+					"ScreenshotHeight": pngSize.height,
+				}).then();
 
 				return {
 					content: [{ type: "image", data: screenshot64, mimeType }]
