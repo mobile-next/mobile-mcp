@@ -67,10 +67,22 @@ export interface Robot {
 	getScreenshot(): Promise<Buffer>;
 
 	/**
+	 * Get a screenshot of the screen using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as getScreenshot().
+	 */
+	getScreenshotBooted?(): Promise<Buffer>;
+
+	/**
 	 * List all installed apps on the device. Returns an array of package names (or
 	 * bundle identifiers in iOS) for all installed apps.
 	 */
 	listApps(): Promise<InstalledApp[]>;
+
+	/**
+	 * List all installed apps using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as listApps().
+	 */
+	listAppsBooted?(): Promise<InstalledApp[]>;
 
 	/**
 	 * Launch an app.
@@ -78,10 +90,22 @@ export interface Robot {
 	launchApp(packageName: string): Promise<void>;
 
 	/**
+	 * Launch an app using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as launchApp().
+	 */
+	launchAppBooted?(packageName: string): Promise<void>;
+
+	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this
 	 * is a no-op.
 	 */
 	terminateApp(packageName: string): Promise<void>;
+
+	/**
+	 * Terminate an app using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as terminateApp().
+	 */
+	terminateAppBooted?(packageName: string): Promise<void>;
 
 	/**
 	 * Install an app on the device from a file path.
