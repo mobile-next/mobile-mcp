@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
+import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -14,6 +15,16 @@ import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { getMobilecliPath } from "./mobilecli";
+
+const formatBytes = (bytes: number): string => {
+	if (bytes === 0) {
+		return "0 B";
+	}
+	const k = 1024;
+	const sizes = ["B", "KB", "MB", "GB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+};
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -455,9 +466,10 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			save: z.boolean().optional().describe("Whether to save the compressed screenshot to disk. Defaults to false.")
 		},
-		async ({ device }) => {
+		async ({ device, save = false }) => {
 			try {
 				const robot = getRobotFromDevice(device);
 				const screenSize = await robot.getScreenSize();
@@ -472,6 +484,8 @@ export const createMcpServer = (): McpServer => {
 					throw new ActionableError("Screenshot is invalid. Please try again.");
 				}
 
+				let savedPath: string | undefined;
+
 				if (isScalingAvailable()) {
 					trace("Image scaling is available, resizing screenshot");
 					const image = Image.fromBuffer(screenshot);
@@ -484,13 +498,27 @@ export const createMcpServer = (): McpServer => {
 					trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
 
 					mimeType = "image/jpeg";
+
+					if (save) {
+						const tmpFilename = path.join(os.tmpdir(), `compressed-screenshot-${crypto.randomBytes(8).toString("hex")}.jpg`);
+						fs.writeFileSync(tmpFilename, screenshot);
+						savedPath = tmpFilename;
+						trace(`Compressed screenshot saved to: ${savedPath}`);
+					}
 				}
 
 				const screenshot64 = screenshot.toString("base64");
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
 
+				const textContent = savedPath
+					? `Screenshot: ${pngSize.width}x${pngSize.height}px, ${formatBytes(screenshot.length)}, saved to: ${savedPath}`
+					: `Screenshot: ${pngSize.width}x${pngSize.height}px, ${formatBytes(screenshot.length)}`;
+
 				return {
-					content: [{ type: "image", data: screenshot64, mimeType }]
+					content: [
+						{ type: "text", text: textContent },
+						{ type: "image", data: screenshot64, mimeType }
+					]
 				};
 			} catch (err: any) {
 				error(`Error taking screenshot: ${err.message} ${err.stack}`);
