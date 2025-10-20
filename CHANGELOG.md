@@ -1,3 +1,7 @@
+## [0.0.33](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.33) (2025-10-20)
+
+* Server: added debug information for understanding screenshot issues on old devices ([#213](https://github.com/mobile-next/mobile-mcp/pull/213))
+
 ## [0.0.32](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.32) (2025-10-08)
 
 * Server: fixed wrong separator when listing iOS simulators ([#208](https://github.com/mobile-next/mobile-mcp/pull/208))
