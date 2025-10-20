@@ -1,5 +1,5 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.mobile-next/mobile-mcp",
   "description": "MCP server for iOS and Android Mobile Development, Automation and Testing",
   "status": "active",
