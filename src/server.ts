@@ -208,10 +208,6 @@ export const createMcpServer = (): McpServer => {
 		async ({ device, deviceType }) => {
 			switch (deviceType) {
 				case "simulator":
-					// iOS Simulator is only supported on macOS. Avoid calling xcrun on other platforms.
-					if (process.platform !== "darwin") {
-						throw new ActionableError("iOS Simulator is only available on macOS. Please select an Android device or run on macOS.");
-					}
 					robot = simulatorManager.getSimulator(device);
 					break;
 				case "ios":
@@ -247,10 +243,6 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ packageName }) => {
 			requireRobot();
-			// Defensive guard: if a simulator robot was somehow selected on non-macOS, return a helpful error
-			if (process.platform !== "darwin" && robot && robot.constructor && robot.constructor.name === "Simctl") {
-				throw new ActionableError("iOS Simulator operations are not available on this OS. Please select an Android device using mobile_use_device.");
-			}
 			await robot!.launchApp(packageName);
 			return `Launched app ${packageName}`;
 		}
