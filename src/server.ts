@@ -451,6 +451,7 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	// Special handler for mobile_take_screenshot that returns image data
 	server.tool(
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
@@ -459,24 +460,51 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ device }) => {
 			try {
+				trace(`Invoking mobile_take_screenshot with args: ${JSON.stringify({ device })}`);
+				
 				const robot = getRobotFromDevice(device);
 				const screenSize = await robot.getScreenSize();
 
 				let screenshot = await robot.getScreenshot();
 				let mimeType = "image/png";
+				let screenshotWidth = 0;
+				let screenshotHeight = 0;
 
-				// validate we received a png, will throw exception otherwise
-				const image = new PNG(screenshot);
-				const pngSize = image.getDimensions();
-				if (pngSize.width <= 0 || pngSize.height <= 0) {
-					throw new ActionableError("Screenshot is invalid. Please try again.");
+				// Validate screenshot buffer
+				if (!screenshot || !Buffer.isBuffer(screenshot) || screenshot.length === 0) {
+					throw new ActionableError("Screenshot buffer is empty or invalid. Please ensure the device is connected and responsive.");
+				}
+
+				// Try to validate as PNG and get dimensions
+				let isPng = false;
+				try {
+					const pngImage = new PNG(screenshot);
+					const pngSize = pngImage.getDimensions();
+					if (pngSize.width > 0 && pngSize.height > 0) {
+						isPng = true;
+						screenshotWidth = pngSize.width;
+						screenshotHeight = pngSize.height;
+					}
+				} catch (err: any) {
+					// Not a PNG or invalid PNG, we'll try to process it anyway if scaling is available
+					trace(`Screenshot is not a valid PNG (${screenshot.length} bytes): ${err.message}`);
+				}
+
+				if (!isPng && !isScalingAvailable()) {
+					throw new ActionableError("Screenshot is not a valid PNG and image scaling tools (ImageMagick/Sips) are not available. Please ensure the device returns valid screenshots.");
 				}
 
 				if (isScalingAvailable()) {
 					trace("Image scaling is available, resizing screenshot");
 					const image = Image.fromBuffer(screenshot);
 					const beforeSize = screenshot.length;
-					screenshot = image.resize(Math.floor(pngSize.width / screenSize.scale))
+					
+					// If we couldn't get dimensions from PNG, use screen size as fallback
+					const targetWidth = isPng 
+						? Math.floor(screenshotWidth / screenSize.scale)
+						: Math.floor(screenSize.width / screenSize.scale);
+					
+					screenshot = image.resize(targetWidth)
 						.jpeg({ quality: 75 })
 						.toBuffer();
 
@@ -484,27 +512,40 @@ export const createMcpServer = (): McpServer => {
 					trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
 
 					mimeType = "image/jpeg";
+					// Update dimensions after conversion
+					screenshotWidth = targetWidth;
+					screenshotHeight = Math.floor(screenSize.height / screenSize.scale);
+				} else if (!isPng) {
+					throw new ActionableError("Screenshot format is invalid. Please try again.");
 				}
 
 				const screenshot64 = screenshot.toString("base64");
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
+				
 				posthog("tool_invoked", {
 					"ToolName": "mobile_take_screenshot",
 					"ScreenshotFilesize": screenshot64.length,
 					"ScreenshotMimeType": mimeType,
-					"ScreenshotWidth": pngSize.width,
-					"ScreenshotHeight": pngSize.height,
+					"ScreenshotWidth": screenshotWidth,
+					"ScreenshotHeight": screenshotHeight,
 				}).then();
 
 				return {
 					content: [{ type: "image", data: screenshot64, mimeType }]
 				};
-			} catch (err: any) {
-				error(`Error taking screenshot: ${err.message} ${err.stack}`);
-				return {
-					content: [{ type: "text", text: `Error: ${err.message}` }],
-					isError: true,
-				};
+			} catch (error: any) {
+				if (error instanceof ActionableError) {
+					return {
+						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
+					};
+				} else {
+					// a real exception
+					trace(`Tool 'mobile_take_screenshot' failed: ${error.message} stack: ${error.stack}`);
+					return {
+						content: [{ type: "text", text: `Error: ${error.message}` }],
+						isError: true,
+					};
+				}
 			}
 		}
 	);
