@@ -55,6 +55,7 @@ export const createMcpServer = (): McpServer => {
 					content: [{ type: "text", text: response }],
 				};
 			} catch (error: any) {
+				posthog("tool_failed", { "ToolName": name }).then();
 				if (error instanceof ActionableError) {
 					return {
 						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
