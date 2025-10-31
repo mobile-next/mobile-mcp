@@ -33,11 +33,21 @@ const getAdbPath = (): string => {
 		return path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
 	}
 
-	const defaultAndroidSdk = path.join(process.env.HOME || "", "Library", "Android", "sdk", "platform-tools", "adb");
-	if (existsSync(defaultAndroidSdk)) {
-		return defaultAndroidSdk;
+	if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+		const windowsAdbPath = path.join(process.env.LOCALAPPDATA, "Android", "Sdk", "platform-tools", "adb.exe");
+		if (existsSync(windowsAdbPath)) {
+			return windowsAdbPath;
+		}
 	}
 
+	if (process.env.HOME) {
+		const defaultAndroidSdk = path.join(process.env.HOME, "Library", "Android", "sdk", "platform-tools", "adb");
+		if (existsSync(defaultAndroidSdk)) {
+			return defaultAndroidSdk;
+		}
+	}
+
+	// fallthrough, hope for the best
 	return "adb";
 };
 
