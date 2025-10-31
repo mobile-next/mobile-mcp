@@ -40,11 +40,14 @@ const getAdbPath = (): string => {
 		}
 	}
 
-	const defaultAndroidSdk = path.join(process.env.HOME || "", "Library", "Android", "sdk", "platform-tools", "adb");
-	if (existsSync(defaultAndroidSdk)) {
-		return defaultAndroidSdk;
+	if (process.env.HOME) {
+		const defaultAndroidSdk = path.join(process.env.HOME, "Library", "Android", "sdk", "platform-tools", "adb");
+		if (existsSync(defaultAndroidSdk)) {
+			return defaultAndroidSdk;
+		}
 	}
 
+	// fallthrough, hope for the best
 	return "adb";
 };
 
