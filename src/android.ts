@@ -71,6 +71,14 @@ export class AndroidRobot implements Robot {
 		});
 	}
 
+	public silentAdb(...args: string[]): Buffer {
+		return execFileSync(getAdbPath(), ["-s", this.deviceId, ...args], {
+			maxBuffer: MAX_BUFFER_SIZE,
+			timeout: TIMEOUT,
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+	}
+
 	public getSystemFeatures(): string[] {
 		return this.adb("shell", "pm", "list", "features")
 			.toString()
@@ -120,7 +128,11 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
-		this.adb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1", "1>/dev/null", "2>/dev/null");
+		try {
+			this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
+		} catch (error) {
+			throw new ActionableError(`Failed launching app with package name "${packageName}", please make sure it exists`);
+		}
 	}
 
 	public async listRunningProcesses(): Promise<string[]> {
