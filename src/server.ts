@@ -15,6 +15,19 @@ import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { getMobilecliPath } from "./mobilecli";
 
+interface MobilecliDevicesResponse {
+	status: "ok";
+	data: {
+		devices: Array<{
+			id: string;
+			name: string;
+			platform: "android" | "ios";
+			type: "real" | "emulator" | "simulator";
+			version: string;
+		}>;
+	};
+}
+
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
@@ -125,6 +138,12 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
+	const getMobilecliDevices = (): MobilecliDevicesResponse => {
+		const mobilecliPath = getMobilecliPath();
+		const mobilecliOutput = execFileSync(mobilecliPath, ["devices"], { encoding: "utf8" }).toString().trim();
+		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
+	};
+
 	const mobilecliVersion = getMobilecliVersion();
 	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
 
@@ -174,6 +193,36 @@ export const createMcpServer = (): McpServer => {
 			const iosDeviceNames = iosDevices.map(d => d.deviceId);
 			const androidTvDevices = androidDevices.filter(d => d.deviceType === "tv").map(d => d.deviceId);
 			const androidMobileDevices = androidDevices.filter(d => d.deviceType === "mobile").map(d => d.deviceId);
+
+			if (true) {
+				// gilm: this is new code to verify first that mobilecli detects more or equal number of devices.
+				// in an attempt to make the smoothest transition from go-ios+xcrun+adb+iproxy+sips+imagemagick+wda to
+				// a single cli tool.
+				const deviceCount = simulators.length + iosDevices.length + androidDevices.length;
+
+				let mobilecliDeviceCount = 0;
+				try {
+					const response = getMobilecliDevices();
+					if (response.status === "ok" && response.data && response.data.devices) {
+						mobilecliDeviceCount = response.data.devices.length;
+					}
+				} catch (error: any) {
+					// if mobilecli fails, we'll just set count to 0
+				}
+
+				if (deviceCount === mobilecliDeviceCount) {
+					posthog("debug_mobilecli_same_number_of_devices", {
+						"DeviceCount": deviceCount,
+						"MobilecliDeviceCount": mobilecliDeviceCount,
+					}).then();
+				} else {
+					posthog("debug_mobilecli_different_number_of_devices", {
+						"DeviceCount": deviceCount,
+						"MobilecliDeviceCount": mobilecliDeviceCount,
+						"DeviceCountDifference": deviceCount - mobilecliDeviceCount,
+					}).then();
+				}
+			}
 
 			const resp = ["Found these devices:"];
 			if (simulatorNames.length > 0) {
