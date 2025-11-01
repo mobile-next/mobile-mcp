@@ -6,24 +6,31 @@ export const getMobilecliPath = (): string => {
 		return process.env.MOBILECLI_PATH;
 	}
 
+	const arch = process.arch;
 	const platform = process.platform;
 	let binaryName = "mobilecli";
 
 	switch (platform) {
 		case "darwin":
-			binaryName += "-darwin";
+			if (arch === "arm64") {
+				binaryName += "-darwin-arm64";
+			} else {
+				binaryName += "-darwin-amd64";
+			}
 			break;
+
 		case "linux":
-			const arch = process.arch;
 			if (arch === "arm64") {
 				binaryName += "-linux-arm64";
 			} else {
 				binaryName += "-linux-amd64";
 			}
 			break;
+
 		case "win32":
 			binaryName += "-windows-amd64.exe";
 			break;
+
 		default:
 			throw new Error(`Unsupported platform: ${platform}`);
 	}
