@@ -1,3 +1,7 @@
+## [0.0.34](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.34) (2025-11-01)
+
+* Server: dry-run release for benchmarking how mobilecli detects devices ([#226](https://github.com/mobile-next/mobile-mcp/pull/226))
+
 ## [0.0.33](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.33) (2025-10-20)
 
 * Server: added debug information for understanding screenshot issues on old devices ([#213](https://github.com/mobile-next/mobile-mcp/pull/213))
