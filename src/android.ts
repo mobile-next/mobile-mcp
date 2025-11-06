@@ -41,7 +41,7 @@ const getAdbPath = (): string => {
 		}
 	}
 
-	if (process.env.HOME) {
+	if (process.platform === "darwin" && process.env.HOME) {
 		const defaultAndroidSdk = path.join(process.env.HOME, "Library", "Android", "sdk", "platform-tools", "adb");
 		if (existsSync(defaultAndroidSdk)) {
 			return defaultAndroidSdk;
