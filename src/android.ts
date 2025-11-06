@@ -29,8 +29,9 @@ interface UiAutomatorXml {
 }
 
 const getAdbPath = (): string => {
+	const exeName = process.env.platform === "win32" ? "adb.exe" : "adb";
 	if (process.env.ANDROID_HOME) {
-		return path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
+		return path.join(process.env.ANDROID_HOME, "platform-tools", exeName);
 	}
 
 	if (process.platform === "win32" && process.env.LOCALAPPDATA) {
@@ -48,7 +49,7 @@ const getAdbPath = (): string => {
 	}
 
 	// fallthrough, hope for the best
-	return "adb";
+	return exeName;
 };
 
 const BUTTON_MAP: Record<Button, string> = {
