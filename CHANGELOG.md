@@ -1,3 +1,8 @@
+## [0.0.35](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.35) (2025-11-14)
+
+* Server: added list of available MCP tools to README for better discoverability ([043cf3d](https://github.com/mobile-next/mobile-mcp/commit/043cf3d))
+* Android: fixed adb path resolution on Windows by always using .exe extension ([178b2fb](https://github.com/mobile-next/mobile-mcp/commit/178b2fb)) by [@mattheww-skyward](https://github.com/mattheww-skyward)
+
 ## [0.0.34](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.34) (2025-11-01)
 
 * Server: dry-run release for benchmarking how mobilecli detects devices ([#226](https://github.com/mobile-next/mobile-mcp/pull/226))
