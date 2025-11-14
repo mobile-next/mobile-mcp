@@ -29,8 +29,9 @@ interface UiAutomatorXml {
 }
 
 const getAdbPath = (): string => {
+	const exeName = process.env.platform === "win32" ? "adb.exe" : "adb";
 	if (process.env.ANDROID_HOME) {
-		return path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
+		return path.join(process.env.ANDROID_HOME, "platform-tools", exeName);
 	}
 
 	if (process.platform === "win32" && process.env.LOCALAPPDATA) {
@@ -40,7 +41,7 @@ const getAdbPath = (): string => {
 		}
 	}
 
-	if (process.env.HOME) {
+	if (process.platform === "darwin" && process.env.HOME) {
 		const defaultAndroidSdk = path.join(process.env.HOME, "Library", "Android", "sdk", "platform-tools", "adb");
 		if (existsSync(defaultAndroidSdk)) {
 			return defaultAndroidSdk;
@@ -48,7 +49,7 @@ const getAdbPath = (): string => {
 	}
 
 	// fallthrough, hope for the best
-	return "adb";
+	return exeName;
 };
 
 const BUTTON_MAP: Record<Button, string> = {
