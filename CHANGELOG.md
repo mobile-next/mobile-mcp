@@ -1,3 +1,7 @@
+## [0.0.36](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.36) (2025-11-19)
+
+* Server: upgraded libraries (glob, js-yaml) and mobilecli ([#234](https://github.com/mobile-next/mobile-mcp/pull/234))
+
 ## [0.0.35](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.35) (2025-11-14)
 
 * Server: added list of available MCP tools to README for better discoverability ([043cf3d](https://github.com/mobile-next/mobile-mcp/commit/043cf3d))
