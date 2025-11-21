@@ -106,6 +106,10 @@ export class Simctl implements Robot {
 		// alternative: return this.simctl("io", this.simulatorUuid, "screenshot", "-");
 	}
 
+	public async getScreenshotBooted(): Promise<Buffer> {
+		return this.simctl("io", "booted", "screenshot", "-");
+	}
+
 	public async openUrl(url: string) {
 		const wda = await this.wda();
 		await wda.openUrl(url);
@@ -116,8 +120,16 @@ export class Simctl implements Robot {
 		this.simctl("launch", this.simulatorUuid, packageName);
 	}
 
+	public async launchAppBooted(packageName: string) {
+		this.simctl("launch", "booted", packageName);
+	}
+
 	public async terminateApp(packageName: string) {
 		this.simctl("terminate", this.simulatorUuid, packageName);
+	}
+
+	public async terminateAppBooted(packageName: string) {
+		this.simctl("terminate", "booted", packageName);
 	}
 
 	private findAppBundle(dir: string): string | null {
@@ -215,6 +227,19 @@ export class Simctl implements Robot {
 
 	public async listApps(): Promise<InstalledApp[]> {
 		const text = this.simctl("listapps", this.simulatorUuid).toString();
+		const result = execFileSync("plutil", ["-convert", "json", "-o", "-", "-r", "-"], {
+			input: text,
+		});
+
+		const output = JSON.parse(result.toString()) as Record<string, AppInfo>;
+		return Object.values(output).map(app => ({
+			packageName: app.CFBundleIdentifier,
+			appName: app.CFBundleDisplayName,
+		}));
+	}
+
+	public async listAppsBooted(): Promise<InstalledApp[]> {
+		const text = this.simctl("listapps", "booted").toString();
 		const result = execFileSync("plutil", ["-convert", "json", "-o", "-", "-r", "-"], {
 			input: text,
 		});
