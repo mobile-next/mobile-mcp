@@ -25,13 +25,14 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.13.2",
+    "@toon-format/toon": "^2.0.1",
     "commander": "14.0.0",
     "express": "5.1.0",
     "fast-xml-parser": "5.2.5",
     "zod-to-json-schema": "3.24.6"
   },
   "optionalDependencies": {
-    "@mobilenext/mobilecli": "0.0.38"
+    "@mobilenext/mobilecli": "0.0.44"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

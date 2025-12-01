@@ -7,13 +7,13 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 
 import { error, trace } from "./logger";
-import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
-import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { getMobilecliPath } from "./mobilecli";
+import { MobileDeviceRobot } from "./mobile-device";
+import { encode } from "@toon-format/toon";
 
 interface MobilecliDevicesResponse {
 	status: "ok";
@@ -24,6 +24,7 @@ interface MobilecliDevicesResponse {
 			platform: "android" | "ios";
 			type: "real" | "emulator" | "simulator";
 			version: string;
+			state?: "online" | "offline";
 		}>;
 	};
 }
@@ -43,9 +44,6 @@ export const createMcpServer = (): McpServer => {
 			tools: {},
 		},
 	});
-
-	// an empty object to satisfy windsurf
-	const noParams = z.object({});
 
 	const getClientName = (): string => {
 		try {
@@ -139,34 +137,56 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	const getMobilecliDevices = (): MobilecliDevicesResponse => {
+	interface GetMobilecliDevicesOptions {
+		includeOffline?: boolean;
+		platform?: "android" | "ios";
+	}
+
+	const getMobilecliDevices = (options: GetMobilecliDevicesOptions = {}): MobilecliDevicesResponse => {
 		const mobilecliPath = getMobilecliPath();
-		const mobilecliOutput = execFileSync(mobilecliPath, ["devices"], { encoding: "utf8" }).toString().trim();
+		const args = ["devices"];
+
+		if (options.includeOffline) {
+			args.push("--include-offline");
+		}
+
+		if (options.platform) {
+			args.push("--platform", options.platform);
+		}
+
+		const mobilecliOutput = execFileSync(mobilecliPath, args, { encoding: "utf8" }).toString().trim();
 		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
 	};
 
 	const mobilecliVersion = getMobilecliVersion();
 	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
 
-	const simulatorManager = new SimctlManager();
-
 	const getRobotFromDevice = (device: string): Robot => {
 		const iosManager = new IosManager();
-		const androidManager = new AndroidDeviceManager();
-		const simulators = simulatorManager.listBootedSimulators();
-		const androidDevices = androidManager.getConnectedDevices();
-		const iosDevices = iosManager.listDevices();
 
-		// Check if it's a simulator
-		const simulator = simulators.find(s => s.name === device);
-		if (simulator) {
-			return simulatorManager.getSimulator(device);
+		let mobilecliDevices: Array<{
+			id: string;
+			name: string;
+			platform: "android" | "ios";
+			type: "real" | "emulator" | "simulator";
+			version: string;
+		}> = [];
+
+		try {
+			const response = getMobilecliDevices();
+			if (response.status === "ok" && response.data && response.data.devices) {
+				mobilecliDevices = response.data.devices
+					.filter(d => d.platform === "android" || (d.platform === "ios" && d.type === "simulator"));
+			}
+		} catch (error: any) {
+			mobilecliDevices = [];
 		}
 
-		// Check if it's an Android device
-		const androidDevice = androidDevices.find(d => d.deviceId === device);
-		if (androidDevice) {
-			return new AndroidRobot(device);
+		const iosDevices = iosManager.listDevices();
+
+		const mobilecliDevice = mobilecliDevices.find(d => d.id === device);
+		if (mobilecliDevice) {
+			return new MobileDeviceRobot(device);
 		}
 
 		// Check if it's an iOS device
@@ -182,70 +202,83 @@ export const createMcpServer = (): McpServer => {
 		"mobile_list_available_devices",
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
 		{
-			noParams
+			includeOffline: z.boolean().optional().default(false).describe("Include offline devices in the list. Defaults to false.")
 		},
-		async ({}) => {
+		async ({ includeOffline }) => {
+			type DeviceInfo = {
+				id: string;
+				name: string;
+				platform: "android" | "ios";
+				type: "real" | "emulator" | "simulator";
+				version: string;
+				state: "online" | "offline";
+			};
+
+			const devices: DeviceInfo[] = [];
 			const iosManager = new IosManager();
-			const androidManager = new AndroidDeviceManager();
-			const simulators = simulatorManager.listBootedSimulators();
-			const simulatorNames = simulators.map(d => d.name);
-			const androidDevices = androidManager.getConnectedDevices();
+
+			// Get devices from mobilecli (currently iOS simulators and all Android devices)
+			try {
+				const response = getMobilecliDevices({ includeOffline });
+				if (response.status === "ok" && response.data && response.data.devices) {
+					const section = response.data.devices
+						.filter(d => d.platform === "android" || (d.platform === "ios" && d.type === "simulator"))
+						.map(d => ({
+							id: d.id,
+							name: d.name,
+							platform: d.platform,
+							type: d.type,
+							version: d.version,
+							state: d.state || "online"
+						}));
+					devices.push(...section);
+				}
+			} catch (error: any) {
+				// ignore
+			}
+
+			// Get iOS real devices
 			const iosDevices = await iosManager.listDevices();
-			const iosDeviceNames = iosDevices.map(d => d.deviceId);
-			const androidTvDevices = androidDevices.filter(d => d.deviceType === "tv").map(d => d.deviceId);
-			const androidMobileDevices = androidDevices.filter(d => d.deviceType === "mobile").map(d => d.deviceId);
+			iosDevices.forEach(d => {
+				devices.push({
+					id: d.deviceId,
+					name: d.deviceName,
+					platform: "ios",
+					type: "real",
+					version: "unknown",
+					state: "online"
+				});
+			});
 
-			if (true) {
-				// gilm: this is new code to verify first that mobilecli detects more or equal number of devices.
-				// in an attempt to make the smoothest transition from go-ios+xcrun+adb+iproxy+sips+imagemagick+wda to
-				// a single cli tool.
-				const deviceCount = simulators.length + iosDevices.length + androidDevices.length;
-
-				let mobilecliDeviceCount = 0;
-				try {
-					const response = getMobilecliDevices();
-					if (response.status === "ok" && response.data && response.data.devices) {
-						mobilecliDeviceCount = response.data.devices.length;
-					}
-				} catch (error: any) {
-					// if mobilecli fails, we'll just set count to 0
-				}
-
-				if (deviceCount === mobilecliDeviceCount) {
-					posthog("debug_mobilecli_same_number_of_devices", {
-						"DeviceCount": deviceCount,
-						"MobilecliDeviceCount": mobilecliDeviceCount,
-					}).then();
-				} else {
-					posthog("debug_mobilecli_different_number_of_devices", {
-						"DeviceCount": deviceCount,
-						"MobilecliDeviceCount": mobilecliDeviceCount,
-						"DeviceCountDifference": deviceCount - mobilecliDeviceCount,
-					}).then();
-				}
-			}
-
-			const resp = ["Found these devices:"];
-			if (simulatorNames.length > 0) {
-				resp.push(`iOS simulators: [${simulatorNames.join(",")}]`);
-			}
-
-			if (iosDevices.length > 0) {
-				resp.push(`iOS devices: [${iosDeviceNames.join(",")}]`);
-			}
-
-			if (androidMobileDevices.length > 0) {
-				resp.push(`Android devices: [${androidMobileDevices.join(",")}]`);
-			}
-
-			if (androidTvDevices.length > 0) {
-				resp.push(`Android TV devices: [${androidTvDevices.join(",")}]`);
-			}
-
-			return resp.join("\n");
+			return encode(devices);
 		}
 	);
 
+	tool(
+		"mobile_boot_device",
+		"Boot an offline device. This will start the device if it is currently offline.",
+		{
+			device: z.string().describe("The device identifier to boot")
+		},
+		async ({ device }) => {
+			const mobilecliPath = getMobilecliPath();
+			execFileSync(mobilecliPath, ["device", "boot", "--device", device], { encoding: "utf8" });
+			return `Successfully booted device: ${device}`;
+		}
+	);
+
+	tool(
+		"mobile_shutdown_device",
+		"Shutdown an online device. This will stop the device if it is currently running.",
+		{
+			device: z.string().describe("The device identifier to shutdown")
+		},
+		async ({ device }) => {
+			const mobilecliPath = getMobilecliPath();
+			execFileSync(mobilecliPath, ["device", "shutdown", "--device", device], { encoding: "utf8" });
+			return `Successfully shutdown device: ${device}`;
+		}
+	);
 
 	tool(
 		"mobile_list_apps",
@@ -407,7 +440,7 @@ export const createMcpServer = (): McpServer => {
 				return out;
 			});
 
-			return `Found these elements on screen: ${JSON.stringify(result)}`;
+			return JSON.stringify(result);
 		}
 	);
 
