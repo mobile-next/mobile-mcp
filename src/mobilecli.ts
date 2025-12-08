@@ -2,6 +2,12 @@ import { existsSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { execFileSync } from "node:child_process";
 
+export interface MobilecliDevicesOptions {
+	includeOffline?: boolean;
+	platform?: "ios" | "android";
+	type?: "real" | "emulator" | "simulator";
+}
+
 export interface MobilecliDevicesResponse {
 	status: "ok";
 	data: {
@@ -20,6 +26,10 @@ export class Mobilecli {
 
 	constructor() {
 		this.path = Mobilecli.getMobilecliPath();
+	}
+
+	protected executeCommand(args: string[]): string {
+		return execFileSync(this.path, args, { encoding: "utf8" }).toString().trim();
 	}
 
 	public static getMobilecliPath(): string {
@@ -65,7 +75,7 @@ export class Mobilecli {
 
 	getVersion(): string {
 		try {
-			const output = execFileSync(this.path, ["--version"], { encoding: "utf8" }).toString().trim();
+			const output = this.executeCommand(["--version"]);
 			if (output.startsWith("mobilecli version ")) {
 				return output.substring("mobilecli version ".length);
 			}
@@ -76,8 +86,32 @@ export class Mobilecli {
 		}
 	}
 
-	getDevices(): MobilecliDevicesResponse {
-		const mobilecliOutput = execFileSync(this.path, ["devices"], { encoding: "utf8" }).toString().trim();
+	getDevices(options?: MobilecliDevicesOptions): MobilecliDevicesResponse {
+		const args = ["devices"];
+
+		if (options) {
+			if (options.includeOffline) {
+				args.push("--include-offline");
+			}
+
+			if (options.platform) {
+				if (options.platform !== "ios" && options.platform !== "android") {
+					throw new Error(`Invalid platform: ${options.platform}. Must be "ios" or "android"`);
+				}
+
+				args.push("--platform", options.platform);
+			}
+
+			if (options.type) {
+				if (options.type !== "real" && options.type !== "emulator" && options.type !== "simulator") {
+					throw new Error(`Invalid type: ${options.type}. Must be "real", "emulator", or "simulator"`);
+				}
+
+				args.push("--type", options.type);
+			}
+		}
+
+		const mobilecliOutput = this.executeCommand(args);
 		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
 	}
 }
