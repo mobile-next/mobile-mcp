@@ -138,6 +138,32 @@ More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) 
 ```
 
 <details>
+<summary>Amp</summary>
+
+Add via the Amp VS Code extension settings screen or by updating your `settings.json` file:
+
+```json
+"amp.mcpServers": {
+  "mobile-mcp": {
+    "command": "npx",
+    "args": [
+      "@mobilenext/mobile-mcp@latest"
+    ]
+  }
+}
+```
+
+**Amp CLI:**
+
+Run the following command in your terminal:
+
+```bash
+amp mcp add mobile-mcp -- npx @mobilenext/mobile-mcp@latest
+```
+
+</details>
+
+<details>
 <summary>Cline</summary>
 
 To setup Cline, just add the json above to your MCP settings file.
@@ -154,6 +180,65 @@ Use the Claude Code CLI to add the Mobile MCP server:
 ```bash
 claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
+</details>
+
+<details>
+<summary>Claude Desktop</summary>
+
+Follow the [MCP install guide](https://modelcontextprotocol.io/quickstart/user), use json configuration above.
+
+</details>
+
+<details>
+<summary>Codex</summary>
+
+Use the Codex CLI to add the Mobile MCP server:
+
+```bash
+codex mcp add mobile-mcp npx "@mobilenext/mobile-mcp@latest"
+```
+
+Alternatively, create or edit the configuration file `~/.codex/config.toml` and add:
+
+```toml
+[mcp_servers.mobile-mcp]
+command = "npx"
+args = ["@mobilenext/mobile-mcp@latest"]
+```
+
+For more information, see the Codex MCP documentation.
+
+</details>
+
+<details>
+<summary>Copilot</summary>
+
+Use the Copilot CLI to interactively add the Mobile MCP server:
+
+```text
+/mcp add
+```
+
+You can edit the configuration file `~/.copilot/mcp-config.json` and add:
+
+```json
+{
+  "mcpServers": {
+    "mobile-mcp": {
+      "type": "local",
+      "command": "npx",
+      "tools": [
+        "*"
+      ],
+      "args": [
+        "@mobilenext/mobile-mcp@latest"
+      ]
+    }
+  }
+}
+```
+
+For more information, see the Copilot CLI documentation.
 
 </details>
 
@@ -195,6 +280,49 @@ Go to `Advanced settings` -> `Extensions` -> `Add custom extension`. Name to you
 </details>
 
 <details>
+<summary>Kiro</summary>
+
+Follow the MCP Servers [documentation](https://kiro.dev/docs/mcp/). For example in `.kiro/settings/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mobile-mcp": {
+      "command": "npx",
+      "args": [
+        "@mobilenext/mobile-mcp@latest"
+      ]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>opencode</summary>
+
+Follow the MCP Servers documentation. For example in `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "mobile-mcp": {
+      "type": "local",
+      "command": [
+        "npx",
+        "@mobilenext/mobile-mcp@latest"
+      ],
+      "enabled": true
+    }
+  }
+}
+```
+
+</details>
+
+<details>
 <summary>Qodo Gen</summary>
 
 Open [Qodo Gen](https://docs.qodo.ai/qodo-documentation/qodo-gen) chat panel in VSCode or IntelliJ → Connect more tools → + Add new MCP → Paste the standard config above.
@@ -202,6 +330,21 @@ Open [Qodo Gen](https://docs.qodo.ai/qodo-documentation/qodo-gen) chat panel in 
 Click <code>Save</code>.
 
 </details>
+
+
+<details>
+<summary>Windsurf</summary>
+
+Open Windsurf settings, navigate to MCP servers, and add a new server using the `command` type with:
+
+```bash
+npx @mobilenext/mobile-mcp@latest
+```
+
+Or add the standard config under `mcpServers` in your settings as shown above.
+
+</details>
+
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
@@ -309,4 +452,3 @@ On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with 
   <a href = "https://github.com/mobile-next/mobile-mcp/graphs/contributors">
    <img src = "https://contrib.rocks/image?repo=mobile-next/mobile-mcp"/>
  </a>
-
