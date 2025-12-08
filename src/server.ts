@@ -7,11 +7,11 @@ import crypto from "node:crypto";
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
-import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
+import { MobileDevice } from "./mobile-device";
 
 interface MobilecliDevice {
 	id: string;
@@ -129,34 +129,39 @@ export const createMcpServer = (): McpServer => {
 	const mobilecliVersion = mobilecli.getVersion();
 	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
 
-	const simulatorManager = new SimctlManager();
-
-	const getRobotFromDevice = (device: string): Robot => {
+	const getRobotFromDevice = (deviceId: string): Robot => {
+		// Check if it's an iOS device
 		const iosManager = new IosManager();
-		const androidManager = new AndroidDeviceManager();
-		const simulators = simulatorManager.listBootedSimulators();
-		const androidDevices = androidManager.getConnectedDevices();
 		const iosDevices = iosManager.listDevices();
-
-		// Check if it's a simulator
-		const simulator = simulators.find(s => s.name === device);
-		if (simulator) {
-			return simulatorManager.getSimulator(device);
+		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
+		if (iosDevice) {
+			return new IosRobot(deviceId);
 		}
 
 		// Check if it's an Android device
-		const androidDevice = androidDevices.find(d => d.deviceId === device);
+		const androidManager = new AndroidDeviceManager();
+		const androidDevices = androidManager.getConnectedDevices();
+		const androidDevice = androidDevices.find(d => d.deviceId === deviceId);
 		if (androidDevice) {
-			return new AndroidRobot(device);
+			return new AndroidRobot(deviceId);
 		}
 
-		// Check if it's an iOS device
-		const iosDevice = iosDevices.find(d => d.deviceId === device);
-		if (iosDevice) {
-			return new IosRobot(device);
+		// Check if it's a simulator (will later replace all other device types as well)
+		const response = mobilecli.getDevices({
+			platform: "ios",
+			type: "simulator",
+			includeOffline: false,
+		});
+
+		if (response.status === "ok" && response.data && response.data.devices) {
+			for (const device of response.data.devices) {
+				if (device.id === deviceId) {
+					return new MobileDevice(deviceId);
+				}
+			}
 		}
 
-		throw new ActionableError(`Device "${device}" not found. Use the mobile_list_available_devices tool to see available devices.`);
+		throw new ActionableError(`Device "${deviceId}" not found. Use the mobile_list_available_devices tool to see available devices.`);
 	};
 
 	tool(
@@ -224,34 +229,8 @@ export const createMcpServer = (): McpServer => {
 				// If mobilecli fails to get simulators, silently skip
 			}
 
-			// Compare with mobilecli for debugging
-			if (true) {
-				let mobilecliDeviceCount = 0;
-				try {
-					const response = mobilecli.getDevices();
-					if (response.status === "ok" && response.data && response.data.devices) {
-						mobilecliDeviceCount = response.data.devices.length;
-					}
-				} catch (error: any) {
-					// if mobilecli fails, we'll just set count to 0
-				}
-
-				if (devices.length === mobilecliDeviceCount) {
-					posthog("debug_mobilecli_same_number_of_devices", {
-						"DeviceCount": devices.length,
-						"MobilecliDeviceCount": mobilecliDeviceCount,
-					}).then();
-				} else {
-					posthog("debug_mobilecli_different_number_of_devices", {
-						"DeviceCount": devices.length,
-						"MobilecliDeviceCount": mobilecliDeviceCount,
-						"DeviceCountDifference": devices.length - mobilecliDeviceCount,
-					}).then();
-				}
-			}
-
 			const response: MobilecliDevicesResponse = { devices };
-			return JSON.stringify(response, null, 2);
+			return JSON.stringify(response);
 		}
 	);
 
