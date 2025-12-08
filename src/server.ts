@@ -126,10 +126,24 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const mobilecli = new Mobilecli();
-	const mobilecliVersion = mobilecli.getVersion();
-	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
+	posthog("launch", {}).then();
+
+	const ensureMobilecliAvailable = (): void => {
+		try {
+			const version = mobilecli.getVersion();
+			if (version.startsWith("failed")) {
+				throw new Error("mobilecli version check failed");
+			}
+		} catch (error: any) {
+			throw new ActionableError(`mobilecli is not available or not working properly. Please review the documentation at https://github.com/mobile-next/mobile-mcp/wiki for installation instructions`);
+		}
+	};
 
 	const getRobotFromDevice = (deviceId: string): Robot => {
+
+		// from now on, we must have mobilecli working
+		ensureMobilecliAvailable();
+
 		// Check if it's an iOS device
 		const iosManager = new IosManager();
 		const iosDevices = iosManager.listDevices();
@@ -172,6 +186,10 @@ export const createMcpServer = (): McpServer => {
 			noParams
 		},
 		async ({}) => {
+
+			// from today onward, we must have mobilecli working
+			ensureMobilecliAvailable();
+
 			const iosManager = new IosManager();
 			const androidManager = new AndroidDeviceManager();
 			const devices: MobilecliDevice[] = [];
@@ -207,30 +225,26 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			// Get iOS simulators from mobilecli (excluding offline devices)
-			try {
-				const response = mobilecli.getDevices({
-					platform: "ios",
-					type: "simulator",
-					includeOffline: false,
-				});
-				if (response.status === "ok" && response.data && response.data.devices) {
-					for (const device of response.data.devices) {
-						devices.push({
-							id: device.id,
-							name: device.name,
-							platform: device.platform,
-							type: device.type,
-							version: device.version,
-							state: "online",
-						});
-					}
+			const response = mobilecli.getDevices({
+				platform: "ios",
+				type: "simulator",
+				includeOffline: false,
+			});
+			if (response.status === "ok" && response.data && response.data.devices) {
+				for (const device of response.data.devices) {
+					devices.push({
+						id: device.id,
+						name: device.name,
+						platform: device.platform,
+						type: device.type,
+						version: device.version,
+						state: "online",
+					});
 				}
-			} catch (error: any) {
-				// If mobilecli fails to get simulators, silently skip
 			}
 
-			const response: MobilecliDevicesResponse = { devices };
-			return JSON.stringify(response);
+			const out: MobilecliDevicesResponse = { devices };
+			return JSON.stringify(out);
 		}
 	);
 

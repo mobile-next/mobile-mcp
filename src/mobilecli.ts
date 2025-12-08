@@ -25,18 +25,25 @@ const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
 
 export class Mobilecli {
-	private path: string;
+	private path: string | null = null;
 
-	constructor() {
-		this.path = Mobilecli.getMobilecliPath();
+	constructor() { }
+
+	private getPath(): string {
+		if (!this.path) {
+			this.path = Mobilecli.getMobilecliPath();
+		}
+		return this.path;
 	}
 
 	public executeCommand(args: string[]): string {
-		return execFileSync(this.path, args, { encoding: "utf8" }).toString().trim();
+		const path = this.getPath();
+		return execFileSync(path, args, { encoding: "utf8" }).toString().trim();
 	}
 
 	public executeCommandBuffer(args: string[]): Buffer {
-		return execFileSync(this.path, args, {
+		const path = this.getPath();
+		return execFileSync(path, args, {
 			encoding: "buffer",
 			maxBuffer: MAX_BUFFER_SIZE,
 			timeout: TIMEOUT,
