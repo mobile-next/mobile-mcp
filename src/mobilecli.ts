@@ -21,6 +21,9 @@ export interface MobilecliDevicesResponse {
 	};
 }
 
+const TIMEOUT = 30000;
+const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
+
 export class Mobilecli {
 	private path: string;
 
@@ -28,11 +31,19 @@ export class Mobilecli {
 		this.path = Mobilecli.getMobilecliPath();
 	}
 
-	protected executeCommand(args: string[]): string {
+	public executeCommand(args: string[]): string {
 		return execFileSync(this.path, args, { encoding: "utf8" }).toString().trim();
 	}
 
-	public static getMobilecliPath(): string {
+	public executeCommandBuffer(args: string[]): Buffer {
+		return execFileSync(this.path, args, {
+			encoding: "buffer",
+			maxBuffer: MAX_BUFFER_SIZE,
+			timeout: TIMEOUT,
+		}) as Buffer;
+	}
+
+	private static getMobilecliPath(): string {
 		if (process.env.MOBILECLI_PATH) {
 			return process.env.MOBILECLI_PATH;
 		}

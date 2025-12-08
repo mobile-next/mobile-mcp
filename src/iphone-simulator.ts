@@ -6,6 +6,7 @@ import { join, basename, extname } from "node:path";
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { Mobilecli } from "./mobilecli";
 
 export interface Simulator {
 	name: string;
@@ -290,6 +291,13 @@ export class SimctlManager {
 			// don't even try to run xcrun
 			return [];
 		}
+
+		const mobilecli = new Mobilecli();
+		mobilecli.getDevices({
+			platform: "ios",
+			type: "simulator",
+			includeOffline: false,
+		});
 
 		try {
 			const text = execFileSync("xcrun", ["simctl", "list", "devices", "-j"]).toString();
