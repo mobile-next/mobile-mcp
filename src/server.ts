@@ -4,7 +4,6 @@ import { z, ZodRawShape, ZodTypeAny } from "zod";
 import fs from "node:fs";
 import os from "node:os";
 import crypto from "node:crypto";
-import { execFileSync } from "node:child_process";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
@@ -13,8 +12,9 @@ import { SimctlManager } from "./iphone-simulator";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
-import { getMobilecliPath } from "./mobilecli";
+import { Mobilecli } from "./mobilecli";
 
+/*
 interface MobilecliDevicesResponse {
 	status: "ok";
 	data: {
@@ -27,6 +27,7 @@ interface MobilecliDevicesResponse {
 		}>;
 	};
 }
+*/
 
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
@@ -125,27 +126,8 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	const getMobilecliVersion = (): string => {
-		try {
-			const path = getMobilecliPath();
-			const output = execFileSync(path, ["--version"], { encoding: "utf8" }).toString().trim();
-			if (output.startsWith("mobilecli version ")) {
-				return output.substring("mobilecli version ".length);
-			}
-
-			return "failed";
-		} catch (error: any) {
-			return "failed " + error.message;
-		}
-	};
-
-	const getMobilecliDevices = (): MobilecliDevicesResponse => {
-		const mobilecliPath = getMobilecliPath();
-		const mobilecliOutput = execFileSync(mobilecliPath, ["devices"], { encoding: "utf8" }).toString().trim();
-		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
-	};
-
-	const mobilecliVersion = getMobilecliVersion();
+	const mobilecli = new Mobilecli();
+	const mobilecliVersion = mobilecli.getVersion();
 	posthog("launch", { "MobilecliVersion": mobilecliVersion }).then();
 
 	const simulatorManager = new SimctlManager();
@@ -203,7 +185,7 @@ export const createMcpServer = (): McpServer => {
 
 				let mobilecliDeviceCount = 0;
 				try {
-					const response = getMobilecliDevices();
+					const response = mobilecli.getDevices();
 					if (response.status === "ok" && response.data && response.data.devices) {
 						mobilecliDeviceCount = response.data.devices.length;
 					}
