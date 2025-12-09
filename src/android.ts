@@ -514,6 +514,39 @@ export class AndroidDeviceManager {
 		return "mobile";
 	}
 
+	private getDeviceVersion(deviceId: string): string {
+		try {
+			const output = execFileSync(getAdbPath(), ["-s", deviceId, "shell", "getprop", "ro.build.version.release"], {
+				timeout: 5000,
+			}).toString().trim();
+			return output;
+		} catch (error) {
+			return "unknown";
+		}
+	}
+
+	private getDeviceName(deviceId: string): string {
+		try {
+			// Try getting AVD name first (for emulators)
+			const avdName = execFileSync(getAdbPath(), ["-s", deviceId, "shell", "getprop", "ro.boot.qemu.avd_name"], {
+				timeout: 5000,
+			}).toString().trim();
+
+			if (avdName !== "") {
+				// Replace underscores with spaces (e.g., "Pixel_9_Pro" -> "Pixel 9 Pro")
+				return avdName.replace(/_/g, " ");
+			}
+
+			// Fall back to product model
+			const output = execFileSync(getAdbPath(), ["-s", deviceId, "shell", "getprop", "ro.product.model"], {
+				timeout: 5000,
+			}).toString().trim();
+			return output;
+		} catch (error) {
+			return deviceId;
+		}
+	}
+
 	public getConnectedDevices(): AndroidDevice[] {
 		try {
 			const names = execFileSync(getAdbPath(), ["devices"])
@@ -527,6 +560,28 @@ export class AndroidDeviceManager {
 			return names.map(name => ({
 				deviceId: name,
 				deviceType: this.getDeviceType(name),
+			}));
+		} catch (error) {
+			console.error("Could not execute adb command, maybe ANDROID_HOME is not set?");
+			return [];
+		}
+	}
+
+	public getConnectedDevicesWithDetails(): Array<AndroidDevice & { version: string, name: string }> {
+		try {
+			const names = execFileSync(getAdbPath(), ["devices"])
+				.toString()
+				.split("\n")
+				.map(line => line.trim())
+				.filter(line => line !== "")
+				.filter(line => !line.startsWith("List of devices attached"))
+				.map(line => line.split("\t")[0]);
+
+			return names.map(deviceId => ({
+				deviceId,
+				deviceType: this.getDeviceType(deviceId),
+				version: this.getDeviceVersion(deviceId),
+				name: this.getDeviceName(deviceId),
 			}));
 		} catch (error) {
 			console.error("Could not execute adb command, maybe ANDROID_HOME is not set?");

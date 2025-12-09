@@ -32,7 +32,7 @@
     "zod-to-json-schema": "3.25.0"
   },
   "optionalDependencies": {
-    "@mobilenext/mobilecli": "0.0.38"
+    "@mobilenext/mobilecli": "0.0.46"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
