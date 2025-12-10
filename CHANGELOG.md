@@ -1,3 +1,8 @@
+## [0.0.38](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.38) (2025-12-09)
+
+* iOS: migrated iPhone Simulator calls to use mobilecli binary for improved performance ([#241](https://github.com/mobile-next/mobile-mcp/pull/241))
+* iOS: automatically downloading and installing Webdriver Agent on simulator, get started in iOS development in seconds ([#241](https://github.com/mobile-next/mobile-mcp/pull/241))
+
 ## [0.0.37](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.37) (2025-12-08)
 
 * Server: migrated to new mcp sdk tool registration API ([#239](https://github.com/mobile-next/mobile-mcp/pull/239))

@@ -13,17 +13,6 @@ export interface Simulator {
 	state: string;
 }
 
-interface ListDevicesResponse {
-	devices: {
-		[key: string]: Array<{
-			state: string;
-			name: string;
-			isAvailable: boolean;
-			udid: string;
-		}>,
-	},
-}
-
 interface AppInfo {
 	ApplicationType: string;
 	Bundle: string;
@@ -279,42 +268,5 @@ export class Simctl implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const wda = await this.wda();
 		return wda.getOrientation();
-	}
-}
-
-export class SimctlManager {
-
-	public listSimulators(): Simulator[] {
-		// detect if this is a mac
-		if (process.platform !== "darwin") {
-			// don't even try to run xcrun
-			return [];
-		}
-
-		try {
-			const text = execFileSync("xcrun", ["simctl", "list", "devices", "-j"]).toString();
-			const json: ListDevicesResponse = JSON.parse(text);
-			return Object.values(json.devices).flatMap(device => {
-				return device.map(d => {
-					return {
-						name: d.name,
-						uuid: d.udid,
-						state: d.state,
-					};
-				});
-			});
-		} catch (error) {
-			console.error("Error listing simulators", error);
-			return [];
-		}
-	}
-
-	public listBootedSimulators(): Simulator[] {
-		return this.listSimulators()
-			.filter(simulator => simulator.state === "Booted");
-	}
-
-	public getSimulator(uuid: string): Simctl {
-		return new Simctl(uuid);
 	}
 }
