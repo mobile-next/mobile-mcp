@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
+import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection, withActionableError } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -73,11 +73,13 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getScreenSize(): Promise<ScreenSize> {
-		const response = JSON.parse(this.runCommand(["device", "info"])) as DeviceInfoResponse;
-		if (response.data.device.screenSize) {
-			return response.data.device.screenSize;
-		}
-		return { width: 0, height: 0, scale: 1.0 };
+		return withActionableError(() => {
+			const response = JSON.parse(this.runCommand(["device", "info"])) as DeviceInfoResponse;
+			if (response.data.device.screenSize) {
+				return response.data.device.screenSize;
+			}
+			return { width: 0, height: 0, scale: 1.0 };
+		}, "Failed to get screen size");
 	}
 
 	public async swipe(direction: SwipeDirection): Promise<void> {
@@ -114,71 +116,101 @@ export class MobileDevice implements Robot {
 	}
 
 	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void> {
-		const swipeDistance = distance || 400;
-		let endX = x;
-		let endY = y;
+		return withActionableError(async () => {
+			const swipeDistance = distance || 400;
+			let endX = x;
+			let endY = y;
 
-		switch (direction) {
-			case "up":
-				endY = y - swipeDistance;
-				break;
-			case "down":
-				endY = y + swipeDistance;
-				break;
-			case "left":
-				endX = x - swipeDistance;
-				break;
-			case "right":
-				endX = x + swipeDistance;
-				break;
-		}
+			switch (direction) {
+				case "up":
+					endY = y - swipeDistance;
+					break;
+				case "down":
+					endY = y + swipeDistance;
+					break;
+				case "left":
+					endX = x - swipeDistance;
+					break;
+				case "right":
+					endX = x + swipeDistance;
+					break;
+			}
 
-		this.runCommand(["io", "swipe", `${x},${y},${endX},${endY}`]);
+			this.runCommand(["io", "swipe", `${x},${y},${endX},${endY}`]);
+		}, `Failed to swipe ${direction} from coordinates (${x}, ${y})`);
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
-		const fullArgs = ["screenshot", "--device", this.deviceId, "--format", "png", "--output", "-"];
-		return this.mobilecli.executeCommandBuffer(fullArgs);
+		return withActionableError(() => {
+			const fullArgs = ["screenshot", "--device", this.deviceId, "--format", "png", "--output", "-"];
+			return this.mobilecli.executeCommandBuffer(fullArgs);
+		}, "Failed to take screenshot");
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
-		const response = JSON.parse(this.runCommand(["apps", "list"])) as InstalledAppsResponse;
-		return response.data.map(app => ({
-			appName: app.appName || app.packageName,
-			packageName: app.packageName,
-		})) as InstalledApp[];
+		return withActionableError(() => {
+			const response = JSON.parse(this.runCommand(["apps", "list"])) as InstalledAppsResponse;
+			return response.data.map(app => ({
+				appName: app.appName || app.packageName,
+				packageName: app.packageName,
+			})) as InstalledApp[];
+		}, "Failed to list installed apps");
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
-		this.runCommand(["apps", "launch", packageName]);
+		return withActionableError(
+			() => { this.runCommand(["apps", "launch", packageName]); },
+			`Failed to launch app "${packageName}". Please make sure it exists`
+		);
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
-		this.runCommand(["apps", "terminate", packageName]);
+		return withActionableError(
+			() => { this.runCommand(["apps", "terminate", packageName]); },
+			`Failed to terminate app "${packageName}"`
+		);
 	}
 
 	public async installApp(path: string): Promise<void> {
-		this.runCommand(["apps", "install", path]);
+		return withActionableError(
+			() => { this.runCommand(["apps", "install", path]); },
+			`Failed to install app from "${path}"`
+		);
 	}
 
 	public async uninstallApp(bundleId: string): Promise<void> {
-		this.runCommand(["apps", "uninstall", bundleId]);
+		return withActionableError(
+			() => { this.runCommand(["apps", "uninstall", bundleId]); },
+			`Failed to uninstall app "${bundleId}"`
+		);
 	}
 
 	public async openUrl(url: string): Promise<void> {
-		this.runCommand(["url", url]);
+		return withActionableError(
+			() => { this.runCommand(["url", url]); },
+			`Failed to open URL "${url}"`
+		);
 	}
 
 	public async sendKeys(text: string): Promise<void> {
-		this.runCommand(["io", "text", text]);
+		return withActionableError(
+			() => { this.runCommand(["io", "text", text]); },
+			"Failed to send keys"
+		);
 	}
 
 	public async pressButton(button: Button): Promise<void> {
-		this.runCommand(["io", "button", button]);
+		return withActionableError(
+			() => { this.runCommand(["io", "button", button]); },
+			`Failed to press button "${button}"`
+		);
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
-		this.runCommand(["io", "tap", `${x},${y}`]);
+		return withActionableError(
+			() => { this.runCommand(["io", "tap", `${x},${y}`]); },
+			`Failed to tap at coordinates (${x}, ${y})`
+		);
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
@@ -188,29 +220,39 @@ export class MobileDevice implements Robot {
 	}
 
 	public async longPress(x: number, y: number): Promise<void> {
-		this.runCommand(["io", "longpress", `${x},${y}`]);
+		return withActionableError(
+			() => { this.runCommand(["io", "longpress", `${x},${y}`]); },
+			`Failed to long press at coordinates (${x}, ${y})`
+		);
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
-		return response.data.elements.map(element => ({
-			type: element.type,
-			label: element.label,
-			text: element.text,
-			name: element.name,
-			value: element.value,
-			identifier: element.identifier,
-			rect: element.rect,
-			focused: element.focused,
-		}));
+		return withActionableError(() => {
+			const response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
+			return response.data.elements.map(element => ({
+				type: element.type,
+				label: element.label,
+				text: element.text,
+				name: element.name,
+				value: element.value,
+				identifier: element.identifier,
+				rect: element.rect,
+				focused: element.focused,
+			}));
+		}, "Failed to get elements on screen");
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
-		this.runCommand(["device", "orientation", "set", orientation]);
+		return withActionableError(
+			() => { this.runCommand(["device", "orientation", "set", orientation]); },
+			`Failed to set orientation to "${orientation}"`
+		);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
-		const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
-		return response.data.orientation;
+		return withActionableError(() => {
+			const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
+			return response.data.orientation;
+		}, "Failed to get orientation");
 	}
 }

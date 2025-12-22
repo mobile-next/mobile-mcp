@@ -39,6 +39,34 @@ export interface ScreenElement {
 export class ActionableError extends Error {
 	constructor(message: string) {
 		super(message);
+		this.name = "ActionableError";
+	}
+}
+
+/**
+ * Extracts a user-friendly error message from a command execution error.
+ * Handles both stdout and stderr from child process errors.
+ */
+export function extractCommandError(error: any): string {
+	const stdout = error.stdout ? error.stdout.toString().trim() : "";
+	const stderr = error.stderr ? error.stderr.toString().trim() : "";
+	const combined = [stdout, stderr].filter(Boolean).join(" ");
+	return combined || error.message || "Unknown error occurred";
+}
+
+/**
+ * Wraps a command execution in consistent error handling.
+ * Converts any error to an ActionableError with a user-friendly message.
+ */
+export async function withActionableError<T>(
+	operation: () => T | Promise<T>,
+	errorContext: string
+): Promise<T> {
+	try {
+		return await operation();
+	} catch (error: any) {
+		const errorMessage = extractCommandError(error);
+		throw new ActionableError(`${errorContext}: ${errorMessage}`);
 	}
 }
 

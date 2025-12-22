@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation, withActionableError } from "./robot";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -100,33 +100,37 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getScreenSize(): Promise<ScreenSize> {
-		const screenSize = this.adb("shell", "wm", "size")
-			.toString()
-			.split(" ")
-			.pop();
+		return withActionableError(() => {
+			const screenSize = this.adb("shell", "wm", "size")
+				.toString()
+				.split(" ")
+				.pop();
 
-		if (!screenSize) {
-			throw new Error("Failed to get screen size");
-		}
+			if (!screenSize) {
+				throw new Error("Could not parse screen size output");
+			}
 
-		const scale = 1;
-		const [width, height] = screenSize.split("x").map(Number);
-		return { width, height, scale };
+			const scale = 1;
+			const [width, height] = screenSize.split("x").map(Number);
+			return { width, height, scale };
+		}, "Failed to get screen size");
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
-		// only apps that have a launcher activity are returned
-		return this.adb("shell", "cmd", "package", "query-activities", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
-			.toString()
-			.split("\n")
-			.map(line => line.trim())
-			.filter(line => line.startsWith("packageName="))
-			.map(line => line.substring("packageName=".length))
-			.filter((value, index, self) => self.indexOf(value) === index)
-			.map(packageName => ({
-				packageName,
-				appName: packageName,
-			}));
+		return withActionableError(() => {
+			// only apps that have a launcher activity are returned
+			return this.adb("shell", "cmd", "package", "query-activities", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+				.toString()
+				.split("\n")
+				.map(line => line.trim())
+				.filter(line => line.startsWith("packageName="))
+				.map(line => line.substring("packageName=".length))
+				.filter((value, index, self) => self.indexOf(value) === index)
+				.map(packageName => ({
+					packageName,
+					appName: packageName,
+				}));
+		}, "Failed to list installed apps");
 	}
 
 	private async listPackages(): Promise<string[]> {
@@ -139,11 +143,10 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
-		try {
-			this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
-		} catch (error) {
-			throw new ActionableError(`Failed launching app with package name "${packageName}", please make sure it exists`);
-		}
+		return withActionableError(
+			() => { this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1"); },
+			`Failed to launch app "${packageName}". Please make sure it exists`
+		);
 	}
 
 	public async listRunningProcesses(): Promise<string[]> {
@@ -156,76 +159,80 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async swipe(direction: SwipeDirection): Promise<void> {
-		const screenSize = await this.getScreenSize();
-		const centerX = screenSize.width >> 1;
+		return withActionableError(async () => {
+			const screenSize = await this.getScreenSize();
+			const centerX = screenSize.width >> 1;
 
-		let x0: number, y0: number, x1: number, y1: number;
+			let x0: number, y0: number, x1: number, y1: number;
 
-		switch (direction) {
-			case "up":
-				x0 = x1 = centerX;
-				y0 = Math.floor(screenSize.height * 0.80);
-				y1 = Math.floor(screenSize.height * 0.20);
-				break;
-			case "down":
-				x0 = x1 = centerX;
-				y0 = Math.floor(screenSize.height * 0.20);
-				y1 = Math.floor(screenSize.height * 0.80);
-				break;
-			case "left":
-				x0 = Math.floor(screenSize.width * 0.80);
-				x1 = Math.floor(screenSize.width * 0.20);
-				y0 = y1 = Math.floor(screenSize.height * 0.50);
-				break;
-			case "right":
-				x0 = Math.floor(screenSize.width * 0.20);
-				x1 = Math.floor(screenSize.width * 0.80);
-				y0 = y1 = Math.floor(screenSize.height * 0.50);
-				break;
-			default:
-				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
-		}
+			switch (direction) {
+				case "up":
+					x0 = x1 = centerX;
+					y0 = Math.floor(screenSize.height * 0.80);
+					y1 = Math.floor(screenSize.height * 0.20);
+					break;
+				case "down":
+					x0 = x1 = centerX;
+					y0 = Math.floor(screenSize.height * 0.20);
+					y1 = Math.floor(screenSize.height * 0.80);
+					break;
+				case "left":
+					x0 = Math.floor(screenSize.width * 0.80);
+					x1 = Math.floor(screenSize.width * 0.20);
+					y0 = y1 = Math.floor(screenSize.height * 0.50);
+					break;
+				case "right":
+					x0 = Math.floor(screenSize.width * 0.20);
+					x1 = Math.floor(screenSize.width * 0.80);
+					y0 = y1 = Math.floor(screenSize.height * 0.50);
+					break;
+				default:
+					throw new Error(`Swipe direction "${direction}" is not supported`);
+			}
 
-		this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
+			this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
+		}, `Failed to swipe ${direction}`);
 	}
 
 	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void> {
-		const screenSize = await this.getScreenSize();
+		return withActionableError(async () => {
+			const screenSize = await this.getScreenSize();
 
-		let x0: number, y0: number, x1: number, y1: number;
+			let x0: number, y0: number, x1: number, y1: number;
 
-		// Use provided distance or default to 30% of screen dimension
-		const defaultDistanceY = Math.floor(screenSize.height * 0.3);
-		const defaultDistanceX = Math.floor(screenSize.width * 0.3);
-		const swipeDistanceY = distance || defaultDistanceY;
-		const swipeDistanceX = distance || defaultDistanceX;
+			// Use provided distance or default to 30% of screen dimension
+			const defaultDistanceY = Math.floor(screenSize.height * 0.3);
+			const defaultDistanceX = Math.floor(screenSize.width * 0.3);
+			const swipeDistanceY = distance || defaultDistanceY;
+			const swipeDistanceX = distance || defaultDistanceX;
 
-		switch (direction) {
-			case "up":
-				x0 = x1 = x;
-				y0 = y;
-				y1 = Math.max(0, y - swipeDistanceY);
-				break;
-			case "down":
-				x0 = x1 = x;
-				y0 = y;
-				y1 = Math.min(screenSize.height, y + swipeDistanceY);
-				break;
-			case "left":
-				x0 = x;
-				x1 = Math.max(0, x - swipeDistanceX);
-				y0 = y1 = y;
-				break;
-			case "right":
-				x0 = x;
-				x1 = Math.min(screenSize.width, x + swipeDistanceX);
-				y0 = y1 = y;
-				break;
-			default:
-				throw new ActionableError(`Swipe direction "${direction}" is not supported`);
-		}
+			switch (direction) {
+				case "up":
+					x0 = x1 = x;
+					y0 = y;
+					y1 = Math.max(0, y - swipeDistanceY);
+					break;
+				case "down":
+					x0 = x1 = x;
+					y0 = y;
+					y1 = Math.min(screenSize.height, y + swipeDistanceY);
+					break;
+				case "left":
+					x0 = x;
+					x1 = Math.max(0, x - swipeDistanceX);
+					y0 = y1 = y;
+					break;
+				case "right":
+					x0 = x;
+					x1 = Math.min(screenSize.width, x + swipeDistanceX);
+					y0 = y1 = y;
+					break;
+				default:
+					throw new Error(`Swipe direction "${direction}" is not supported`);
+			}
 
-		this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
+			this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
+		}, `Failed to swipe ${direction} from coordinates (${x}, ${y})`);
 	}
 
 	private getDisplayCount(): number {
@@ -292,20 +299,22 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
-		if (this.getDisplayCount() <= 1) {
-			// backward compatibility for android 10 and below, and for single display devices
-			return this.adb("exec-out", "screencap", "-p");
-		}
+		return withActionableError(() => {
+			if (this.getDisplayCount() <= 1) {
+				// backward compatibility for android 10 and below, and for single display devices
+				return this.adb("exec-out", "screencap", "-p");
+			}
 
-		// find the first display that is turned on, and capture that one
-		const displayId = this.getFirstDisplayId();
-		if (displayId === null) {
-			// no idea why, but we have displayCount >= 2, yet we failed to parse
-			// let's go with screencap's defaults and hope for the best
-			return this.adb("exec-out", "screencap", "-p");
-		}
+			// find the first display that is turned on, and capture that one
+			const displayId = this.getFirstDisplayId();
+			if (displayId === null) {
+				// no idea why, but we have displayCount >= 2, yet we failed to parse
+				// let's go with screencap's defaults and hope for the best
+				return this.adb("exec-out", "screencap", "-p");
+			}
 
-		return this.adb("exec-out", "screencap", "-p", "-d", `${displayId}`);
+			return this.adb("exec-out", "screencap", "-p", "-d", `${displayId}`);
+		}, "Failed to take screenshot");
 	}
 
 	private collectElements(node: UiAutomatorXmlNode): ScreenElement[] {
@@ -348,40 +357,40 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const parsedXml = await this.getUiAutomatorXml();
-		const hierarchy = parsedXml.hierarchy;
-		const elements = this.collectElements(hierarchy.node);
-		return elements;
+		return withActionableError(async () => {
+			const parsedXml = await this.getUiAutomatorXml();
+			const hierarchy = parsedXml.hierarchy;
+			const elements = this.collectElements(hierarchy.node);
+			return elements;
+		}, "Failed to get elements on screen");
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
-		this.adb("shell", "am", "force-stop", packageName);
+		return withActionableError(
+			() => { this.adb("shell", "am", "force-stop", packageName); },
+			`Failed to terminate app "${packageName}"`
+		);
 	}
 
 	public async installApp(path: string): Promise<void> {
-		try {
-			this.adb("install", "-r", path);
-		} catch (error: any) {
-			const stdout = error.stdout ? error.stdout.toString() : "";
-			const stderr = error.stderr ? error.stderr.toString() : "";
-			const output = (stdout + stderr).trim();
-			throw new ActionableError(output || error.message);
-		}
+		return withActionableError(
+			() => { this.adb("install", "-r", path); },
+			`Failed to install app from "${path}"`
+		);
 	}
 
 	public async uninstallApp(bundleId: string): Promise<void> {
-		try {
-			this.adb("uninstall", bundleId);
-		} catch (error: any) {
-			const stdout = error.stdout ? error.stdout.toString() : "";
-			const stderr = error.stderr ? error.stderr.toString() : "";
-			const output = (stdout + stderr).trim();
-			throw new ActionableError(output || error.message);
-		}
+		return withActionableError(
+			() => { this.adb("uninstall", bundleId); },
+			`Failed to uninstall app "${bundleId}"`
+		);
 	}
 
 	public async openUrl(url: string): Promise<void> {
-		this.adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url);
+		return withActionableError(
+			() => { this.adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url); },
+			`Failed to open URL "${url}"`
+		);
 	}
 
 	private isAscii(text: string): boolean {
@@ -435,12 +444,18 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
-		this.adb("shell", "input", "tap", `${x}`, `${y}`);
+		return withActionableError(
+			() => { this.adb("shell", "input", "tap", `${x}`, `${y}`); },
+			`Failed to tap at coordinates (${x}, ${y})`
+		);
 	}
 
 	public async longPress(x: number, y: number): Promise<void> {
-		// a long press is a swipe with no movement and a long duration
-		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500");
+		return withActionableError(
+			// a long press is a swipe with no movement and a long duration
+			() => { this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500"); },
+			`Failed to long press at coordinates (${x}, ${y})`
+		);
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
@@ -450,16 +465,20 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
-		const value = orientation === "portrait" ? 0 : 1;
+		return withActionableError(() => {
+			const value = orientation === "portrait" ? 0 : 1;
 
-		// disable auto-rotation prior to setting the orientation
-		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
-		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${value}`);
+			// disable auto-rotation prior to setting the orientation
+			this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
+			this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${value}`);
+		}, `Failed to set orientation to "${orientation}"`);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
-		const rotation = this.adb("shell", "settings", "get", "system", "user_rotation").toString().trim();
-		return rotation === "0" ? "portrait" : "landscape";
+		return withActionableError(() => {
+			const rotation = this.adb("shell", "settings", "get", "system", "user_rotation").toString().trim();
+			return rotation === "0" ? "portrait" : "landscape";
+		}, "Failed to get orientation");
 	}
 
 	private async getUiAutomatorDump(): Promise<string> {
