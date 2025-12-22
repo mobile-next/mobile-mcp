@@ -2,7 +2,7 @@ import { Socket } from "node:net";
 import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation, withActionableError } from "./robot";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -125,50 +125,50 @@ export class IosRobot implements Robot {
 	public async listApps(): Promise<InstalledApp[]> {
 		await this.assertTunnelRunning();
 
-		const output = await this.ios("apps", "--all", "--list");
-		return output
-			.split("\n")
-			.map(line => {
-				const [packageName, appName] = line.split(" ");
-				return {
-					packageName,
-					appName,
-				};
-			});
+		return withActionableError(async () => {
+			const output = await this.ios("apps", "--all", "--list");
+			return output
+				.split("\n")
+				.map(line => {
+					const [packageName, appName] = line.split(" ");
+					return {
+						packageName,
+						appName,
+					};
+				});
+		}, "Failed to list installed apps");
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
 		await this.assertTunnelRunning();
-		await this.ios("launch", packageName);
+		await withActionableError(
+			() => { this.ios("launch", packageName); },
+			`Failed to launch app "${packageName}". Please make sure it exists`
+		);
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
 		await this.assertTunnelRunning();
-		await this.ios("kill", packageName);
+		await withActionableError(
+			() => { this.ios("kill", packageName); },
+			`Failed to terminate app "${packageName}"`
+		);
 	}
 
 	public async installApp(path: string): Promise<void> {
 		await this.assertTunnelRunning();
-		try {
-			await this.ios("install", "--path", path);
-		} catch (error: any) {
-			const stdout = error.stdout ? error.stdout.toString() : "";
-			const stderr = error.stderr ? error.stderr.toString() : "";
-			const output = (stdout + stderr).trim();
-			throw new ActionableError(output || error.message);
-		}
+		await withActionableError(
+			() => { this.ios("install", "--path", path); },
+			`Failed to install app from "${path}"`
+		);
 	}
 
 	public async uninstallApp(bundleId: string): Promise<void> {
 		await this.assertTunnelRunning();
-		try {
-			await this.ios("uninstall", "--bundleid", bundleId);
-		} catch (error: any) {
-			const stdout = error.stdout ? error.stdout.toString() : "";
-			const stderr = error.stderr ? error.stderr.toString() : "";
-			const output = (stdout + stderr).trim();
-			throw new ActionableError(output || error.message);
-		}
+		await withActionableError(
+			() => { this.ios("uninstall", "--bundleid", bundleId); },
+			`Failed to uninstall app "${bundleId}"`
+		);
 	}
 
 	public async openUrl(url: string): Promise<void> {
