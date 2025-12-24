@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, basename, extname } from "node:path";
 
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
@@ -8,17 +11,6 @@ export interface Simulator {
 	name: string;
 	uuid: string;
 	state: string;
-}
-
-interface ListDevicesResponse {
-	devices: {
-		[key: string]: Array<{
-			state: string;
-			name: string;
-			isAvailable: boolean;
-			udid: string;
-		}>,
-	},
 }
 
 interface AppInfo {
@@ -117,6 +109,99 @@ export class Simctl implements Robot {
 		this.simctl("terminate", this.simulatorUuid, packageName);
 	}
 
+	private findAppBundle(dir: string): string | null {
+		const entries = readdirSync(dir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			if (entry.isDirectory() && entry.name.endsWith(".app")) {
+				return join(dir, entry.name);
+			}
+		}
+
+		return null;
+	}
+
+	private validateZipPaths(zipPath: string): void {
+		const output = execFileSync("/usr/bin/zipinfo", ["-1", zipPath], {
+			timeout: TIMEOUT,
+			maxBuffer: MAX_BUFFER_SIZE,
+		}).toString();
+
+		const invalidPath = output
+			.split("\n")
+			.map(s => s.trim())
+			.filter(s => s)
+			.find(s => s.startsWith("/") || s.includes(".."));
+
+		if (invalidPath) {
+			throw new ActionableError(`Security violation: File path '${invalidPath}' contains invalid characters`);
+		}
+	}
+
+	public async installApp(path: string): Promise<void> {
+		let tempDir: string | null = null;
+		let installPath = path;
+
+		try {
+			// zip files need to be extracted prior to installation
+			if (extname(path).toLowerCase() === ".zip") {
+				trace(`Detected .zip file, validating contents`);
+
+				// before extracting, let's make sure there's no zip-slip bombs here
+				this.validateZipPaths(path);
+
+				tempDir = mkdtempSync(join(tmpdir(), "ios-app-"));
+
+				try {
+					execFileSync("unzip", ["-q", path, "-d", tempDir], {
+						timeout: TIMEOUT,
+					});
+				} catch (error: any) {
+					throw new ActionableError(`Failed to unzip file: ${error.message}`);
+				}
+
+				const appBundle = this.findAppBundle(tempDir);
+				if (!appBundle) {
+					throw new ActionableError("No .app bundle found in the .zip file, please visit wiki at https://github.com/mobile-next/mobile-mcp/wiki for assistance.");
+				}
+
+				installPath = appBundle;
+				trace(`Found .app bundle at: ${basename(appBundle)}`);
+			}
+
+			// continue with installation
+			this.simctl("install", this.simulatorUuid, installPath);
+
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+
+		} finally {
+			// Clean up temporary directory if it was created
+			if (tempDir) {
+				try {
+					trace(`Cleaning up temporary directory`);
+					rmSync(tempDir, { recursive: true, force: true });
+				} catch (cleanupError) {
+					trace(`Warning: Failed to cleanup temporary directory: ${cleanupError}`);
+				}
+			}
+		}
+	}
+
+	public async uninstallApp(bundleId: string): Promise<void> {
+		try {
+			this.simctl("uninstall", this.simulatorUuid, bundleId);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
+	}
+
 	public async listApps(): Promise<InstalledApp[]> {
 		const text = this.simctl("listapps", this.simulatorUuid).toString();
 		const result = execFileSync("plutil", ["-convert", "json", "-o", "-", "-r", "-"], {
@@ -155,6 +240,16 @@ export class Simctl implements Robot {
 		return wda.tap(x, y);
 	}
 
+	public async doubleTap(x: number, y: number): Promise<void> {
+		const wda = await this.wda();
+		await wda.doubleTap(x, y);
+	}
+
+	public async longPress(x: number, y: number) {
+		const wda = await this.wda();
+		return wda.longPress(x, y);
+	}
+
 	public async pressButton(button: Button) {
 		const wda = await this.wda();
 		return wda.pressButton(button);
@@ -173,42 +268,5 @@ export class Simctl implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const wda = await this.wda();
 		return wda.getOrientation();
-	}
-}
-
-export class SimctlManager {
-
-	public listSimulators(): Simulator[] {
-		// detect if this is a mac
-		if (process.platform !== "darwin") {
-			// don't even try to run xcrun
-			return [];
-		}
-
-		try {
-			const text = execFileSync("xcrun", ["simctl", "list", "devices", "-j"]).toString();
-			const json: ListDevicesResponse = JSON.parse(text);
-			return Object.values(json.devices).flatMap(device => {
-				return device.map(d => {
-					return {
-						name: d.name,
-						uuid: d.udid,
-						state: d.state,
-					};
-				});
-			});
-		} catch (error) {
-			console.error("Error listing simulators", error);
-			return [];
-		}
-	}
-
-	public listBootedSimulators(): Simulator[] {
-		return this.listSimulators()
-			.filter(simulator => simulator.state === "Booted");
-	}
-
-	public getSimulator(uuid: string): Simctl {
-		return new Simctl(uuid);
 	}
 }

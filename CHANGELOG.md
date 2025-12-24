@@ -1,6 +1,84 @@
+## [0.0.38](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.38) (2025-12-09)
+
+* iOS: migrated iPhone Simulator calls to use mobilecli binary for improved performance ([#241](https://github.com/mobile-next/mobile-mcp/pull/241))
+* iOS: automatically downloading and installing Webdriver Agent on simulator, get started in iOS development in seconds ([#241](https://github.com/mobile-next/mobile-mcp/pull/241))
+
+## [0.0.37](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.37) (2025-12-08)
+
+* Server: migrated to new mcp sdk tool registration API ([#239](https://github.com/mobile-next/mobile-mcp/pull/239))
+* Server: updated to @modelcontextprotocol/sdk 1.24.2 and other dependencies for security ([#239](https://github.com/mobile-next/mobile-mcp/pull/239))
+
+## [0.0.36](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.36) (2025-11-19)
+
+* Server: upgraded libraries (glob, js-yaml) and mobilecli ([#234](https://github.com/mobile-next/mobile-mcp/pull/234))
+
+## [0.0.35](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.35) (2025-11-14)
+
+* Server: added list of available MCP tools to README for better discoverability ([043cf3d](https://github.com/mobile-next/mobile-mcp/commit/043cf3d))
+* Android: fixed adb path resolution on Windows by always using .exe extension ([178b2fb](https://github.com/mobile-next/mobile-mcp/commit/178b2fb)) by [@mattheww-skyward](https://github.com/mattheww-skyward)
+
+## [0.0.34](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.34) (2025-11-01)
+
+* Server: dry-run release for benchmarking how mobilecli detects devices ([#226](https://github.com/mobile-next/mobile-mcp/pull/226))
+
+## [0.0.33](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.33) (2025-10-20)
+
+* Server: added debug information for understanding screenshot issues on old devices ([#213](https://github.com/mobile-next/mobile-mcp/pull/213))
+
+## [0.0.32](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.32) (2025-10-08)
+
+* Server: fixed wrong separator when listing iOS simulators ([#208](https://github.com/mobile-next/mobile-mcp/pull/208))
+* iOS: double tap at screen location ([#207](https://github.com/mobile-next/mobile-mcp/pull/207))
+* Android: reduce stdout pollution by adb shell monkey ([#211](https://github.com/mobile-next/mobile-mcp/pull/211))
+* Android: fix mobile_take_screenshot on very old android devices ([#204](https://github.com/mobile-next/mobile-mcp/pull/204)) by [@boulaycote](https://github.com/boulaycote)
+* Android: double tap at screen location ([#194](https://github.com/mobile-next/mobile-mcp/pull/194)) by [@SakshamSahgal](https://github.com/SakshamSahgal)
+
+## [0.0.31](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.31) (2025-10-07)
+
+* Server: resolve mobilecli libc issues on very old linux distros ([#206](https://github.com/mobile-next/mobile-mcp/pull/206))
+* Server: identify mcp-client for compatiblity patches ([#205](https://github.com/mobile-next/mobile-mcp/pull/205))
+
+## [0.0.30](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.30) (2025-10-06)
+
+* Server: introduction of mobilecli tool, will replace imagemagick, sips, go-ios and adb in the future ([#196](https://github.com/mobile-next/mobile-mcp/pull/196))
+* iOS: app installation and uninstallation ([#202](https://github.com/mobile-next/mobile-mcp/pull/202))
+* Android: app installation and uninstallation ([#202](https://github.com/mobile-next/mobile-mcp/pull/202))
+
+## [0.0.29](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.29) (2025-09-26)
+
+* Server: bumped mcp sdk to latest version ([#199](https://github.com/mobile-next/mobile-mcp/pull/199))
+* Server: locked production npm packages to specific version ([#199](https://github.com/mobile-next/mobile-mcp/pull/199))
+* Server: renamed tool 'swipe_on_screen' to 'mobile_swipe_on_screen' ([#197](https://github.com/mobile-next/mobile-mcp/pull/197))
+
+## [0.0.28](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.28) (2025-09-15)
+
+* Server: added 'device' parameter to all tools ([#181](https://github.com/mobile-next/mobile-mcp/pull/181))
+* Server: enable agents to access multiple devices at once (eg, 'explain what's on screen on all devices connected')
+  ([#181](https://github.com/mobile-next/mobile-mcp/pull/181))
+
+## [0.0.27](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.27) (2025-09-10)
+
+* Server: use 'sips' image scaling on mac if found, removes requirement to install ImageMagick for image scaling ([#188](https://github.com/mobile-next/mobile-mcp/pull/188))
+
+## [0.0.26](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.26) (2025-09-09)
+
+* Server: support listing of mobile-mcp in github's mcp registry ([e96404e](https://github.com/mobile-next/mobile-mcp/commit/e96404e0e513e48ebcfe7956800203cc0f363526))
+
+## [0.0.25](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.25) (2025-09-08)
+
+* Server: install mobile-mcp in vscode with a single-click in README ([#173](https://github.com/mobile-next/mobile-mcp/pull/173))
+* Android: try finding 'adb' under $HOME/Library/Android if $ANDROID_HOME is not defined ([#183](https://github.com/mobile-next/mobile-mcp/pull/183))
+* Android: better escaping of text input, for improved security ([#182](https://github.com/mobile-next/mobile-mcp/pull/183))
+
+## [0.0.24](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.24) (2025-08-24)
+
+* iOS: new tool for long press ([#143](https://github.com/mobile-next/mobile-mcp/pull/143))
+* Android: new tool for long press ([#143](https://github.com/mobile-next/mobile-mcp/pull/143))
+* Android: fixed screenshot from devices with multiple devices (foldables) again ([#171](https://github.com/mobile-next/mobile-mcp/pull/171))
+
 ## [0.0.23](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.23) (2025-07-31)
 
-* Andrid: fixed a bug where devices with multiple screens (such as foldables) failed to take and save screenshot ([#159](https://github.com/mobile-next/mobile-mcp/pull/159))
+* Android: fixed a bug where devices with multiple screens (such as foldables) failed to take and save screenshot ([#159](https://github.com/mobile-next/mobile-mcp/pull/159))
 
 ## [0.0.22](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.22) (2025-07-17)
 

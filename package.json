@@ -1,5 +1,6 @@
 {
   "name": "@mobilenext/mobile-mcp",
+  "mcpName": "io.github.mobile-next/mobile-mcp",
   "version": "0.0.1",
   "description": "Mobile MCP",
   "repository": {
@@ -13,6 +14,7 @@
   "scripts": {
     "build": "tsc && chmod +x lib/index.js",
     "lint": "eslint .",
+    "fixlint": "eslint . --fix",
     "test": "nyc mocha --require ts-node/register test/*.ts",
     "watch": "tsc --watch",
     "clean": "rm -rf lib",
@@ -22,11 +24,15 @@
     "lib"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.13.2",
-    "commander": "^14.0.0",
-    "express": "^5.1.0",
-    "fast-xml-parser": "^5.0.9",
-    "zod-to-json-schema": "^3.24.4"
+    "@modelcontextprotocol/sdk": "1.24.2",
+    "commander": "14.0.0",
+    "express": "5.1.0",
+    "fast-xml-parser": "5.2.5",
+    "zod": "^4.1.13",
+    "zod-to-json-schema": "3.25.0"
+  },
+  "optionalDependencies": {
+    "@mobilenext/mobilecli": "0.0.46"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -47,7 +53,7 @@
     "mocha": "^11.1.0",
     "nyc": "^17.1.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "typescript": "5.8.2"
   },
   "main": "index.js",
   "bin": {

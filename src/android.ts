@@ -1,5 +1,6 @@
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 import * as xml from "fast-xml-parser";
 
@@ -28,12 +29,27 @@ interface UiAutomatorXml {
 }
 
 const getAdbPath = (): string => {
-	let executable = "adb";
+	const exeName = process.env.platform === "win32" ? "adb.exe" : "adb";
 	if (process.env.ANDROID_HOME) {
-		executable = path.join(process.env.ANDROID_HOME, "platform-tools", "adb");
+		return path.join(process.env.ANDROID_HOME, "platform-tools", exeName);
 	}
 
-	return executable;
+	if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+		const windowsAdbPath = path.join(process.env.LOCALAPPDATA, "Android", "Sdk", "platform-tools", "adb.exe");
+		if (existsSync(windowsAdbPath)) {
+			return windowsAdbPath;
+		}
+	}
+
+	if (process.platform === "darwin" && process.env.HOME) {
+		const defaultAndroidSdk = path.join(process.env.HOME, "Library", "Android", "sdk", "platform-tools", "adb");
+		if (existsSync(defaultAndroidSdk)) {
+			return defaultAndroidSdk;
+		}
+	}
+
+	// fallthrough, hope for the best
+	return exeName;
 };
 
 const BUTTON_MAP: Record<Button, string> = {
@@ -66,10 +82,12 @@ export class AndroidRobot implements Robot {
 		});
 	}
 
-	public getFirstDisplayId(): string | null {
-		const output = this.adb("shell", "dumpsys", "SurfaceFlinger", "--display-id").toString();
-		const match = output.match(/Display (\d+) \(/);
-		return match ? match[1] : null;
+	public silentAdb(...args: string[]): Buffer {
+		return execFileSync(getAdbPath(), ["-s", this.deviceId, ...args], {
+			maxBuffer: MAX_BUFFER_SIZE,
+			timeout: TIMEOUT,
+			stdio: ["pipe", "pipe", "pipe"],
+		});
 	}
 
 	public getSystemFeatures(): string[] {
@@ -121,7 +139,11 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
-		this.adb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
+		try {
+			this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
+		} catch (error) {
+			throw new ActionableError(`Failed launching app with package name "${packageName}", please make sure it exists`);
+		}
 	}
 
 	public async listRunningProcesses(): Promise<string[]> {
@@ -206,16 +228,84 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
 	}
 
-	public async getScreenshot(): Promise<Buffer> {
-		const displayId = this.getFirstDisplayId();
+	private getDisplayCount(): number {
+		return this.adb("shell", "dumpsys", "SurfaceFlinger", "--display-id")
+			.toString()
+			.split("\n")
+			.filter(s => s.startsWith("Display "))
+			.length;
+	}
 
-		if (displayId !== null) {
-			// always good to provide displayId. required for multi-display devices such as fold
-			return this.adb("exec-out", "screencap", "-p", "-d", displayId);
-		} else {
-			// backward compatibility for android 10 and below
+	private getFirstDisplayId(): string | null {
+		try {
+			// Try using cmd display get-displays (Android 11+)
+			const displays = this.adb("shell", "cmd", "display", "get-displays")
+				.toString()
+				.split("\n")
+				.filter(s => s.startsWith("Display id "))
+				// filter for state ON even though get-displays only returns turned on displays
+				.filter(s => s.indexOf(", state ON,") >= 0)
+				// another paranoia check
+				.filter(s => s.indexOf(", uniqueId ") >= 0);
+
+			if (displays.length > 0) {
+				const m = displays[0].match(/uniqueId \"([^\"]+)\"/);
+				if (m !== null) {
+					let displayId = m[1];
+					if (displayId.startsWith("local:")) {
+						displayId = displayId.substring("local:".length);
+					}
+
+					return displayId;
+				}
+			}
+		} catch (error) {
+			// cmd display get-displays not available on this device
+		}
+
+		// fallback: parse dumpsys display for display info (compatible with older Android versions)
+		try {
+			const dumpsys = this.adb("shell", "dumpsys", "display")
+				.toString();
+
+			// look for DisplayViewport entries with isActive=true and type=INTERNAL
+			const viewportMatch = dumpsys.match(/DisplayViewport\{type=INTERNAL[^}]*isActive=true[^}]*uniqueId='([^']+)'/);
+			if (viewportMatch) {
+				let uniqueId = viewportMatch[1];
+				if (uniqueId.startsWith("local:")) {
+					uniqueId = uniqueId.substring("local:".length);
+				}
+
+				return uniqueId;
+			}
+
+			// fallback: look for active display with state ON
+			const displayStateMatch = dumpsys.match(/Display Id=(\d+)[\s\S]*?Display State=ON/);
+			if (displayStateMatch) {
+				return displayStateMatch[1];
+			}
+		} catch (error) {
+			// dumpsys display also failed
+		}
+
+		return null;
+	}
+
+	public async getScreenshot(): Promise<Buffer> {
+		if (this.getDisplayCount() <= 1) {
+			// backward compatibility for android 10 and below, and for single display devices
 			return this.adb("exec-out", "screencap", "-p");
 		}
+
+		// find the first display that is turned on, and capture that one
+		const displayId = this.getFirstDisplayId();
+		if (displayId === null) {
+			// no idea why, but we have displayCount >= 2, yet we failed to parse
+			// let's go with screencap's defaults and hope for the best
+			return this.adb("exec-out", "screencap", "-p");
+		}
+
+		return this.adb("exec-out", "screencap", "-p", "-d", `${displayId}`);
 	}
 
 	private collectElements(node: UiAutomatorXmlNode): ScreenElement[] {
@@ -268,12 +358,39 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "am", "force-stop", packageName);
 	}
 
+	public async installApp(path: string): Promise<void> {
+		try {
+			this.adb("install", "-r", path);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
+	}
+
+	public async uninstallApp(bundleId: string): Promise<void> {
+		try {
+			this.adb("uninstall", bundleId);
+		} catch (error: any) {
+			const stdout = error.stdout ? error.stdout.toString() : "";
+			const stderr = error.stderr ? error.stderr.toString() : "";
+			const output = (stdout + stderr).trim();
+			throw new ActionableError(output || error.message);
+		}
+	}
+
 	public async openUrl(url: string): Promise<void> {
 		this.adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url);
 	}
 
 	private isAscii(text: string): boolean {
 		return /^[\x00-\x7F]*$/.test(text);
+	}
+
+	private escapeShellText(text: string): string {
+		// escape all shell special characters that could be used for injection
+		return text.replace(/[\\'"` \t\n\r|&;()<>{}[\]$*?]/g, "\\$&");
 	}
 
 	private async isDeviceKitInstalled(): Promise<boolean> {
@@ -291,7 +408,7 @@ export class AndroidRobot implements Robot {
 		if (this.isAscii(text)) {
 			// adb shell input only supports ascii characters. and
 			// some of the keys have to be escaped.
-			const _text = text.replace(/ /g, "\\ ");
+			const _text = this.escapeShellText(text);
 			this.adb("shell", "input", "text", _text);
 		} else if (await this.isDeviceKitInstalled()) {
 			// try sending over clipboard
@@ -313,19 +430,31 @@ export class AndroidRobot implements Robot {
 			throw new ActionableError(`Button "${button}" is not supported`);
 		}
 
-		this.adb("shell", "input", "keyevent", BUTTON_MAP[button]);
+		const mapped = BUTTON_MAP[button];
+		this.adb("shell", "input", "keyevent", mapped);
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
 	}
 
+	public async longPress(x: number, y: number): Promise<void> {
+		// a long press is a swipe with no movement and a long duration
+		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500");
+	}
+
+	public async doubleTap(x: number, y: number): Promise<void> {
+		await this.tap(x, y);
+		await new Promise(r => setTimeout(r, 100)); // short delay
+		await this.tap(x, y);
+	}
+
 	public async setOrientation(orientation: Orientation): Promise<void> {
-		const orientationValue = orientation === "portrait" ? 0 : 1;
+		const value = orientation === "portrait" ? 0 : 1;
 
 		// disable auto-rotation prior to setting the orientation
 		this.adb("shell", "settings", "put", "system", "accelerometer_rotation", "0");
-		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${orientationValue}`);
+		this.adb("shell", "content", "insert", "--uri", "content://settings/system", "--bind", "name:s:user_rotation", "--bind", `value:i:${value}`);
 	}
 
 	public async getOrientation(): Promise<Orientation> {
@@ -385,6 +514,39 @@ export class AndroidDeviceManager {
 		return "mobile";
 	}
 
+	private getDeviceVersion(deviceId: string): string {
+		try {
+			const output = execFileSync(getAdbPath(), ["-s", deviceId, "shell", "getprop", "ro.build.version.release"], {
+				timeout: 5000,
+			}).toString().trim();
+			return output;
+		} catch (error) {
+			return "unknown";
+		}
+	}
+
+	private getDeviceName(deviceId: string): string {
+		try {
+			// Try getting AVD name first (for emulators)
+			const avdName = execFileSync(getAdbPath(), ["-s", deviceId, "shell", "getprop", "ro.boot.qemu.avd_name"], {
+				timeout: 5000,
+			}).toString().trim();
+
+			if (avdName !== "") {
+				// Replace underscores with spaces (e.g., "Pixel_9_Pro" -> "Pixel 9 Pro")
+				return avdName.replace(/_/g, " ");
+			}
+
+			// Fall back to product model
+			const output = execFileSync(getAdbPath(), ["-s", deviceId, "shell", "getprop", "ro.product.model"], {
+				timeout: 5000,
+			}).toString().trim();
+			return output;
+		} catch (error) {
+			return deviceId;
+		}
+	}
+
 	public getConnectedDevices(): AndroidDevice[] {
 		try {
 			const names = execFileSync(getAdbPath(), ["devices"])
@@ -398,6 +560,28 @@ export class AndroidDeviceManager {
 			return names.map(name => ({
 				deviceId: name,
 				deviceType: this.getDeviceType(name),
+			}));
+		} catch (error) {
+			console.error("Could not execute adb command, maybe ANDROID_HOME is not set?");
+			return [];
+		}
+	}
+
+	public getConnectedDevicesWithDetails(): Array<AndroidDevice & { version: string, name: string }> {
+		try {
+			const names = execFileSync(getAdbPath(), ["devices"])
+				.toString()
+				.split("\n")
+				.map(line => line.trim())
+				.filter(line => line !== "")
+				.filter(line => !line.startsWith("List of devices attached"))
+				.map(line => line.split("\t")[0]);
+
+			return names.map(deviceId => ({
+				deviceId,
+				deviceType: this.getDeviceType(deviceId),
+				version: this.getDeviceVersion(deviceId),
+				name: this.getDeviceName(deviceId),
 			}));
 		} catch (error) {
 			console.error("Could not execute adb command, maybe ANDROID_HOME is not set?");
