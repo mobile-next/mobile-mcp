@@ -392,7 +392,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			x: z.number().describe("The x coordinate to long press on the screen, in pixels"),
 			y: z.number().describe("The y coordinate to long press on the screen, in pixels"),
-			duration: z.number().optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
+			duration: z.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
 		},
 		{ destructiveHint: true },
 		async ({ device, x, y, duration }) => {
