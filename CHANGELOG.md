@@ -1,3 +1,9 @@
+## [0.0.39](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.39) (2026-01-01)
+
+* Server: added tool annotations for improved LLM tool understanding ([#246](https://github.com/mobile-next/mobile-mcp/pull/246))
+* iOS: added 'duration' parameter to longpress for custom press durations ([#247](https://github.com/mobile-next/mobile-mcp/pull/247))
+* Android: added 'duration' parameter to longpress for custom press durations ([#247](https://github.com/mobile-next/mobile-mcp/pull/247))
+
 ## [0.0.38](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.38) (2025-12-09)
 
 * iOS: migrated iPhone Simulator calls to use mobilecli binary for improved performance ([#241](https://github.com/mobile-next/mobile-mcp/pull/241))
