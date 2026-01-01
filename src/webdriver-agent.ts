@@ -206,7 +206,7 @@ export class WebDriverAgent {
 		});
 	}
 
-	public async longPress(x: number, y: number) {
+	public async longPress(x: number, y: number, duration: number) {
 		await this.withinSession(async sessionUrl => {
 			const url = `${sessionUrl}/actions`;
 			await fetch(url, {
@@ -223,7 +223,7 @@ export class WebDriverAgent {
 							actions: [
 								{ type: "pointerMove", duration: 0, x, y },
 								{ type: "pointerDown", button: 0 },
-								{ type: "pause", duration: 500 },
+								{ type: "pause", duration },
 								{ type: "pointerUp", button: 0 }
 							]
 						}
