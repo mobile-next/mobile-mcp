@@ -121,8 +121,11 @@ export interface Robot {
 
 	/**
 	 * Long press on a specific coordinate on the screen.
+	 * @param x - The x coordinate to long press
+	 * @param y - The y coordinate to long press
+	 * @param duration - Duration of the long press in milliseconds
 	 */
-	longPress(x: number, y: number): Promise<void>;
+	longPress(x: number, y: number, duration: number): Promise<void>;
 
 	/**
 	 * Get all elements on the screen. Works only on native apps (not webviews). Will

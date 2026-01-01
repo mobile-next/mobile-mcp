@@ -438,9 +438,9 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
 	}
 
-	public async longPress(x: number, y: number): Promise<void> {
+	public async longPress(x: number, y: number, duration: number): Promise<void> {
 		// a long press is a swipe with no movement and a long duration
-		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, "500");
+		this.adb("shell", "input", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, `${duration}`);
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
