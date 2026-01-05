@@ -28,7 +28,7 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
   <a href="https://github.com/mobile-next/mobile-mcp/wiki">
     <img src="https://img.shields.io/badge/documentation-wiki-blue" alt="wiki" />
   </a>
-  <a href="http://mobilenexthq.com/join-slack">
+  <a href="https://mobilenexthq.com/join-slack">
     <img src="https://img.shields.io/badge/join-Slack-blueviolet?logo=slack&style=flat" alt="join on Slack" />
   </a>
 </h4>
