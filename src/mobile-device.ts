@@ -187,8 +187,8 @@ export class MobileDevice implements Robot {
 		await this.tap(x, y);
 	}
 
-	public async longPress(x: number, y: number): Promise<void> {
-		this.runCommand(["io", "longpress", `${x},${y}`]);
+	public async longPress(x: number, y: number, duration: number): Promise<void> {
+		this.runCommand(["io", "longpress", `${x},${y}`, "--duration", `${duration}`]);
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {

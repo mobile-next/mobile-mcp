@@ -53,11 +53,17 @@ export const createMcpServer = (): McpServer => {
 
 	type ZodSchemaShape = Record<string, z.ZodType>;
 
-	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, cb: (args: any) => Promise<string>) => {
+	interface ToolAnnotations {
+		readOnlyHint?: boolean;
+		destructiveHint?: boolean;
+	}
+
+	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: (args: any) => Promise<string>) => {
 		server.registerTool(name, {
 			title,
 			description,
 			inputSchema: paramsSchema,
+			annotations,
 		}, (async (args: any, _extra: any) => {
 			try {
 				trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
@@ -185,6 +191,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			noParams
 		},
+		{ readOnlyHint: true },
 		async ({}) => {
 
 			// from today onward, we must have mobilecli working
@@ -256,6 +263,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
+		{ readOnlyHint: true },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const result = await robot.listApps();
@@ -271,6 +279,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to launch"),
 		},
+		{ destructiveHint: true },
 		async ({ device, packageName }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.launchApp(packageName);
@@ -286,6 +295,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to terminate"),
 		},
+		{ destructiveHint: true },
 		async ({ device, packageName }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.terminateApp(packageName);
@@ -301,6 +311,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
 		},
+		{ destructiveHint: true },
 		async ({ device, path }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.installApp(path);
@@ -316,6 +327,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			bundle_id: z.string().describe("Bundle identifier (iOS) or package name (Android) of the app to be uninstalled"),
 		},
+		{ destructiveHint: true },
 		async ({ device, bundle_id }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.uninstallApp(bundle_id);
@@ -330,6 +342,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
+		{ readOnlyHint: true },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const screenSize = await robot.getScreenSize();
@@ -346,6 +359,7 @@ export const createMcpServer = (): McpServer => {
 			x: z.number().describe("The x coordinate to click on the screen, in pixels"),
 			y: z.number().describe("The y coordinate to click on the screen, in pixels"),
 		},
+		{ destructiveHint: true },
 		async ({ device, x, y }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.tap(x, y);
@@ -362,6 +376,7 @@ export const createMcpServer = (): McpServer => {
 			x: z.number().describe("The x coordinate to double-tap, in pixels"),
 			y: z.number().describe("The y coordinate to double-tap, in pixels"),
 		},
+		{ destructiveHint: true },
 		async ({ device, x, y }) => {
 			const robot = getRobotFromDevice(device);
 			await robot!.doubleTap(x, y);
@@ -377,11 +392,14 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			x: z.number().describe("The x coordinate to long press on the screen, in pixels"),
 			y: z.number().describe("The y coordinate to long press on the screen, in pixels"),
+			duration: z.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
 		},
-		async ({ device, x, y }) => {
+		{ destructiveHint: true },
+		async ({ device, x, y, duration }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.longPress(x, y);
-			return `Long pressed on screen at coordinates: ${x}, ${y}`;
+			const pressDuration = duration ?? 500;
+			await robot.longPress(x, y, pressDuration);
+			return `Long pressed on screen at coordinates: ${x}, ${y} for ${pressDuration}ms`;
 		}
 	);
 
@@ -392,6 +410,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
+		{ readOnlyHint: true },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const elements = await robot.getElementsOnScreen();
@@ -431,6 +450,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
 		},
+		{ destructiveHint: true },
 		async ({ device, button }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.pressButton(button);
@@ -446,6 +466,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			url: z.string().describe("The URL to open"),
 		},
+		{ destructiveHint: true },
 		async ({ device, url }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.openUrl(url);
@@ -464,6 +485,7 @@ export const createMcpServer = (): McpServer => {
 			y: z.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			distance: z.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
+		{ destructiveHint: true },
 		async ({ device, direction, x, y, distance }) => {
 			const robot = getRobotFromDevice(device);
 
@@ -489,6 +511,7 @@ export const createMcpServer = (): McpServer => {
 			text: z.string().describe("The text to type"),
 			submit: z.boolean().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
 		},
+		{ destructiveHint: true },
 		async ({ device, text, submit }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.sendKeys(text);
@@ -509,6 +532,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			saveTo: z.string().describe("The path to save the screenshot to"),
 		},
+		{ destructiveHint: true },
 		async ({ device, saveTo }) => {
 			const robot = getRobotFromDevice(device);
 
@@ -525,7 +549,10 @@ export const createMcpServer = (): McpServer => {
 			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 			inputSchema: {
 				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
-			}
+			},
+			annotations: {
+				readOnlyHint: true,
+			},
 		},
 		async ({ device }) => {
 			try {
@@ -587,6 +614,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			orientation: z.enum(["portrait", "landscape"]).describe("The desired orientation"),
 		},
+		{ destructiveHint: true },
 		async ({ device, orientation }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.setOrientation(orientation);
@@ -601,6 +629,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
+		{ readOnlyHint: true },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const orientation = await robot.getOrientation();
