@@ -24,7 +24,7 @@
     "lib"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.24.2",
+    "@modelcontextprotocol/sdk": "1.25.2",
     "commander": "14.0.0",
     "express": "5.1.0",
     "fast-xml-parser": "5.2.5",
