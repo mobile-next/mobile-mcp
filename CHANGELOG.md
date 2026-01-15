@@ -1,3 +1,7 @@
+## [0.0.40](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.40) (2026-01-15)
+
+* Server: bump @modelcontextprotocol/sdk from 1.24.2 to 1.25.2 for security ([#252](https://github.com/mobile-next/mobile-mcp/pull/252))
+
 ## [0.0.39](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.39) (2026-01-01)
 
 * Server: added tool annotations for improved LLM tool understanding ([#246](https://github.com/mobile-next/mobile-mcp/pull/246))
