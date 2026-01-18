@@ -18,6 +18,11 @@ interface UiAutomatorXmlNode {
 	bounds?: string;
 	hint?: string;
 	focused?: string;
+	clickable?: string;
+	focusable?: string;
+	enabled?: string;
+	selected?: string;
+	package?: string;
 	"content-desc"?: string;
 	"resource-id"?: string;
 }
@@ -321,11 +326,17 @@ export class AndroidRobot implements Robot {
 			}
 		}
 
-		if (node.text || node["content-desc"] || node.hint) {
+		// Include elements with text/labels OR clickable/focusable elements (like icons, buttons)
+		const hasTextOrLabel = node.text || node["content-desc"] || node.hint || node["resource-id"];
+		const isInteractive = node.clickable === "true" || node.focusable === "true" ||
+			(node.class && (node.class.includes("Button") || node.class.includes("ImageView") ||
+			node.class.includes("ImageButton") || node.class.includes("View")));
+
+		if (hasTextOrLabel || isInteractive) {
 			const element: ScreenElement = {
-				type: node.class || "text",
+				type: node.class || "element",
 				text: node.text,
-				label: node["content-desc"] || node.hint || "",
+				label: node["resource-id"] || node["content-desc"] || node.hint || "",
 				rect: this.getScreenElementRect(node),
 			};
 
