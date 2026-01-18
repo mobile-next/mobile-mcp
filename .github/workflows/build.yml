@@ -70,3 +70,12 @@ jobs:
         sed -i "s/{{VERSION}}/${{ github.ref_name }}/g" server.json
         mcp-publisher publish
         mcp-publisher logout
+
+    - name: Create GitHub Release
+      if: github.ref_type == 'tag'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
