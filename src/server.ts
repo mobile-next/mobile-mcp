@@ -255,6 +255,53 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_boot_device",
+		"Boot Device",
+		"Boot an offline iOS Simulator. Use list available devices tool to see which devices are currently offline",
+		{
+			device: z.string().describe("The device identifier to boot. Use mobile_list_available_devices to find which devices are available to you.")
+		},
+		{ destructiveHint: true },
+		async ({ device }) => {
+			ensureMobilecliAvailable();
+			mobilecli.boot(device);
+			return `Successfully booted device: ${device}`;
+		}
+	);
+
+	tool(
+		"mobile_shutdown_device",
+		"Shutdown Device",
+		"Shutdown an online iOS Simulator. Use list available devices tool to see which devices are currently online",
+		{
+			device: z.string().describe("The device identifier to shutdown. Use mobile_list_available_devices to find which devices are available to you.")
+		},
+		{ destructiveHint: true },
+		async ({ device }) => {
+			ensureMobilecliAvailable();
+
+			// Verify the device is an online iOS simulator
+			const response = mobilecli.getDevices({
+				platform: "ios",
+				type: "simulator",
+				includeOffline: false,
+			});
+
+			if (response.status === "ok" && response.data && response.data.devices) {
+				const foundDevice = response.data.devices.find(d => d.id === device);
+				if (!foundDevice) {
+					throw new ActionableError(`Device "${device}" is not an online iOS simulator. Only online iOS simulators can be shut down.`);
+				}
+			} else {
+				throw new ActionableError(`Could not verify device "${device}". Please ensure it is an online iOS simulator.`);
+			}
+
+			mobilecli.shutdown(device);
+			return `Successfully shut down device: ${device}`;
+		}
+	);
+
 
 	tool(
 		"mobile_list_apps",

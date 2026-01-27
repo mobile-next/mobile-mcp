@@ -132,4 +132,14 @@ export class Mobilecli {
 		const mobilecliOutput = this.executeCommand(args);
 		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
 	}
+
+	boot(deviceId: string): void {
+		const args = ["device", "boot", "--device", deviceId];
+		this.executeCommand(args);
+	}
+
+	shutdown(deviceId: string): void {
+		const args = ["device", "shutdown", "--device", deviceId];
+		this.executeCommand(args);
+	}
 }
