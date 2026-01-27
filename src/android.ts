@@ -18,6 +18,7 @@ interface UiAutomatorXmlNode {
 	bounds?: string;
 	hint?: string;
 	focused?: string;
+	checkable?: string;
 	"content-desc"?: string;
 	"resource-id"?: string;
 }
@@ -321,7 +322,7 @@ export class AndroidRobot implements Robot {
 			}
 		}
 
-		if (node.text || node["content-desc"] || node.hint) {
+		if (node.text || node["content-desc"] || node.hint || node["resource-id"] || node.checkable === "true") {
 			const element: ScreenElement = {
 				type: node.class || "text",
 				text: node.text,
