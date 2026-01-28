@@ -637,5 +637,42 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_logcat_dump",
+		"Logcat Dump (Android)",
+		"Dump recent Android logcat lines for debugging automation flows (crashes, permission errors, intent handling, etc). Optional filtering by package/pid, buffers, priority, and regex.",
+		{
+			device: z.string().describe("Android device id (from mobile_list_available_devices)"),
+			lines: z.number().optional().describe("Number of lines to dump (default 200, max 2000)"),
+			format: z.enum(["threadtime", "time", "brief"]).optional().describe("Log line format (default threadtime)"),
+			buffers: z.array(z.enum(["main", "crash", "system"])).optional().describe("Log buffers to include (default [main, crash])"),
+			minPriority: z.enum(["V", "D", "I", "W", "E", "F"]).optional().describe("Minimum log priority (default I)"),
+			pid: z.number().optional().describe("PID to filter on (optional)"),
+			packageName: z.string().optional().describe("Package name; will resolve PID and filter (optional)"),
+			includeRegex: z.string().optional().describe("Only include lines matching this regex (optional)"),
+			excludeRegex: z.string().optional().describe("Exclude lines matching this regex (optional)"),
+		},
+		{ readOnlyHint: true },
+		async args => {
+			const robot = getRobotFromDevice(args.device);
+			if (!(robot instanceof AndroidRobot)) {
+				throw new ActionableError("mobile_logcat_dump is only supported on Android devices");
+			}
+
+			const result = await robot.logcatDump({
+				lines: args.lines,
+				format: args.format,
+				buffers: args.buffers,
+				minPriority: args.minPriority,
+				pid: args.pid,
+				packageName: args.packageName,
+				includeRegex: args.includeRegex,
+				excludeRegex: args.excludeRegex,
+			});
+
+			// Return structured JSON (agent-friendly)
+			return JSON.stringify(result, null, 2);
+		}
+	);
 	return server;
 };
