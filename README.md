@@ -101,6 +101,9 @@ How we help to scale mobile automation:
 - **`mobile_press_button`** - Press device buttons (HOME, BACK, VOLUME_UP/DOWN, ENTER, etc.)
 - **`mobile_open_url`** - Open URLs in the device browser
 
+### Diagnostics & Debugging
+- **`mobile_logcat_dump`** - Dump recent Android logcat lines for debugging automation runs (optional package/pid, buffers, priority, regex filters)
+
 ### Platform Support
 - **iOS**: Simulators and real devices via native accessibility and WebDriverAgent
 - **Android**: Emulators and real devices via ADB and UI Automator
