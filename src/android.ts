@@ -593,12 +593,20 @@ export class AndroidRobot implements Robot {
 
 		// include/exclude regex filters
 		if (opts.includeRegex) {
-			const re = new RegExp(opts.includeRegex);
-			lines = lines.filter(l => re.test(l));
+			try {
+				const re = new RegExp(opts.includeRegex);
+				lines = lines.filter(l => re.test(l));
+			} catch (e) {
+				console.error(`Invalid includeRegex pattern "${opts.includeRegex}": ${(e as Error).message}. Skipping include filter.`);
+			}
 		}
 		if (opts.excludeRegex) {
-			const re = new RegExp(opts.excludeRegex);
-			lines = lines.filter(l => !re.test(l));
+			try {
+				const re = new RegExp(opts.excludeRegex);
+				lines = lines.filter(l => !re.test(l));
+			} catch (e) {
+				console.error(`Invalid excludeRegex pattern "${opts.excludeRegex}": ${(e as Error).message}. Skipping exclude filter.`);
+			}
 		}
 
 		const finalText = lines.join("\n") + (lines.length ? "\n" : "");
