@@ -585,10 +585,22 @@ export class AndroidRobot implements Robot {
 		// Normalize + filter lines
 		let lines = output.split("\n").filter(l => l.length > 0);
 
-		// Client-side PID filter fallback (threadtime includes PID/TID columns)
+		// Client-side PID filter fallback (only supported for threadtime format)
 		if (pidResolved && pidFilterMode === "client-side") {
-			const pidRe = new RegExp(`\\s${pidResolved}\\s`);
-			lines = lines.filter(l => pidRe.test(l));
+			if (format === "threadtime") {
+				// threadtime format: "MM-DD HH:MM:SS.mmm  PID  TID PRIORITY/TAG: message"
+				// PID is column index 2 (0-indexed) when split by whitespace
+				lines = lines.filter(l => {
+					const cols = l.trim().split(/\s+/);
+					if (cols.length < 3) {return false;}
+					const linePid = Number(cols[2]);
+					return linePid === pidResolved;
+				});
+			} else {
+				// For non-threadtime formats (time, brief), PID column position varies or is absent
+				// Skip client-side filtering to avoid incorrect matches
+				console.warn(`Client-side PID filtering is only supported for threadtime format, skipping for format "${format}".`);
+			}
 		}
 
 		// include/exclude regex filters
