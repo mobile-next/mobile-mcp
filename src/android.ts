@@ -642,12 +642,17 @@ export class AndroidRobot implements Robot {
 		// 2) fallback: ps -A | grep <package>
 		try {
 			const out = this.silentAdb("shell", "ps", "-A").toString();
-			const line = out.split("\n").find(l => l.includes(packageName));
+			// ps output: USER PID ... NAME  (NAME is the last column)
+			// Require exact match on NAME column to avoid partial package name matches
+			const line = out.split("\n").find(l => {
+				const cols = l.trim().split(/\s+/);
+				if (cols.length < 2) {return false;}
+				const name = cols[cols.length - 1];
+				return name === packageName;
+			});
 			if (!line) {return undefined;}
 
-			// ps output: USER PID ... NAME  (PID is usually column 2)
 			const cols = line.trim().split(/\s+/);
-			if (cols.length < 2) {return undefined;}
 			const pid = Number(cols[1]);
 			if (Number.isFinite(pid)) {return pid;}
 
