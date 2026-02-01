@@ -63,9 +63,18 @@ How we help to scale mobile automation:
 
 - 🚀 **Fast and lightweight**: Uses native accessibility trees for most interactions, or screenshot based coordinates where a11y labels are not available.
 - 🤖 **LLM-friendly**: No computer vision model required in Accessibility (Snapshot).
-- 🧿 **Visual Sense**: Evaluates and analyses what’s actually rendered on screen to decide the next action. If accessibility data or view-hierarchy coordinates are unavailable, it falls back to screenshot-based analysis.
+- 🧿 **Visual Sense**: Evaluates and analyses what's actually rendered on screen to decide the next action. If accessibility data or view-hierarchy coordinates are unavailable, it falls back to screenshot-based analysis.
 - 📊 **Deterministic tool application**: Reduces ambiguity found in purely screenshot-based approaches by relying on structured data whenever possible.
 - 📺 **Extract structured data**: Enables you to extract structred data from anything visible on screen.
+
+### 🎯 Platform Support
+
+| Platform | Supported |
+|----------|:---------:|
+| iOS Real Device | ✅ |
+| iOS Simulator | ✅ |
+| Android Real Device | ✅ |
+| Android Emulator | ✅ |
 
 ## 🔧 Available MCP Tools
 
