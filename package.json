@@ -27,7 +27,7 @@
     "@modelcontextprotocol/sdk": "1.25.2",
     "commander": "14.0.0",
     "express": "5.1.0",
-    "fast-xml-parser": "5.2.5",
+    "fast-xml-parser": "5.3.4",
     "zod": "^4.1.13",
     "zod-to-json-schema": "3.25.0"
   },
