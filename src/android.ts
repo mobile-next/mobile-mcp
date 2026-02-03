@@ -12,7 +12,7 @@ export interface AndroidDevice {
 }
 
 export interface LogcatDumpOptions {
-	lines?: number; // default 200, max 2000
+	lines?: number; // default 200, max 500
 	format?: LogcatFormat; // default threadtime
 	buffers?: LogcatBuffer[]; // default ["main", "crash"]
 	minPriority?: LogcatPriority; // default I
@@ -599,6 +599,7 @@ export class AndroidRobot implements Robot {
 			} else {
 				// For non-threadtime formats (time, brief), PID column position varies or is absent
 				// Skip client-side filtering to avoid incorrect matches
+				pidFilterMode = "none";
 				console.warn(`Client-side PID filtering is only supported for threadtime format, skipping for format "${format}".`);
 			}
 		}
