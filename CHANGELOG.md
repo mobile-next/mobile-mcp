@@ -1,3 +1,7 @@
+## [0.0.42](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.42) (2026-02-03)
+* General: upgraded mobilecli to 0.0.54, [see changes](https://github.com/mobile-next/mobilecli/releases) ([ba3ec1b](https://github.com/mobile-next/mobile-mcp/commit/ba3ec1b9251487ad8444eb22fa3312c7b79d7787))
+* General: updated fast-xml-parser package for security ([#261](https://github.com/mobile-next/mobile-mcp/pull/261))
+
 ## [0.0.41](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.41) (2026-01-27)
 * General: upgraded mobilecli to 0.0.52, [see changes](https://github.com/mobile-next/mobilecli/releases) ([d7e25f3](https://github.com/mobile-next/mobile-mcp/commit/d7e25f3543e87a436572c29f2b1766bd276a4d68))
 * Android: fix: include elements with resource-id or checkable attributes ([#254](https://github.com/mobile-next/mobile-mcp/pull/254)) by [@singhsume123](https://github.com/singhsume123)
