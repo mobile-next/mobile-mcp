@@ -643,7 +643,7 @@ export const createMcpServer = (): McpServer => {
 		"Dump recent Android logcat lines for debugging automation flows (crashes, permission errors, intent handling, etc). Optional filtering by package/pid, buffers, priority, and regex.",
 		{
 			device: z.string().describe("Android device id (from mobile_list_available_devices)"),
-			lines: z.number().optional().describe("Number of lines to dump (default 200, max 2000)"),
+			lines: z.number().optional().describe("Number of lines to dump (default 200, max 500)"),
 			format: z.enum(["threadtime", "time", "brief"]).optional().describe("Log line format (default threadtime)"),
 			buffers: z.array(z.enum(["main", "crash", "system"])).optional().describe("Log buffers to include (default [main, crash])"),
 			minPriority: z.enum(["V", "D", "I", "W", "E", "F"]).optional().describe("Minimum log priority (default I)"),

@@ -89,7 +89,7 @@ const clampInt = (value: any, defaultValue: number, min: number, max: number): n
 
 const truncateText = (text: string, maxChars: number): { text: string; truncated: boolean } => {
 	if (text.length <= maxChars) {return { text, truncated: false };}
-	return { text: text.slice(0, maxChars) + "\n…(truncated)\n", truncated: true };
+	return { text: text.slice(0, maxChars) + "\n\n[OUTPUT TRUNCATED - Use packageName, minPriority, includeRegex, or excludeRegex filters to reduce output]\n", truncated: true };
 };
 
 type AndroidDeviceType = "tv" | "mobile";
@@ -543,7 +543,7 @@ export class AndroidRobot implements Robot {
 			pidFilterMode?: "logcat--pid" | "client-side" | "none";
 		};
 	}> {
-		const linesRequested = clampInt(opts.lines, 200, 1, 2000);
+		const linesRequested = clampInt(opts.lines, 200, 1, 500);
 		const format: LogcatFormat = opts.format ?? "threadtime";
 		const buffers: LogcatBuffer[] = (opts.buffers && opts.buffers.length > 0) ? opts.buffers : ["main", "crash"];
 		const minPriority: LogcatPriority = opts.minPriority ?? "I";
@@ -622,7 +622,7 @@ export class AndroidRobot implements Robot {
 		}
 
 		const finalText = lines.join("\n") + (lines.length ? "\n" : "");
-		const { text, truncated } = truncateText(finalText, 200_000);
+		const { text, truncated } = truncateText(finalText, 80_000);
 
 		return {
 			text,
