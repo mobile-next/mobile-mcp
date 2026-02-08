@@ -41,11 +41,12 @@ export class Mobilecli {
 		return execFileSync(path, args, { encoding: "utf8" }).toString().trim();
 	}
 
-	public executeCommandBuffer(args: string[]): Buffer {
+	public executeCommandBuffer(args: string[], maxBufferBytes?: number): Buffer {
 		const path = this.getPath();
+		const maxBuffer = maxBufferBytes ?? MAX_BUFFER_SIZE;
 		return execFileSync(path, args, {
 			encoding: "buffer",
-			maxBuffer: MAX_BUFFER_SIZE,
+			maxBuffer,
 			timeout: TIMEOUT,
 		}) as Buffer;
 	}

@@ -136,9 +136,9 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "swipe", `${x},${y},${endX},${endY}`]);
 	}
 
-	public async getScreenshot(): Promise<Buffer> {
+	public async getScreenshot(maxBufferBytes?: number): Promise<Buffer> {
 		const fullArgs = ["screenshot", "--device", this.deviceId, "--format", "png", "--output", "-"];
-		return this.mobilecli.executeCommandBuffer(fullArgs);
+		return this.mobilecli.executeCommandBuffer(fullArgs, maxBufferBytes);
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {

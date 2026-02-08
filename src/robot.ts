@@ -63,8 +63,10 @@ export interface Robot {
 	/**
 	 * Get a screenshot of the screen. Returns a Buffer that contains
 	 * a PNG image of the screen. Will be same dimensions as getScreenSize().
+	 * maxBufferBytes can be used by implementations that execute external
+	 * commands and need to adjust stdout buffer limits.
 	 */
-	getScreenshot(): Promise<Buffer>;
+	getScreenshot(maxBufferBytes?: number): Promise<Buffer>;
 
 	/**
 	 * List all installed apps on the device. Returns an array of package names (or

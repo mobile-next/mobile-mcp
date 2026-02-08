@@ -89,7 +89,7 @@ export class Simctl implements Robot {
 		});
 	}
 
-	public async getScreenshot(): Promise<Buffer> {
+	public async getScreenshot(_maxBufferBytes?: number): Promise<Buffer> {
 		const wda = await this.wda();
 		return await wda.getScreenshot();
 		// alternative: return this.simctl("io", this.simulatorUuid, "screenshot", "-");

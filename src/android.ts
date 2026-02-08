@@ -292,7 +292,7 @@ export class AndroidRobot implements Robot {
 		return null;
 	}
 
-	public async getScreenshot(): Promise<Buffer> {
+	public async getScreenshot(_maxBufferBytes?: number): Promise<Buffer> {
 		if (this.getDisplayCount() <= 1) {
 			// backward compatibility for android 10 and below, and for single display devices
 			return this.adb("exec-out", "screencap", "-p");
