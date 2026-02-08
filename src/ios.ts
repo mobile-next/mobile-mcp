@@ -206,7 +206,7 @@ export class IosRobot implements Robot {
 		return await wda.getElementsOnScreen();
 	}
 
-	public async getScreenshot(): Promise<Buffer> {
+	public async getScreenshot(_maxBufferBytes?: number): Promise<Buffer> {
 		const wda = await this.wda();
 		return await wda.getScreenshot();
 

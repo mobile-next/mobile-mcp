@@ -546,20 +546,21 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		{
 			title: "Take Screenshot",
-			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
+			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result. maxBufferBytes defaults to 4194304 (4MB) and can be overridden for high-resolution screenshots.",
 			inputSchema: {
-				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+				maxBufferBytes: z.number().int().positive().optional().describe("Maximum stdout buffer in bytes used while taking the screenshot. Default is 4194304 (4MB). Increase this if you hit ENOBUFS on high-resolution devices."),
 			},
 			annotations: {
 				readOnlyHint: true,
 			},
 		},
-		async ({ device }) => {
+		async ({ device, maxBufferBytes }) => {
 			try {
 				const robot = getRobotFromDevice(device);
 				const screenSize = await robot.getScreenSize();
 
-				let screenshot = await robot.getScreenshot();
+				let screenshot = await robot.getScreenshot(maxBufferBytes);
 				let mimeType = "image/png";
 
 				// validate we received a png, will throw exception otherwise
