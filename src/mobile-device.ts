@@ -214,11 +214,14 @@ export class MobileDevice implements Robot {
 		return response.data.orientation;
 	}
 
-	public async getCurrentActivity(): Promise<{ id: string }> {
+	public async getCurrentActivity(): Promise<{ id: string; isCanonical: boolean }> {
 		try {
 			const response = JSON.parse(this.runCommand(["device", "get-current-activity"])) as any;
 			if (response.status === "ok" && response.data?.id) {
-				return { id: response.data.id };
+				return {
+					id: response.data.id,
+					isCanonical: response.data.isCanonical ?? true
+				};
 			}
 			throw new ActionableError("No activity is currently in focus. Please launch an app and try again.");
 		} catch (error) {

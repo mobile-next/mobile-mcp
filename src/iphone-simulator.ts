@@ -270,15 +270,14 @@ export class Simctl implements Robot {
 		return wda.getOrientation();
 	}
 
-	public async getCurrentActivity(): Promise<{ id: string }> {
+	public async getCurrentActivity(): Promise<{ id: string; isCanonical: boolean }> {
 		try {
 			const wda = await this.wda();
 			const [source, sessionBundleId] = await Promise.all([
 				wda.getPageSource(),
 				wda.getActiveSessionBundleId()
 			]);
-			const id = parseWdaPageSourceForAppId(source, sessionBundleId);
-			return { id };
+			return parseWdaPageSourceForAppId(source, sessionBundleId);
 		} catch (error) {
 			if (error instanceof ActionableError) {
 				throw error;
