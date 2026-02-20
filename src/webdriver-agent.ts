@@ -451,9 +451,30 @@ export class WebDriverAgent {
 			return json.value.toLowerCase() as Orientation;
 		});
 	}
+
+	public async getActiveSessionBundleId(): Promise<string | null> {
+		try {
+			const sessionsUrl = `http://${this.host}:${this.port}/sessions`;
+			const sessionsResponse = await fetch(sessionsUrl);
+			const sessionsJson = await sessionsResponse.json();
+			const sessions = sessionsJson.value || [];
+
+			if (sessions.length > 0) {
+				const sessionId = sessions[0].id;
+				const sessionUrl = `http://${this.host}:${this.port}/session/${sessionId}`;
+				const response = await fetch(sessionUrl);
+				const json = await response.json();
+				// Some WDA versions put it in capabilities, some in the root
+				return json.value?.capabilities?.bundleId || json.value?.bundleId || null;
+			}
+		} catch (error) {
+			// ignore and fall back to tree parsing
+		}
+		return null;
+	}
 }
 
-export function parseWdaPageSourceForAppId(source: SourceTree): string {
+export function parseWdaPageSourceForAppId(source: SourceTree, sessionBundleId?: string | null): string {
 	const rootElement = source.value;
 
 	// 1. Prefer rawIdentifier (usually contains bundle ID)
@@ -461,15 +482,19 @@ export function parseWdaPageSourceForAppId(source: SourceTree): string {
 		return rootElement.rawIdentifier;
 	}
 
-	// 2. Fallback to type if it looks like a bundle ID (contains a dot)
+	// 2. Fallback to bundleId from active session if provided
+	if (sessionBundleId) {
+		return sessionBundleId;
+	}
+
+	// 3. Fallback to type if it looks like a bundle ID (contains a dot)
 	// We check for dots to avoid generic types like "XCUIElementTypeApplication"
 	if (rootElement.type && rootElement.type.includes(".")) {
 		return rootElement.type;
 	}
 
-	// 3. Fallback to name (accessibility label/display name) as a last resort
+	// 4. Fallback to name (accessibility label/display name) as a last resort
 	// NOTE: This may return "Safari" instead of "com.apple.mobilesafari"
-	// TODO: Query WDA session capabilities (GET /session/:id) for a more reliable bundleId
 	if (rootElement.name) {
 		return rootElement.name;
 	}
