@@ -87,12 +87,26 @@ describe("getCurrentActivity", () => {
 				// or are single words like "Health", "Maps", etc.
 				assert.ok(activity.id.length > 0, "Bundle ID should not be empty");
 
+				// Verify bundle ID format (at least one dot for typical apps)
+				// or common single-word system apps
+				const isBundleIdFormat = /\./.test(activity.id);
+				const isSystemApp = ["Health", "Maps", "Settings", "Photos"].includes(activity.id);
+				assert.ok(isBundleIdFormat || isSystemApp, `Bundle ID "${activity.id}" should have a reverse-DNS format or be a known system app`);
+
 				// Try to launch an app and verify we get its bundle ID
 				// Using com.apple.mobilesafari as it's typically available
-				await ios.launchApp("com.apple.mobilesafari");
+				const testBundleId = "com.apple.mobilesafari";
+				await ios.launchApp(testBundleId);
 
-				const newActivity = await ios.getCurrentActivity();
-				assert.ok(newActivity.id.length > 0, "New activity id should not be empty");
+				// Small poll to let Safari become foreground
+				const deadline = Date.now() + 5000;
+				let newActivity = await ios.getCurrentActivity();
+				while (newActivity.id !== testBundleId && Date.now() < deadline) {
+					await new Promise(resolve => setTimeout(resolve, 500));
+					newActivity = await ios.getCurrentActivity();
+				}
+
+				assert.strictEqual(newActivity.id, testBundleId, `Expected ${testBundleId} but got ${newActivity.id}`);
 			} catch (error: any) {
 				// Skip if tunnel is not running or other setup issues
 				if (error.message.includes("tunnel") || error.message.includes("WebDriver")) {

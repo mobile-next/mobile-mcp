@@ -467,20 +467,20 @@ export class AndroidRobot implements Robot {
 		try {
 			const dumpsysOutput = this.adb("shell", "dumpsys", "activity", "activities").toString();
 
-			// Try to find mCurrentFocus first
-			let focusMatch = dumpsysOutput.match(/mCurrentFocus=Window\{[^\s]+ u0 ([^\s/]+)\//);
+			// Try to find mResumedActivity first (preferred for foreground app)
+			let focusMatch = dumpsysOutput.match(/mResumedActivity=ActivityRecord\{[^\s]+ u\d+ ([^\s/]+)\//);
 			if (focusMatch && focusMatch[1]) {
 				return { id: focusMatch[1] };
 			}
 
-			// Fallback to mResumedActivity
-			focusMatch = dumpsysOutput.match(/mResumedActivity=ActivityRecord\{[^\s]+ u0 ([^\s/]+)\//);
+			// Fallback to mCurrentFocus (may point to IME/system windows)
+			focusMatch = dumpsysOutput.match(/mCurrentFocus=Window\{[^\s]+ u\d+ ([^\s/]+)\//);
 			if (focusMatch && focusMatch[1]) {
 				return { id: focusMatch[1] };
 			}
 
-			// Fallback to mFocusedActivity
-			focusMatch = dumpsysOutput.match(/mFocusedActivity=ActivityRecord\{[^\s]+ u0 ([^\s/]+)\//);
+			// Fallback to mFocusedActivity (legacy, dead on Android 9+)
+			focusMatch = dumpsysOutput.match(/mFocusedActivity=ActivityRecord\{[^\s]+ u\d+ ([^\s/]+)\//);
 			if (focusMatch && focusMatch[1]) {
 				return { id: focusMatch[1] };
 			}

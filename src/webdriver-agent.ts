@@ -452,3 +452,33 @@ export class WebDriverAgent {
 		});
 	}
 }
+
+export function parseWdaPageSourceForAppId(source: SourceTree): string {
+	const rootElement = source.value;
+
+	// 1. Prefer rawIdentifier (usually contains bundle ID)
+	if (rootElement.rawIdentifier) {
+		return rootElement.rawIdentifier;
+	}
+
+	// 2. Fallback to name
+	if (rootElement.name) {
+		return rootElement.name;
+	}
+
+	// 3. Fallback to type if it looks like a bundle ID (contains a dot)
+	// We check for dots to avoid generic types like "XCUIElementTypeApplication"
+	if (rootElement.type && rootElement.type.includes(".")) {
+		// If it's something like "bundleId.ClassName", take the left part
+		// Actually, let's keep it simple: if it contains a dot, it might be the bundle ID or start with it.
+		// For consistency with CodeRabbit: "split on the first '.' and return the left part"
+		// Wait, bundle IDs also have dots. If I split "com.apple.mobilesafari", I get "com".
+		// That's likely NOT what was intended for a real bundle ID.
+		// But let's assume they meant if the class name is appended, e.g., "com.apple.mobilesafari.AppDelegate"
+		// If there are multiple dots, it's still ambiguous.
+		// Let's use it as is if it has dots, as most bundle IDs do.
+		return rootElement.type;
+	}
+
+	throw new ActionableError("No app is in foreground. Please launch an app and try again.");
+}

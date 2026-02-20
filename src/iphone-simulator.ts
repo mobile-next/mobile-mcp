@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, basename, extname } from "node:path";
 
 import { trace } from "./logger";
-import { WebDriverAgent } from "./webdriver-agent";
+import { WebDriverAgent, parseWdaPageSourceForAppId } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
 
 export interface Simulator {
@@ -274,29 +274,8 @@ export class Simctl implements Robot {
 		try {
 			const wda = await this.wda();
 			const source = await wda.getPageSource();
-
-			// The top-level element in the source tree represents the current app
-			const rootElement = source.value;
-
-			// Bundle ID is typically in the rawIdentifier field
-			if (rootElement.rawIdentifier) {
-				return { id: rootElement.rawIdentifier };
-			}
-
-			// Fallback: try to extract from type if it contains bundle info
-			if (rootElement.type) {
-				const match = rootElement.type.match(/^([a-zA-Z0-9][a-zA-Z0-9.]*[a-zA-Z0-9])\.?/);
-				if (match) {
-					return { id: match[1] };
-				}
-			}
-
-			// Last fallback: try name
-			if (rootElement.name) {
-				return { id: rootElement.name };
-			}
-
-			throw new ActionableError("No app is in foreground. Please launch an app and try again.");
+			const id = parseWdaPageSourceForAppId(source);
+			return { id };
 		} catch (error) {
 			if (error instanceof ActionableError) {
 				throw error;
