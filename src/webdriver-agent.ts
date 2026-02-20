@@ -459,7 +459,7 @@ export class WebDriverAgent {
 			const sessionsJson = await sessionsResponse.json();
 			const sessions = sessionsJson.value || [];
 
-			if (sessions.length > 0) {
+			if (sessions && sessions.length > 0 && sessions[0].id) {
 				const sessionId = sessions[0].id;
 				const sessionUrl = `http://${this.host}:${this.port}/session/${sessionId}`;
 				const response = await fetch(sessionUrl);
@@ -474,6 +474,20 @@ export class WebDriverAgent {
 	}
 }
 
+/**
+ * Extracts the app bundle identifier from the WDA page source.
+ *
+ * Resolution order:
+ * 1. `rootElement.rawIdentifier`: Canonical bundle ID if present.
+ * 2. `sessionBundleId`: Canonical bundle ID derived from active session capabilities.
+ * 3. `rootElement.type`: Fallback if it matches bundle ID format (contains dots).
+ * 4. `rootElement.name`: Last-resort fallback. Note that this returns the app's
+ *    accessibility label / display name (e.g., "Safari") which is non-canonical.
+ *
+ * @param source The WDA page source tree.
+ * @param sessionBundleId Optional bundle ID from active session capabilities.
+ * @returns The resolved app identifier.
+ */
 export function parseWdaPageSourceForAppId(source: SourceTree, sessionBundleId?: string | null): string {
 	const rootElement = source.value;
 
