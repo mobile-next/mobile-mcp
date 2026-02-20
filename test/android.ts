@@ -136,4 +136,17 @@ describe("android", () => {
 		// screen size should not have changed
 		assert.deepEqual(screenSize1, screenSize2);
 	});
+
+	it("should get current activity", async function() {
+		hasOneAndroidDevice || this.skip();
+
+		// Go to home screen
+		await android.pressButton("HOME");
+		await new Promise(resolve => setTimeout(resolve, 500));
+
+		// Get current activity
+		const activity = await android.getCurrentActivity();
+		assert.ok(activity.id, "Activity id should be defined");
+		assert.ok(typeof activity.id === "string", "Activity id should be a string");
+	});
 });

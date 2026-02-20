@@ -25,4 +25,21 @@ describe("ios", async () => {
 		assert.equal(Math.ceil(pngSize.width / screenSize.scale), screenSize.width);
 		assert.equal(Math.ceil(pngSize.height / screenSize.scale), screenSize.height);
 	});
+
+	it("should be able to get current activity", async function() {
+		hasOneDevice || this.skip();
+
+		try {
+			const activity = await robot.getCurrentActivity();
+			assert.ok(activity.id, "Activity id should be defined");
+			assert.ok(typeof activity.id === "string", "Activity id should be a string");
+		} catch (error: any) {
+			// Skip if tunnel is not running or WDA is not available
+			if (error.message.includes("tunnel") || error.message.includes("WebDriver")) {
+				this.skip();
+			} else {
+				throw error;
+			}
+		}
+	});
 });

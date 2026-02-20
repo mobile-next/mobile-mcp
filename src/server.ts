@@ -637,5 +637,20 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_get_current_activity",
+		"Get Current Activity",
+		"Get the currently running activity (Android) or foreground app (iOS). Returns the package name for Android or bundle ID for iOS.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+		},
+		{ readOnlyHint: true },
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			const activity = await robot.getCurrentActivity();
+			return JSON.stringify(activity);
+		}
+	);
+
 	return server;
 };

@@ -143,4 +143,11 @@ export interface Robot {
 	 * Get the current screen orientation.
 	 */
 	getOrientation(): Promise<Orientation>;
+
+	/**
+	 * Get the currently running activity (Android) or foreground app (iOS).
+	 * @returns An object with the `id` field containing the package name (Android) or bundle ID (iOS)
+	 * @throws ActionableError if no activity is currently in focus
+	 */
+	getCurrentActivity(): Promise<{ id: string }>;
 }

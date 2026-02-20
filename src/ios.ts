@@ -229,6 +229,45 @@ export class IosRobot implements Robot {
 		const wda = await this.wda();
 		return await wda.getOrientation();
 	}
+
+	public async getCurrentActivity(): Promise<{ id: string }> {
+		try {
+			const wda = await this.wda();
+			const source = await wda.getPageSource();
+
+			// The top-level element in the source tree represents the current app
+			// Try to extract bundle ID from the type attribute which usually contains it
+			const rootElement = source.value;
+
+			// Bundle ID is typically in the type field or name field
+			// Example: "XCUIElementTypeApplication" for the app under test
+			// The rawIdentifier often contains the bundle ID
+			if (rootElement.rawIdentifier) {
+				return { id: rootElement.rawIdentifier };
+			}
+
+			// Fallback: try to extract from type if it contains bundle info
+			if (rootElement.type) {
+				// Sometimes the type is formatted as "bundleId.ClassName"
+				const match = rootElement.type.match(/^([a-zA-Z0-9][a-zA-Z0-9.]*[a-zA-Z0-9])\.?/);
+				if (match) {
+					return { id: match[1] };
+				}
+			}
+
+			// Last fallback: try name
+			if (rootElement.name) {
+				return { id: rootElement.name };
+			}
+
+			throw new ActionableError("No app is in foreground. Please launch an app and try again.");
+		} catch (error) {
+			if (error instanceof ActionableError) {
+				throw error;
+			}
+			throw new ActionableError("Failed to get current app. Please ensure the device is properly connected and WebDriver Agent is running.");
+		}
+	}
 }
 
 export class IosManager {

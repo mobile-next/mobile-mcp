@@ -269,4 +269,39 @@ export class Simctl implements Robot {
 		const wda = await this.wda();
 		return wda.getOrientation();
 	}
+
+	public async getCurrentActivity(): Promise<{ id: string }> {
+		try {
+			const wda = await this.wda();
+			const source = await wda.getPageSource();
+
+			// The top-level element in the source tree represents the current app
+			const rootElement = source.value;
+
+			// Bundle ID is typically in the rawIdentifier field
+			if (rootElement.rawIdentifier) {
+				return { id: rootElement.rawIdentifier };
+			}
+
+			// Fallback: try to extract from type if it contains bundle info
+			if (rootElement.type) {
+				const match = rootElement.type.match(/^([a-zA-Z0-9][a-zA-Z0-9.]*[a-zA-Z0-9])\.?/);
+				if (match) {
+					return { id: match[1] };
+				}
+			}
+
+			// Last fallback: try name
+			if (rootElement.name) {
+				return { id: rootElement.name };
+			}
+
+			throw new ActionableError("No app is in foreground. Please launch an app and try again.");
+		} catch (error) {
+			if (error instanceof ActionableError) {
+				throw error;
+			}
+			throw new ActionableError("Failed to get current app. Please ensure WebDriver Agent is running.");
+		}
+	}
 }

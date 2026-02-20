@@ -463,6 +463,37 @@ export class AndroidRobot implements Robot {
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
+	public async getCurrentActivity(): Promise<{ id: string }> {
+		try {
+			const dumpsysOutput = this.adb("shell", "dumpsys", "activity", "activities").toString();
+
+			// Try to find mCurrentFocus first
+			let focusMatch = dumpsysOutput.match(/mCurrentFocus=Window\{[^\s]+ u0 ([^\s/]+)\//);
+			if (focusMatch && focusMatch[1]) {
+				return { id: focusMatch[1] };
+			}
+
+			// Fallback to mResumedActivity
+			focusMatch = dumpsysOutput.match(/mResumedActivity=ActivityRecord\{[^\s]+ u0 ([^\s/]+)\//);
+			if (focusMatch && focusMatch[1]) {
+				return { id: focusMatch[1] };
+			}
+
+			// Fallback to mFocusedActivity
+			focusMatch = dumpsysOutput.match(/mFocusedActivity=ActivityRecord\{[^\s]+ u0 ([^\s/]+)\//);
+			if (focusMatch && focusMatch[1]) {
+				return { id: focusMatch[1] };
+			}
+
+			throw new ActionableError("No activity is currently in focus. Please launch an app and try again.");
+		} catch (error) {
+			if (error instanceof ActionableError) {
+				throw error;
+			}
+			throw new ActionableError("Failed to get current activity. Please ensure the device is properly connected.");
+		}
+	}
+
 	private async getUiAutomatorDump(): Promise<string> {
 		for (let tries = 0; tries < 10; tries++) {
 			const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();
