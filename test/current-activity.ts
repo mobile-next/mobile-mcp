@@ -5,11 +5,11 @@ import { IosRobot, IosManager } from "../src/ios";
 
 const androidManager = new AndroidDeviceManager();
 const androidDevices = androidManager.getConnectedDevices();
-const hasAndroidDevice = androidDevices.length === 1;
+const hasAndroidDevice = androidDevices.length > 0;
 
 const iosManager = new IosManager();
 const iosDevices = iosManager.listDevices();
-const hasIosDevice = iosDevices.length === 1;
+const hasIosDevice = iosDevices.length > 0;
 
 describe("getCurrentActivity", () => {
 	describe("Android", () => {

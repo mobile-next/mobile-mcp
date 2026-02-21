@@ -7,11 +7,11 @@ describe("ios", async () => {
 
 	const manager = new IosManager();
 	const devices = await manager.listDevices();
-	const hasOneDevice = devices.length === 1;
+	const hasIosDevice = devices.length > 0;
 	const robot = new IosRobot(devices?.[0]?.deviceId || "");
 
 	it("should be able to get screenshot", async function() {
-		hasOneDevice || this.skip();
+		hasIosDevice || this.skip();
 		const screenshot = await robot.getScreenshot();
 		// an black screenshot (screen is off) still consumes over 30KB
 		assert.ok(screenshot.length > 128 * 1024);
@@ -27,7 +27,7 @@ describe("ios", async () => {
 	});
 
 	it("should be able to get current activity", async function() {
-		hasOneDevice || this.skip();
+		hasIosDevice || this.skip();
 
 		try {
 			const activity = await robot.getCurrentActivity();

@@ -5,14 +5,14 @@ import { AndroidRobot, AndroidDeviceManager } from "../src/android";
 
 const manager = new AndroidDeviceManager();
 const devices = manager.getConnectedDevices();
-const hasOneAndroidDevice = devices.length === 1;
+const hasAndroidDevice = devices.length > 0;
 
 describe("android", () => {
 
 	const android = new AndroidRobot(devices?.[0]?.deviceId || "");
 
 	it("should be able to get the screen size", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 		const screenSize = await android.getScreenSize();
 		assert.ok(screenSize.width > 1024);
 		assert.ok(screenSize.height > 1024);
@@ -21,7 +21,7 @@ describe("android", () => {
 	});
 
 	it("should be able to take screenshot", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 
 		const screenSize = await android.getScreenSize();
 		const screenshot = await android.getScreenshot();
@@ -35,20 +35,20 @@ describe("android", () => {
 	});
 
 	it("should be able to list apps", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 		const apps = await android.listApps();
 		const packages = apps.map(app => app.packageName);
 		assert.ok(packages.includes("com.android.settings"));
 	});
 
 	it("should be able to open a url", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 		await android.adb("shell", "input", "keyevent", "HOME");
 		await android.openUrl("https://www.example.com");
 	});
 
 	it("should be able to list elements on screen", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 		await android.terminateApp("com.android.chrome");
 		await android.adb("shell", "input", "keyevent", "HOME");
 		await android.openUrl("https://www.example.com");
@@ -68,7 +68,7 @@ describe("android", () => {
 	});
 
 	it("should be able to send keys and tap", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 		await android.terminateApp("com.google.android.deskclock");
 		await android.adb("shell", "pm", "clear", "com.google.android.deskclock");
 		await android.launchApp("com.google.android.deskclock");
@@ -97,7 +97,7 @@ describe("android", () => {
 	});
 
 	it("should be able to launch and terminate an app", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 
 		// kill if running
 		await android.terminateApp("com.android.chrome");
@@ -113,7 +113,7 @@ describe("android", () => {
 	});
 
 	it("should handle orientation changes", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 
 		// assume we start in portrait
 		const originalOrientation = await android.getOrientation();
@@ -138,7 +138,7 @@ describe("android", () => {
 	});
 
 	it("should get current activity", async function() {
-		hasOneAndroidDevice || this.skip();
+		hasAndroidDevice || this.skip();
 
 		// Go to home screen
 		await android.pressButton("HOME");
