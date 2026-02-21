@@ -43,7 +43,7 @@ describe("getCurrentActivity", () => {
 			await new Promise(resolve => setTimeout(resolve, 500));
 
 			const activity = await android.getCurrentActivity();
-			assert.equal(activity.id, testAppPackage, `Expected ${testAppPackage} but got ${activity.id}`);
+			assert.strictEqual(activity.id, testAppPackage, `Expected ${testAppPackage} but got ${activity.id}`);
 		});
 
 		it("should throw ActionableError if no activity in focus", async function() {
