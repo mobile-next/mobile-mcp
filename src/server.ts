@@ -9,7 +9,7 @@ import { ChildProcess } from "node:child_process";
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
-import { IosManager, IosRobot } from "./ios";
+import { IosManager } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
@@ -162,7 +162,7 @@ export const createMcpServer = (): McpServer => {
 		const iosDevices = iosManager.listDevices();
 		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
 		if (iosDevice) {
-			return new IosRobot(deviceId);
+			return new MobileDevice(deviceId);
 		}
 
 		// Check if it's an Android device
