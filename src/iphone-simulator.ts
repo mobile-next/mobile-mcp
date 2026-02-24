@@ -27,7 +27,7 @@ interface AppInfo {
 
 const TIMEOUT = 30000;
 const WDA_PORT = 8100;
-const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
+const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
 export class Simctl implements Robot {
 
