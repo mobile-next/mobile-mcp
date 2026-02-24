@@ -67,7 +67,7 @@ const BUTTON_MAP: Record<Button, string> = {
 };
 
 const TIMEOUT = 30000;
-const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
+const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
 type AndroidDeviceType = "tv" | "mobile";
 
