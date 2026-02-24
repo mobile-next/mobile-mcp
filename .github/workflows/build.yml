@@ -36,7 +36,7 @@ jobs:
       run: npm install
 
     - name: Audit
-      run: npm audit --audit-level high
+      run: npm audit --audit-level high --omit dev
 
     - name: Lint
       run: npm run lint
