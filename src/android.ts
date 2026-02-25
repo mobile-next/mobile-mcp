@@ -67,7 +67,7 @@ const BUTTON_MAP: Record<Button, string> = {
 };
 
 const TIMEOUT = 30000;
-const MAX_BUFFER_SIZE = 1024 * 1024 * 4;
+const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
 type AndroidDeviceType = "tv" | "mobile";
 
@@ -556,6 +556,7 @@ export class AndroidDeviceManager {
 				.map(line => line.trim())
 				.filter(line => line !== "")
 				.filter(line => !line.startsWith("List of devices attached"))
+				.filter(line => line.split("\t")[1]?.trim() === "device")  // Only include devices that are online and ready
 				.map(line => line.split("\t")[0]);
 
 			return names.map(name => ({
@@ -576,6 +577,7 @@ export class AndroidDeviceManager {
 				.map(line => line.trim())
 				.filter(line => line !== "")
 				.filter(line => !line.startsWith("List of devices attached"))
+				.filter(line => line.split("\t")[1]?.trim() === "device")  // Only include devices that are online and ready
 				.map(line => line.split("\t")[0]);
 
 			return names.map(deviceId => ({

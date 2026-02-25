@@ -1,3 +1,7 @@
+## [0.0.43](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.43) (2026-02-24)
+* General: Increase buffers used for screenshots, fixes bugs where screenshot was >4MB ([#270](https://github.com/mobile-next/mobile-mcp/pull/270))
+* General: Upgraded several npm packages for security ([#272](https://github.com/mobile-next/mobile-mcp/pull/272))
+
 ## [0.0.42](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.42) (2026-02-03)
 * General: upgraded mobilecli to 0.0.54, [see changes](https://github.com/mobile-next/mobilecli/releases) ([ba3ec1b](https://github.com/mobile-next/mobile-mcp/commit/ba3ec1b9251487ad8444eb22fa3312c7b79d7787))
 * General: updated fast-xml-parser package for security ([#261](https://github.com/mobile-next/mobile-mcp/pull/261))
