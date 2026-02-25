@@ -104,6 +104,18 @@ export class Mobilecli {
 		}
 	}
 
+	fleetListDevices(): string {
+		return this.executeCommand(["fleet", "list-devices"]);
+	}
+
+	fleetAllocate(platform: "ios" | "android"): string {
+		return this.executeCommand(["fleet", "allocate", "--platform", platform]);
+	}
+
+	fleetRelease(deviceId: string): string {
+		return this.executeCommand(["fleet", "release", "--device", deviceId]);
+	}
+
 	getDevices(options?: MobilecliDevicesOptions): MobilecliDevicesResponse {
 		const args = ["devices"];
 
