@@ -1,3 +1,6 @@
+## [0.0.44](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.44) (2026-02-25)
+* General: Rolling out support for remote devices, allocate Android and iOS devices on Mobile Fleet ([#273](https://github.com/mobile-next/mobile-mcp/pull/273))
+
 ## [0.0.43](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.43) (2026-02-24)
 * General: Increase buffers used for screenshots, fixes bugs where screenshot was >4MB ([#270](https://github.com/mobile-next/mobile-mcp/pull/270))
 * General: Upgraded several npm packages for security ([#272](https://github.com/mobile-next/mobile-mcp/pull/272))
