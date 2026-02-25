@@ -256,50 +256,52 @@ export const createMcpServer = (): McpServer => {
 	);
 
 
-	tool(
-		"mobile_fleet_list_devices",
-		"List Fleet Devices",
-		"List devices available in the remote fleet",
-		{
-			noParams
-		},
-		{ readOnlyHint: true },
-		async ({}) => {
-			ensureMobilecliAvailable();
-			const result = mobilecli.fleetListDevices();
-			return result;
-		}
-	);
+	if (process.env.MOBILEFLEET_ENABLE === "1") {
+		tool(
+			"mobile_list_fleet_devices",
+			"List Fleet Devices",
+			"List devices available in the remote fleet",
+			{
+				noParams
+			},
+			{ readOnlyHint: true },
+			async ({}) => {
+				ensureMobilecliAvailable();
+				const result = mobilecli.fleetListDevices();
+				return result;
+			}
+		);
 
-	tool(
-		"mobile_fleet_allocate_device",
-		"Allocate Fleet Device",
-		"Reserve a device from the remote fleet",
-		{
-			platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
-		},
-		{ destructiveHint: true },
-		async ({ platform }) => {
-			ensureMobilecliAvailable();
-			const result = mobilecli.fleetAllocate(platform);
-			return result;
-		}
-	);
+		tool(
+			"mobile_allocate_fleet_device",
+			"Allocate Fleet Device",
+			"Reserve a device from the remote fleet",
+			{
+				platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
+			},
+			{ destructiveHint: true },
+			async ({ platform }) => {
+				ensureMobilecliAvailable();
+				const result = mobilecli.fleetAllocate(platform);
+				return result;
+			}
+		);
 
-	tool(
-		"mobile_fleet_release_device",
-		"Release Fleet Device",
-		"Release a device back to the remote fleet",
-		{
-			device: z.string().describe("The device identifier to release back to the fleet"),
-		},
-		{ destructiveHint: true },
-		async ({ device }) => {
-			ensureMobilecliAvailable();
-			const result = mobilecli.fleetRelease(device);
-			return result;
-		}
-	);
+		tool(
+			"mobile_release_fleet_device",
+			"Release Fleet Device",
+			"Release a device back to the remote fleet",
+			{
+				device: z.string().describe("The device identifier to release back to the fleet"),
+			},
+			{ destructiveHint: true },
+			async ({ device }) => {
+				ensureMobilecliAvailable();
+				const result = mobilecli.fleetRelease(device);
+				return result;
+			}
+		);
+	}
 
 	tool(
 		"mobile_list_apps",
