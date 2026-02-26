@@ -487,7 +487,11 @@ export class AndroidRobot implements Robot {
 			attributeNamePrefix: "",
 		});
 
-		return parser.parse(dump) as UiAutomatorXml;
+		try {
+			return parser.parse(dump) as UiAutomatorXml;
+		} catch {
+			throw new ActionableError("Failed to parse UIAutomator XML from device");
+		}
 	}
 
 	private getScreenElementRect(node: UiAutomatorXmlNode): ScreenElementRect {

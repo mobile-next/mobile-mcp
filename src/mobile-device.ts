@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
+import { ActionableError, Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -73,7 +73,12 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getScreenSize(): Promise<ScreenSize> {
-		const response = JSON.parse(this.runCommand(["device", "info"])) as DeviceInfoResponse;
+		let response: DeviceInfoResponse;
+		try {
+			response = JSON.parse(this.runCommand(["device", "info"])) as DeviceInfoResponse;
+		} catch {
+			throw new ActionableError("Failed to parse device info response from mobilecli");
+		}
 		if (response.data.device.screenSize) {
 			return response.data.device.screenSize;
 		}
@@ -142,7 +147,12 @@ export class MobileDevice implements Robot {
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
-		const response = JSON.parse(this.runCommand(["apps", "list"])) as InstalledAppsResponse;
+		let response: InstalledAppsResponse;
+		try {
+			response = JSON.parse(this.runCommand(["apps", "list"])) as InstalledAppsResponse;
+		} catch {
+			throw new ActionableError("Failed to parse app list response from mobilecli");
+		}
 		return response.data.map(app => ({
 			appName: app.appName || app.packageName,
 			packageName: app.packageName,
@@ -192,7 +202,12 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
+		let response: DumpUIResponse;
+		try {
+			response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
+		} catch {
+			throw new ActionableError("Failed to parse UI dump response from mobilecli");
+		}
 		return response.data.elements.map(element => ({
 			type: element.type,
 			label: element.label,
@@ -210,7 +225,12 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getOrientation(): Promise<Orientation> {
-		const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
+		let response: OrientationResponse;
+		try {
+			response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
+		} catch {
+			throw new ActionableError("Failed to parse orientation response from mobilecli");
+		}
 		return response.data.orientation;
 	}
 }

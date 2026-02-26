@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import fs from "node:fs";
+import nodePath from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 
@@ -94,6 +95,9 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const posthog = async (event: string, properties: Record<string, string | number>) => {
+		if (process.env.MOBILE_MCP_DISABLE_TELEMETRY === "1") {
+			return;
+		}
 		try {
 			const url = "https://us.i.posthog.com/i/v0/e/";
 			const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";
@@ -359,10 +363,19 @@ export const createMcpServer = (): McpServer => {
 			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
 		},
 		{ destructiveHint: true },
-		async ({ device, path }) => {
+		async ({ device, path: appPath }) => {
+			const resolvedAppPath = nodePath.resolve(appPath);
+			const ext = nodePath.extname(resolvedAppPath).toLowerCase();
+			const validExtensions = [".apk", ".ipa", ".zip", ".app"];
+			if (ext !== "" && !validExtensions.includes(ext)) {
+				throw new ActionableError(`Invalid app file extension "${ext}". Expected .apk, .ipa, .zip, or .app`);
+			}
+			if (!fs.existsSync(resolvedAppPath)) {
+				throw new ActionableError(`App file not found: ${resolvedAppPath}`);
+			}
 			const robot = getRobotFromDevice(device);
-			await robot.installApp(path);
-			return `Installed app from ${path}`;
+			await robot.installApp(resolvedAppPath);
+			return `Installed app from ${nodePath.basename(resolvedAppPath)}`;
 		}
 	);
 
@@ -403,8 +416,8 @@ export const createMcpServer = (): McpServer => {
 		"Click on the screen at given x,y coordinates. If clicking on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.number().describe("The x coordinate to click on the screen, in pixels"),
-			y: z.number().describe("The y coordinate to click on the screen, in pixels"),
+			x: z.number().min(0).describe("The x coordinate to click on the screen, in pixels"),
+			y: z.number().min(0).describe("The y coordinate to click on the screen, in pixels"),
 		},
 		{ destructiveHint: true },
 		async ({ device, x, y }) => {
@@ -420,8 +433,8 @@ export const createMcpServer = (): McpServer => {
 		"Double-tap on the screen at given x,y coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.number().describe("The x coordinate to double-tap, in pixels"),
-			y: z.number().describe("The y coordinate to double-tap, in pixels"),
+			x: z.number().min(0).describe("The x coordinate to double-tap, in pixels"),
+			y: z.number().min(0).describe("The y coordinate to double-tap, in pixels"),
 		},
 		{ destructiveHint: true },
 		async ({ device, x, y }) => {
@@ -437,8 +450,8 @@ export const createMcpServer = (): McpServer => {
 		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.number().describe("The x coordinate to long press on the screen, in pixels"),
-			y: z.number().describe("The y coordinate to long press on the screen, in pixels"),
+			x: z.number().min(0).describe("The x coordinate to long press on the screen, in pixels"),
+			y: z.number().min(0).describe("The y coordinate to long press on the screen, in pixels"),
 			duration: z.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
 		},
 		{ destructiveHint: true },
@@ -528,8 +541,8 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
-			x: z.number().optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			y: z.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			x: z.number().min(0).optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			y: z.number().min(0).optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			distance: z.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
 		{ destructiveHint: true },
@@ -581,11 +594,15 @@ export const createMcpServer = (): McpServer => {
 		},
 		{ destructiveHint: true },
 		async ({ device, saveTo }) => {
+			const resolvedSaveTo = nodePath.resolve(saveTo);
+			const parentDir = nodePath.dirname(resolvedSaveTo);
+			if (!fs.existsSync(parentDir)) {
+				throw new ActionableError(`Directory does not exist: ${parentDir}`);
+			}
 			const robot = getRobotFromDevice(device);
-
 			const screenshot = await robot.getScreenshot();
-			fs.writeFileSync(saveTo, screenshot);
-			return `Screenshot saved to: ${saveTo}`;
+			fs.writeFileSync(resolvedSaveTo, screenshot);
+			return `Screenshot saved to: ${resolvedSaveTo}`;
 		}
 	);
 
