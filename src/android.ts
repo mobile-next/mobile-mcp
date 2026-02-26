@@ -463,6 +463,37 @@ export class AndroidRobot implements Robot {
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
+	public async getCurrentActivity(): Promise<{ id: string; isCanonical: boolean }> {
+		try {
+			const dumpsysOutput = this.adb("shell", "dumpsys", "activity", "activities").toString();
+
+			// Try to find mResumedActivity first (preferred for foreground app)
+			let focusMatch = dumpsysOutput.match(/mResumedActivity=ActivityRecord\{[^\s]+ u\d+ ([^\s/]+)\//);
+			if (focusMatch && focusMatch[1]) {
+				return { id: focusMatch[1], isCanonical: true };
+			}
+
+			// Fallback to mCurrentFocus (may point to IME/system windows)
+			focusMatch = dumpsysOutput.match(/mCurrentFocus=Window\{[^\s]+ u\d+ ([^\s/]+)\//);
+			if (focusMatch && focusMatch[1]) {
+				return { id: focusMatch[1], isCanonical: true };
+			}
+
+			// Fallback to mFocusedActivity (legacy, dead on Android 9+)
+			focusMatch = dumpsysOutput.match(/mFocusedActivity=ActivityRecord\{[^\s]+ u\d+ ([^\s/]+)\//);
+			if (focusMatch && focusMatch[1]) {
+				return { id: focusMatch[1], isCanonical: true };
+			}
+
+			throw new ActionableError("No activity is currently in focus. Please launch an app and try again.");
+		} catch (error) {
+			if (error instanceof ActionableError) {
+				throw error;
+			}
+			throw new ActionableError("Failed to get current activity. Please ensure the device is properly connected.");
+		}
+	}
+
 	private async getUiAutomatorDump(): Promise<string> {
 		for (let tries = 0; tries < 10; tries++) {
 			const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();

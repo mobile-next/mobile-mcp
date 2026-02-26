@@ -1,7 +1,7 @@
 import { Socket } from "node:net";
 import { execFileSync } from "node:child_process";
 
-import { WebDriverAgent } from "./webdriver-agent";
+import { WebDriverAgent, parseWdaPageSourceForAppId } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
 
 const WDA_PORT = 8100;
@@ -228,6 +228,22 @@ export class IosRobot implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const wda = await this.wda();
 		return await wda.getOrientation();
+	}
+
+	public async getCurrentActivity(): Promise<{ id: string; isCanonical: boolean }> {
+		try {
+			const wda = await this.wda();
+			const [source, sessionBundleId] = await Promise.all([
+				wda.getPageSource(),
+				wda.getActiveSessionBundleId()
+			]);
+			return parseWdaPageSourceForAppId(source, sessionBundleId);
+		} catch (error) {
+			if (error instanceof ActionableError) {
+				throw error;
+			}
+			throw new ActionableError("Failed to get current app. Please ensure the device is properly connected and WebDriver Agent is running.");
+		}
 	}
 }
 

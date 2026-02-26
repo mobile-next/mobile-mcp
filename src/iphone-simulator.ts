@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, basename, extname } from "node:path";
 
 import { trace } from "./logger";
-import { WebDriverAgent } from "./webdriver-agent";
+import { WebDriverAgent, parseWdaPageSourceForAppId } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
 
 export interface Simulator {
@@ -268,5 +268,21 @@ export class Simctl implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const wda = await this.wda();
 		return wda.getOrientation();
+	}
+
+	public async getCurrentActivity(): Promise<{ id: string; isCanonical: boolean }> {
+		try {
+			const wda = await this.wda();
+			const [source, sessionBundleId] = await Promise.all([
+				wda.getPageSource(),
+				wda.getActiveSessionBundleId()
+			]);
+			return parseWdaPageSourceForAppId(source, sessionBundleId);
+		} catch (error) {
+			if (error instanceof ActionableError) {
+				throw error;
+			}
+			throw new ActionableError("Failed to get current app. Please ensure WebDriver Agent is running.");
+		}
 	}
 }

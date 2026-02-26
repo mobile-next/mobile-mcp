@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
+import { ActionableError, Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -212,5 +212,23 @@ export class MobileDevice implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
 		return response.data.orientation;
+	}
+
+	public async getCurrentActivity(): Promise<{ id: string; isCanonical: boolean }> {
+		try {
+			const response = JSON.parse(this.runCommand(["device", "get-current-activity"])) as any;
+			if (response.status === "ok" && response.data?.id) {
+				return {
+					id: response.data.id,
+					isCanonical: response.data.isCanonical ?? true
+				};
+			}
+			throw new ActionableError("No activity is currently in focus. Please launch an app and try again.");
+		} catch (error) {
+			if (error instanceof ActionableError) {
+				throw error;
+			}
+			throw new ActionableError("Failed to get current activity. Please ensure the device is properly connected.");
+		}
 	}
 }
