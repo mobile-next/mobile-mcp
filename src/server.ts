@@ -314,7 +314,7 @@ export const createMcpServer = (): McpServer => {
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const result = await robot.listApps();
-			return `Found these apps on device: ${result.map(app => `${app.appName} (${app.packageName})`).join(", ")}`;
+			return JSON.stringify({ apps: result });
 		}
 	);
 
@@ -485,7 +485,7 @@ export const createMcpServer = (): McpServer => {
 				return out;
 			});
 
-			return `Found these elements on screen: ${JSON.stringify(result)}`;
+			return JSON.stringify({ elements: result });
 		}
 	);
 
