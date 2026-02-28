@@ -136,4 +136,47 @@ describe("android", () => {
 		// screen size should not have changed
 		assert.deepEqual(screenSize1, screenSize2);
 	});
+
+
+	it("should be able to dump logcat for a package", async function() {
+		hasOneAndroidDevice || this.skip();
+
+		const res = await android.logcatDump({
+			packageName: "com.android.settings",
+			lines: 120,
+			format: "threadtime",
+			buffers: ["main", "crash"],
+			minPriority: "I",
+		});
+
+		assert.ok(typeof res.text === "string");
+		assert.ok(res.text.length > 0);
+		assert.equal(res.truncated, false);
+		assert.ok(res.meta.pidResolved !== undefined, "Expected pidResolved to be set");
+		assert.ok(res.meta.pidResolved > 0, "Expected pidResolved to be > 0");
+		assert.ok(
+			res.meta.pidFilterMode === "logcat--pid" || res.meta.pidFilterMode === "client-side" || res.meta.pidFilterMode === "none",
+			"Unexpected pidFilterMode"
+		);
+
+		// logcat often prints this marker line
+		assert.ok(res.text.includes("beginning of"), "Expected log output to include buffer marker");
+	});
+
+	it("should support includeRegex / excludeRegex filtering in logcat dump", async function() {
+		hasOneAndroidDevice || this.skip();
+
+		const res = await android.logcatDump({
+			packageName: "com.android.settings",
+			lines: 400,
+			includeRegex: "SecurityException|FATAL|Exception|ANR|E ",
+			excludeRegex: "Choreographer",
+		});
+
+		assert.ok(typeof res.text === "string");
+		// If there are no matches, text may be empty; but tool should still succeed and return meta.
+		assert.ok(res.meta.pidResolved !== undefined, "Expected pidResolved to be set");
+		assert.ok(res.meta.pidResolved > 0, "Expected pidResolved to be > 0");
+	});
+
 });

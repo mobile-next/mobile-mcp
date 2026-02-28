@@ -11,6 +11,18 @@ export interface AndroidDevice {
 	deviceType: "tv" | "mobile";
 }
 
+export interface LogcatDumpOptions {
+	lines?: number; // default 200, max 500
+	format?: LogcatFormat; // default threadtime
+	buffers?: LogcatBuffer[]; // default ["main", "crash"]
+	minPriority?: LogcatPriority; // default I
+	pid?: number;
+	packageName?: string;
+	includeRegex?: string;
+	excludeRegex?: string;
+}
+
+
 interface UiAutomatorXmlNode {
 	node: UiAutomatorXmlNode[];
 	class?: string;
@@ -69,7 +81,23 @@ const BUTTON_MAP: Record<Button, string> = {
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
+const clampInt = (value: any, defaultValue: number, min: number, max: number): number => {
+	const n = Number(value);
+	if (!Number.isFinite(n)) {return defaultValue;}
+	return Math.max(min, Math.min(max, Math.floor(n)));
+};
+
+const truncateText = (text: string, maxChars: number): { text: string; truncated: boolean } => {
+	if (text.length <= maxChars) {return { text, truncated: false };}
+	return { text: text.slice(0, maxChars) + "\n\n[OUTPUT TRUNCATED - Use packageName, minPriority, includeRegex, or excludeRegex filters to reduce output]\n", truncated: true };
+};
+
 type AndroidDeviceType = "tv" | "mobile";
+
+type LogcatBuffer = "main" | "crash" | "system";
+type LogcatFormat = "threadtime" | "time" | "brief";
+type LogcatPriority = "V" | "D" | "I" | "W" | "E" | "F";
+
 
 export class AndroidRobot implements Robot {
 
@@ -500,6 +528,151 @@ export class AndroidRobot implements Robot {
 			width: right - left,
 			height: bottom - top,
 		};
+	}
+
+	public async logcatDump(opts: LogcatDumpOptions): Promise<{
+		text: string;
+		truncated: boolean;
+		meta: {
+			linesRequested: number;
+			format: LogcatFormat;
+			buffers: LogcatBuffer[];
+			minPriority: LogcatPriority;
+			pidRequested?: number;
+			pidResolved?: number;
+			pidFilterMode?: "logcat--pid" | "client-side" | "none";
+		};
+	}> {
+		const linesRequested = clampInt(opts.lines, 200, 1, 500);
+		const format: LogcatFormat = opts.format ?? "threadtime";
+		const buffers: LogcatBuffer[] = (opts.buffers && opts.buffers.length > 0) ? opts.buffers : ["main", "crash"];
+		const minPriority: LogcatPriority = opts.minPriority ?? "I";
+
+		let pidResolved: number | undefined = opts.pid;
+
+		// Resolve PID from packageName if requested
+		if (!pidResolved && opts.packageName) {
+			pidResolved = await this.tryResolvePid(opts.packageName);
+		}
+
+		const baseArgs: string[] = ["shell", "logcat", "-d", "-v", format];
+		for (const b of buffers) {
+			baseArgs.push("-b", b);
+		}
+		baseArgs.push("-t", String(linesRequested), `*:${minPriority}`);
+
+		let output = "";
+		let pidFilterMode: "logcat--pid" | "client-side" | "none" = "none";
+
+		// First try: use logcat --pid if pid is available (not supported on all Android builds)
+		if (pidResolved) {
+			try {
+				const buf = this.silentAdb(...baseArgs, "--pid", String(pidResolved));
+				output = buf.toString();
+				pidFilterMode = "logcat--pid";
+			} catch (e) {
+				// Fallback: run without --pid and filter client-side
+				const buf = this.silentAdb(...baseArgs);
+				output = buf.toString();
+				pidFilterMode = "client-side";
+			}
+		} else {
+			const buf = this.silentAdb(...baseArgs);
+			output = buf.toString();
+			pidFilterMode = "none";
+		}
+
+		// Normalize + filter lines
+		let lines = output.split("\n").filter(l => l.length > 0);
+
+		// Client-side PID filter fallback (only supported for threadtime format)
+		if (pidResolved && pidFilterMode === "client-side") {
+			if (format === "threadtime") {
+				// threadtime format: "MM-DD HH:MM:SS.mmm  PID  TID PRIORITY/TAG: message"
+				// PID is column index 2 (0-indexed) when split by whitespace
+				lines = lines.filter(l => {
+					const cols = l.trim().split(/\s+/);
+					if (cols.length < 3) {return false;}
+					const linePid = Number(cols[2]);
+					return linePid === pidResolved;
+				});
+			} else {
+				// For non-threadtime formats (time, brief), PID column position varies or is absent
+				// Skip client-side filtering to avoid incorrect matches
+				pidFilterMode = "none";
+				console.warn(`Client-side PID filtering is only supported for threadtime format, skipping for format "${format}".`);
+			}
+		}
+
+		// include/exclude regex filters
+		if (opts.includeRegex) {
+			try {
+				const re = new RegExp(opts.includeRegex);
+				lines = lines.filter(l => re.test(l));
+			} catch (e) {
+				console.error(`Invalid includeRegex pattern "${opts.includeRegex}": ${(e as Error).message}. Skipping include filter.`);
+			}
+		}
+		if (opts.excludeRegex) {
+			try {
+				const re = new RegExp(opts.excludeRegex);
+				lines = lines.filter(l => !re.test(l));
+			} catch (e) {
+				console.error(`Invalid excludeRegex pattern "${opts.excludeRegex}": ${(e as Error).message}. Skipping exclude filter.`);
+			}
+		}
+
+		const finalText = lines.join("\n") + (lines.length ? "\n" : "");
+		const { text, truncated } = truncateText(finalText, 80_000);
+
+		return {
+			text,
+			truncated,
+			meta: {
+				linesRequested,
+				format,
+				buffers,
+				minPriority,
+				pidRequested: opts.pid,
+				pidResolved,
+				pidFilterMode,
+			},
+		};
+	}
+
+	private async tryResolvePid(packageName: string): Promise<number | undefined> {
+		// 1) pidof <package>
+		try {
+			const out = this.silentAdb("shell", "pidof", packageName).toString().trim();
+			// pidof may return multiple PIDs separated by spaces
+			const first = out.split(/\s+/)[0];
+			const pid = Number(first);
+			if (Number.isFinite(pid)) {return pid;}
+		} catch (e) {
+			// ignore
+		}
+
+		// 2) fallback: ps -A | grep <package>
+		try {
+			const out = this.silentAdb("shell", "ps", "-A").toString();
+			// ps output: USER PID ... NAME  (NAME is the last column)
+			// Require exact match on NAME column to avoid partial package name matches
+			const line = out.split("\n").find(l => {
+				const cols = l.trim().split(/\s+/);
+				if (cols.length < 2) {return false;}
+				const name = cols[cols.length - 1];
+				return name === packageName;
+			});
+			if (!line) {return undefined;}
+
+			const cols = line.trim().split(/\s+/);
+			const pid = Number(cols[1]);
+			if (Number.isFinite(pid)) {return pid;}
+
+			return undefined;
+		} catch (e) {
+			return undefined;
+		}
 	}
 }
 
