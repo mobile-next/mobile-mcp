@@ -382,7 +382,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async openUrl(url: string): Promise<void> {
-		this.adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url);
+		this.adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", this.escapeShellText(url));
 	}
 
 	private isAscii(text: string): boolean {
