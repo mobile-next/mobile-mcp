@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import * as xml from "fast-xml-parser";
 
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { validatePackageName } from "./utils";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -140,6 +141,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
+		validatePackageName(packageName);
 		try {
 			this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
 		} catch (error) {
@@ -356,6 +358,7 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
+		validatePackageName(packageName);
 		this.adb("shell", "am", "force-stop", packageName);
 	}
 
