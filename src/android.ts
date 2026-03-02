@@ -349,8 +349,8 @@ export class AndroidRobot implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		// Prime lazy loaded accessibility tree
-		await this.getUiAutomatorXml();
+		// Prime lazy loaded accessibility tree (raw dump, no parsing)
+		await this.getUiAutomatorDump();
 
 		const parsedXml = await this.getUiAutomatorXml();
 		const hierarchy = parsedXml.hierarchy;
