@@ -451,4 +451,67 @@ export class WebDriverAgent {
 			return json.value.toLowerCase() as Orientation;
 		});
 	}
+
+	public async getActiveSessionBundleId(): Promise<string | null> {
+		try {
+			const sessionsUrl = `http://${this.host}:${this.port}/sessions`;
+			const sessionsResponse = await fetch(sessionsUrl);
+			const sessionsJson = await sessionsResponse.json();
+			const sessions = sessionsJson.value || [];
+
+			if (sessions[0]?.id) {
+				const sessionId = sessions[0].id;
+				const sessionUrl = `http://${this.host}:${this.port}/session/${sessionId}`;
+				const response = await fetch(sessionUrl);
+				const json = await response.json();
+				// Some WDA versions put it in capabilities, some in the root
+				return json.value?.capabilities?.bundleId || json.value?.bundleId || null;
+			}
+		} catch (error) {
+			// ignore and fall back to tree parsing
+		}
+		return null;
+	}
+}
+
+/**
+ * Extracts the app bundle identifier from the WDA page source.
+ *
+ * Resolution order:
+ * 1. `rootElement.rawIdentifier`: Canonical bundle ID if present.
+ * 2. `sessionBundleId`: Canonical bundle ID derived from active session capabilities.
+ * 3. `rootElement.type`: Fallback if it matches bundle ID format (contains dots).
+ * 4. `rootElement.name`: Last-resort fallback. Note that this returns the app's
+ *    accessibility label / display name (e.g., "Safari") which is non-canonical.
+ *
+ * @param source The WDA page source tree.
+ * @param sessionBundleId Optional bundle ID from active session capabilities.
+ * @returns An object containing the resolved app identifier and whether it is canonical.
+ */
+export function parseWdaPageSourceForAppId(source: SourceTree, sessionBundleId?: string | null): { id: string; isCanonical: boolean } {
+	const rootElement = source.value;
+
+	// 1. Prefer rawIdentifier (usually contains bundle ID)
+	if (rootElement.rawIdentifier) {
+		return { id: rootElement.rawIdentifier, isCanonical: true };
+	}
+
+	// 2. Fallback to bundleId from active session if provided
+	if (sessionBundleId) {
+		return { id: sessionBundleId, isCanonical: true };
+	}
+
+	// 3. Fallback to type if it looks like a bundle ID (contains a dot)
+	// We check for dots to avoid generic types like "XCUIElementTypeApplication"
+	if (rootElement.type && rootElement.type.includes(".")) {
+		return { id: rootElement.type, isCanonical: true };
+	}
+
+	// 4. Fallback to name (accessibility label/display name) as a last resort
+	// NOTE: This may return "Safari" instead of "com.apple.mobilesafari"
+	if (rootElement.name) {
+		return { id: rootElement.name, isCanonical: false };
+	}
+
+	throw new ActionableError("No app is in foreground. Please launch an app and try again.");
 }
