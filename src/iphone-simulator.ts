@@ -6,6 +6,7 @@ import { join, basename, extname } from "node:path";
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { validatePackageName } from "./utils";
 
 export interface Simulator {
 	name: string;
@@ -102,10 +103,12 @@ export class Simctl implements Robot {
 	}
 
 	public async launchApp(packageName: string) {
+		validatePackageName(packageName);
 		this.simctl("launch", this.simulatorUuid, packageName);
 	}
 
 	public async terminateApp(packageName: string) {
+		validatePackageName(packageName);
 		this.simctl("terminate", this.simulatorUuid, packageName);
 	}
 

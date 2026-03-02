@@ -42,6 +42,7 @@ export class ActionableError extends Error {
 	}
 }
 
+
 export type Orientation = "portrait" | "landscape";
 
 export interface Robot {

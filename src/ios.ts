@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
+import { validatePackageName } from "./utils";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -138,11 +139,13 @@ export class IosRobot implements Robot {
 	}
 
 	public async launchApp(packageName: string): Promise<void> {
+		validatePackageName(packageName);
 		await this.assertTunnelRunning();
 		await this.ios("launch", packageName);
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
+		validatePackageName(packageName);
 		await this.assertTunnelRunning();
 		await this.ios("kill", packageName);
 	}
