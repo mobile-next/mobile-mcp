@@ -38,8 +38,6 @@ export const createMcpServer = (): McpServer => {
 		version: getAgentVersion(),
 	});
 
-	// an empty object to satisfy windsurf
-	const noParams = z.object({});
 
 	const getClientName = (): string => {
 		try {
@@ -188,9 +186,7 @@ export const createMcpServer = (): McpServer => {
 		"mobile_list_available_devices",
 		"List Devices",
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
-		{
-			noParams
-		},
+		{},
 		{ readOnlyHint: true },
 		async ({}) => {
 
@@ -261,9 +257,7 @@ export const createMcpServer = (): McpServer => {
 			"mobile_list_fleet_devices",
 			"List Fleet Devices",
 			"List devices available in the remote fleet",
-			{
-				noParams
-			},
+			{},
 			{ readOnlyHint: true },
 			async ({}) => {
 				ensureMobilecliAvailable();
