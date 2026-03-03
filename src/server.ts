@@ -2,7 +2,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import crypto from "node:crypto";
+import { ChildProcess } from "node:child_process";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
@@ -24,6 +26,12 @@ interface MobilecliDevice {
 
 interface MobilecliDevicesResponse {
 	devices: MobilecliDevice[];
+}
+
+interface ActiveRecording {
+	process: ChildProcess;
+	outputPath: string;
+	startedAt: number;
 }
 
 export const getAgentVersion = (): string => {
@@ -130,6 +138,7 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const mobilecli = new Mobilecli();
+	const activeRecordings = new Map<string, ActiveRecording>();
 	posthog("launch", {}).then();
 
 	const ensureMobilecliAvailable = (): void => {
@@ -185,7 +194,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_available_devices",
 		"List Devices",
-		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
+		"List all available devices. This includes both physical mobile devices and mobile simulators and emulators. It returns both Android and iOS devices.",
 		{},
 		{ readOnlyHint: true },
 		async ({}) => {
@@ -675,6 +684,93 @@ export const createMcpServer = (): McpServer => {
 			const robot = getRobotFromDevice(device);
 			const orientation = await robot.getOrientation();
 			return `Current device orientation is ${orientation}`;
+		}
+	);
+
+	tool(
+		"mobile_start_screen_recording",
+		"Start Screen Recording",
+		"Start recording the screen of a mobile device. The recording runs in the background until stopped with mobile_stop_screen_recording. Returns the path where the recording will be saved.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			output: z.string().optional().describe("The file path to save the recording to. If not provided, a temporary path will be used."),
+			timeLimit: z.number().optional().describe("Maximum recording duration in seconds. The recording will stop automatically after this time."),
+		},
+		{ destructiveHint: true },
+		async ({ device, output, timeLimit }) => {
+			getRobotFromDevice(device);
+
+			if (activeRecordings.has(device)) {
+				throw new ActionableError(`Device "${device}" is already being recorded. Stop the current recording first with mobile_stop_screen_recording.`);
+			}
+
+			const outputPath = output || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
+
+			const args = ["screenrecord", "--device", device, "--output", outputPath, "--silent"];
+			if (timeLimit !== undefined) {
+				args.push("--time-limit", String(timeLimit));
+			}
+
+			const child = mobilecli.spawnCommand(args);
+
+			const cleanup = () => {
+				activeRecordings.delete(device);
+			};
+
+			child.on("error", cleanup);
+			child.on("exit", cleanup);
+
+			activeRecordings.set(device, {
+				process: child,
+				outputPath,
+				startedAt: Date.now(),
+			});
+
+			return `Screen recording started. Output will be saved to: ${outputPath}`;
+		}
+	);
+
+	tool(
+		"mobile_stop_screen_recording",
+		"Stop Screen Recording",
+		"Stop an active screen recording on a mobile device. Returns the file path, size, and approximate duration of the recording.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+		},
+		{ destructiveHint: true },
+		async ({ device }) => {
+			const recording = activeRecordings.get(device);
+			if (!recording) {
+				throw new ActionableError(`No active recording found for device "${device}". Start a recording first with mobile_start_screen_recording.`);
+			}
+
+			const { process: child, outputPath, startedAt } = recording;
+			activeRecordings.delete(device);
+
+			child.kill("SIGINT");
+
+			await new Promise<void>(resolve => {
+				const timeout = setTimeout(() => {
+					child.kill("SIGKILL");
+					resolve();
+				}, 5 * 60 * 1000);
+
+				child.on("close", () => {
+					clearTimeout(timeout);
+					resolve();
+				});
+			});
+
+			const durationSeconds = Math.round((Date.now() - startedAt) / 1000);
+
+			if (!fs.existsSync(outputPath)) {
+				return `Recording stopped after ~${durationSeconds}s but the output file was not found at: ${outputPath}`;
+			}
+
+			const stats = fs.statSync(outputPath);
+			const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+			return `Recording stopped. File: ${outputPath} (${fileSizeMB} MB, ~${durationSeconds}s)`;
 		}
 	);
 
