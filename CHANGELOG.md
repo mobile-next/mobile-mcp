@@ -1,8 +1,13 @@
+## [0.0.46](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.46) (2026-03-03)
+* Server: Improved tool description for listing devices, easier on prompting ([#282](https://github.com/mobile-next/mobile-mcp/pull/282))
+* iOS: Added support for screen recording for both real devices and simulators ([#282](https://github.com/mobile-next/mobile-mcp/pull/282))
+* Android: Added support for screen recording for both real devices and emulators ([#282](https://github.com/mobile-next/mobile-mcp/pull/282))
+
 ## [0.0.45](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.45) (2026-03-02)
-* Server: updated fast-xml-parser package for security ([#281](https://github.com/mobile-next/mobile-mcp/pull/281))
-* Server: fix noParams issue that started annoying Claude Code recently ([#280](https://github.com/mobile-next/mobile-mcp/pull/280))
-* Android: fix shell escaping through launchApp ([#279](https://github.com/mobile-next/mobile-mcp/pull/279)) thanks to [@yuhanghuang](https://github.com/yuhanghuang)
-* Android: escape url when calling openUrl ([#278](https://github.com/mobile-next/mobile-mcp/pull/278)) thanks to [yuhanghuang](https://github.com/yuhanghuang)
+* Server: Updated fast-xml-parser package for security ([#281](https://github.com/mobile-next/mobile-mcp/pull/281))
+* Server: Fix noParams issue that started annoying Claude Code recently ([#280](https://github.com/mobile-next/mobile-mcp/pull/280))
+* Android: Fix shell escaping through launchApp ([#279](https://github.com/mobile-next/mobile-mcp/pull/279)) thanks to [@yuhanghuang](https://github.com/yuhanghuang)
+* Android: Escape url when calling openUrl ([#278](https://github.com/mobile-next/mobile-mcp/pull/278)) thanks to [yuhanghuang](https://github.com/yuhanghuang)
 
 ## [0.0.44](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.44) (2026-02-25)
 * General: Rolling out support for remote devices, allocate Android and iOS devices on Mobile Fleet ([#273](https://github.com/mobile-next/mobile-mcp/pull/273))
@@ -12,8 +17,8 @@
 * General: Upgraded several npm packages for security ([#272](https://github.com/mobile-next/mobile-mcp/pull/272))
 
 ## [0.0.42](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.42) (2026-02-03)
-* General: upgraded mobilecli to 0.0.54, [see changes](https://github.com/mobile-next/mobilecli/releases) ([ba3ec1b](https://github.com/mobile-next/mobile-mcp/commit/ba3ec1b9251487ad8444eb22fa3312c7b79d7787))
-* General: updated fast-xml-parser package for security ([#261](https://github.com/mobile-next/mobile-mcp/pull/261))
+* General: Upgraded mobilecli to 0.0.54, [see changes](https://github.com/mobile-next/mobilecli/releases) ([ba3ec1b](https://github.com/mobile-next/mobile-mcp/commit/ba3ec1b9251487ad8444eb22fa3312c7b79d7787))
+* General: Updated fast-xml-parser package for security ([#261](https://github.com/mobile-next/mobile-mcp/pull/261))
 
 ## [0.0.41](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.41) (2026-01-27)
 * General: upgraded mobilecli to 0.0.52, [see changes](https://github.com/mobile-next/mobilecli/releases) ([d7e25f3](https://github.com/mobile-next/mobile-mcp/commit/d7e25f3543e87a436572c29f2b1766bd276a4d68))
