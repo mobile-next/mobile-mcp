@@ -328,11 +328,12 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to launch"),
+			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
 		},
 		{ destructiveHint: true },
-		async ({ device, packageName }) => {
+		async ({ device, packageName, locale }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.launchApp(packageName);
+			await robot.launchApp(packageName, locale);
 			return `Launched app ${packageName}`;
 		}
 	);

@@ -149,8 +149,13 @@ export class MobileDevice implements Robot {
 		})) as InstalledApp[];
 	}
 
-	public async launchApp(packageName: string): Promise<void> {
-		this.runCommand(["apps", "launch", packageName]);
+	public async launchApp(packageName: string, locale?: string): Promise<void> {
+		const args = ["apps", "launch", packageName];
+		if (locale) {
+			args.push("--locale", locale);
+		}
+
+		this.runCommand(args);
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
