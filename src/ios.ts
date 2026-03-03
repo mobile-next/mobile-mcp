@@ -98,8 +98,12 @@ export class IosRobot implements Robot {
 
 	public async getIosVersion(): Promise<string> {
 		const output = await this.ios("info");
-		const json = JSON.parse(output);
-		return json.ProductVersion;
+		try {
+			const json = JSON.parse(output);
+			return json.ProductVersion;
+		} catch {
+			throw new ActionableError("Failed to parse iOS device info from go-ios");
+		}
 	}
 
 	private async isTunnelRequired(): Promise<boolean> {
@@ -256,14 +260,22 @@ export class IosManager {
 
 	public getDeviceName(deviceId: string): string {
 		const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
-		const json: InfoCommandOutput = JSON.parse(output);
-		return json.DeviceName;
+		try {
+			const json: InfoCommandOutput = JSON.parse(output);
+			return json.DeviceName;
+		} catch {
+			throw new ActionableError(`Failed to parse device info for ${deviceId} from go-ios`);
+		}
 	}
 
 	public getDeviceInfo(deviceId: string): InfoCommandOutput {
 		const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
-		const json: InfoCommandOutput = JSON.parse(output);
-		return json;
+		try {
+			const json: InfoCommandOutput = JSON.parse(output);
+			return json;
+		} catch {
+			throw new ActionableError(`Failed to parse device info for ${deviceId} from go-ios`);
+		}
 	}
 
 	public listDevices(): IosDevice[] {
@@ -273,7 +285,13 @@ export class IosManager {
 		}
 
 		const output = execFileSync(getGoIosPath(), ["list"]).toString();
-		const json: ListCommandOutput = JSON.parse(output);
+		let json: ListCommandOutput;
+		try {
+			json = JSON.parse(output);
+		} catch {
+			console.error("Failed to parse device list from go-ios");
+			return [];
+		}
 		const devices = json.deviceList.map(device => ({
 			deviceId: device,
 			deviceName: this.getDeviceName(device),
@@ -289,7 +307,13 @@ export class IosManager {
 		}
 
 		const output = execFileSync(getGoIosPath(), ["list"]).toString();
-		const json: ListCommandOutput = JSON.parse(output);
+		let json: ListCommandOutput;
+		try {
+			json = JSON.parse(output);
+		} catch {
+			console.error("Failed to parse device list from go-ios");
+			return [];
+		}
 		const devices = json.deviceList.map(device => {
 			const info = this.getDeviceInfo(device);
 			return {

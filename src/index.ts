@@ -10,6 +10,17 @@ const startSseServer = async (port: number) => {
 	const app = express();
 	const server = createMcpServer();
 
+	const token = process.env.MCP_TOKEN;
+	if (token) {
+		app.use((req, res, next) => {
+			if (req.headers["authorization"] !== `Bearer ${token}`) {
+				res.status(401).json({ error: "Unauthorized" });
+				return;
+			}
+			next();
+		});
+	}
+
 	let transport: SSEServerTransport | null = null;
 
 	app.post("/mcp", (req, res) => {
@@ -42,7 +53,7 @@ const startStdioServer = async () => {
 		error("mobile-mcp server running on stdio");
 	} catch (err: any) {
 		console.error("Fatal error in main():", err);
-		error("Fatal error in main(): " + JSON.stringify(err.stack));
+		error("Fatal error in main(): " + err.message);
 		process.exit(1);
 	}
 };
