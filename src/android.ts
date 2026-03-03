@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import * as xml from "fast-xml-parser";
 
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
-import { validatePackageName } from "./utils";
+import { validatePackageName, validateLocale } from "./utils";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -140,8 +140,18 @@ export class AndroidRobot implements Robot {
 			.map(line => line.substring("package:".length));
 	}
 
-	public async launchApp(packageName: string): Promise<void> {
+	public async launchApp(packageName: string, locale?: string): Promise<void> {
 		validatePackageName(packageName);
+
+		if (locale) {
+			validateLocale(locale);
+			try {
+				this.silentAdb("shell", "cmd", "locale", "set-app-locales", packageName, "--locales", locale);
+			} catch (error) {
+				// set-app-locales requires Android 13+ (API 33), silently ignore on older versions
+			}
+		}
+
 		try {
 			this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
 		} catch (error) {

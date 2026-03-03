@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
-import { validatePackageName } from "./utils";
+import { validatePackageName, validateLocale } from "./utils";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -138,10 +138,18 @@ export class IosRobot implements Robot {
 			});
 	}
 
-	public async launchApp(packageName: string): Promise<void> {
+	public async launchApp(packageName: string, locale?: string): Promise<void> {
 		validatePackageName(packageName);
 		await this.assertTunnelRunning();
-		await this.ios("launch", packageName);
+		const args = ["launch", packageName];
+		if (locale) {
+			validateLocale(locale);
+			const locales = locale.split(",").map(l => l.trim());
+			args.push("-AppleLanguages", `(${locales.join(", ")})`);
+			args.push("-AppleLocale", locales[0]);
+		}
+
+		await this.ios(...args);
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {

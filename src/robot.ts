@@ -76,7 +76,7 @@ export interface Robot {
 	/**
 	 * Launch an app.
 	 */
-	launchApp(packageName: string): Promise<void>;
+	launchApp(packageName: string, locale?: string): Promise<void>;
 
 	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this
