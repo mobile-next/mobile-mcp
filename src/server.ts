@@ -194,7 +194,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_available_devices",
 		"List Devices",
-		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
+		"List all available devices. This includes both physical mobile devices and mobile simulators and emulators. It returns both Android and iOS devices.",
 		{},
 		{ readOnlyHint: true },
 		async ({}) => {
