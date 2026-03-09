@@ -407,8 +407,8 @@ export const createMcpServer = (): McpServer => {
 		"Click on the screen at given x,y coordinates. If clicking on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.number().describe("The x coordinate to click on the screen, in pixels"),
-			y: z.number().describe("The y coordinate to click on the screen, in pixels"),
+			x: z.coerce.number().describe("The x coordinate to click on the screen, in pixels"),
+			y: z.coerce.number().describe("The y coordinate to click on the screen, in pixels"),
 		},
 		{ destructiveHint: true },
 		async ({ device, x, y }) => {
@@ -424,8 +424,8 @@ export const createMcpServer = (): McpServer => {
 		"Double-tap on the screen at given x,y coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.number().describe("The x coordinate to double-tap, in pixels"),
-			y: z.number().describe("The y coordinate to double-tap, in pixels"),
+			x: z.coerce.number().describe("The x coordinate to double-tap, in pixels"),
+			y: z.coerce.number().describe("The y coordinate to double-tap, in pixels"),
 		},
 		{ destructiveHint: true },
 		async ({ device, x, y }) => {
@@ -441,9 +441,9 @@ export const createMcpServer = (): McpServer => {
 		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.number().describe("The x coordinate to long press on the screen, in pixels"),
-			y: z.number().describe("The y coordinate to long press on the screen, in pixels"),
-			duration: z.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
+			x: z.coerce.number().describe("The x coordinate to long press on the screen, in pixels"),
+			y: z.coerce.number().describe("The y coordinate to long press on the screen, in pixels"),
+			duration: z.coerce.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
 		},
 		{ destructiveHint: true },
 		async ({ device, x, y, duration }) => {
@@ -532,9 +532,9 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
-			x: z.number().optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			y: z.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			distance: z.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
+			x: z.coerce.number().optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			y: z.coerce.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			distance: z.coerce.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
 		{ destructiveHint: true },
 		async ({ device, direction, x, y, distance }) => {
@@ -695,7 +695,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			output: z.string().optional().describe("The file path to save the recording to. If not provided, a temporary path will be used."),
-			timeLimit: z.number().optional().describe("Maximum recording duration in seconds. The recording will stop automatically after this time."),
+			timeLimit: z.coerce.number().optional().describe("Maximum recording duration in seconds. The recording will stop automatically after this time."),
 		},
 		{ destructiveHint: true },
 		async ({ device, output, timeLimit }) => {
