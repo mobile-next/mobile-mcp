@@ -560,7 +560,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			text: z.string().describe("The text to type"),
-			submit: z.coerce.boolean().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
+			submit: z.boolean().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
 		},
 		{ destructiveHint: true },
 		async ({ device, text, submit }) => {
