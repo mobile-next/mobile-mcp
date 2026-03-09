@@ -1,3 +1,9 @@
+## [0.0.47](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.47) (2026-03-09)
+* Server: Use zod coerce to fix number parameter parsing ([#284](https://github.com/mobile-next/mobile-mcp/pull/284))
+* Server: Updated packages for security ([#285](https://github.com/mobile-next/mobile-mcp/pull/285))
+* iOS: Support locales when launching apps ([#283](https://github.com/mobile-next/mobile-mcp/pull/283))
+* Android: Support locales when launching apps ([#283](https://github.com/mobile-next/mobile-mcp/pull/283))
+
 ## [0.0.46](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.46) (2026-03-03)
 * Server: Improved tool description for listing devices, easier on prompting ([#282](https://github.com/mobile-next/mobile-mcp/pull/282))
 * iOS: Added support for screen recording for both real devices and simulators ([#282](https://github.com/mobile-next/mobile-mcp/pull/282))
