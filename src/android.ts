@@ -519,13 +519,17 @@ export class AndroidRobot implements Robot {
 export class AndroidDeviceManager {
 
 	private getDeviceType(name: string): AndroidDeviceType {
-		const device = new AndroidRobot(name);
-		const features = device.getSystemFeatures();
-		if (features.includes("android.software.leanback") || features.includes("android.hardware.type.television")) {
-			return "tv";
+		try {
+			const device = new AndroidRobot(name);
+			const features = device.getSystemFeatures();
+			if (features.includes("android.software.leanback") || features.includes("android.hardware.type.television")) {
+				return "tv";
+			}
+			return "mobile";
+		} catch (error) {
+			// Fallback to mobile if we cannot determine device type
+			return "mobile";
 		}
-
-		return "mobile";
 	}
 
 	private getDeviceVersion(deviceId: string): string {
