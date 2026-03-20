@@ -178,6 +178,11 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "text", text]);
 	}
 
+	public async clearActiveField(): Promise<void> {
+		await this.sendKeys("\u0001"); // select-all
+		await this.sendKeys("\u007f"); // delete
+	}
+
 	public async pressButton(button: Button): Promise<void> {
 		this.runCommand(["io", "button", button]);
 	}

@@ -20,6 +20,7 @@ interface UiAutomatorXmlNode {
 	hint?: string;
 	focused?: string;
 	checkable?: string;
+	clickable?: string;
 	"content-desc"?: string;
 	"resource-id"?: string;
 }
@@ -334,17 +335,29 @@ export class AndroidRobot implements Robot {
 			}
 		}
 
-		if (node.text || node["content-desc"] || node.hint || node["resource-id"] || node.checkable === "true") {
+		// Include nodes that carry meaningful identity (text, label, resource-id, etc.)
+		// AND nodes that are explicitly interactive (clickable="true") even when unlabeled.
+		// React Native Pressable / TouchableOpacity components often have no text or
+		// content-desc yet are the primary tap targets — without this they are invisible.
+		const hasIdentity = !!(node.text || node["content-desc"] || node.hint || node["resource-id"] || node.checkable === "true");
+		const isClickable = node.clickable === "true";
+
+		if (hasIdentity || isClickable) {
+			const rect = this.getScreenElementRect(node);
 			const element: ScreenElement = {
 				type: node.class || "text",
 				text: node.text,
 				label: node["content-desc"] || node.hint || "",
-				rect: this.getScreenElementRect(node),
+				rect,
 			};
 
 			if (node.focused === "true") {
 				// only provide it if it's true, otherwise don't confuse llm
 				element.focused = true;
+			}
+
+			if (isClickable) {
+				element.clickable = true;
 			}
 
 			const resourceId = node["resource-id"];
@@ -437,6 +450,12 @@ export class AndroidRobot implements Robot {
 		} else {
 			throw new ActionableError("Non-ASCII text is not supported on Android, please install mobilenext devicekit, see https://github.com/mobile-next/devicekit-android");
 		}
+	}
+
+	public async clearActiveField(): Promise<void> {
+		// Select all text then delete — works reliably across all Android IMEs
+		this.adb("shell", "input", "keyevent", "KEYCODE_CTRL_A");
+		this.adb("shell", "input", "keyevent", "KEYCODE_DEL");
 	}
 
 	public async pressButton(button: Button) {
