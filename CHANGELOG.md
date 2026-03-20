@@ -1,3 +1,7 @@
+## [0.0.48](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.48) (2026-03-20)
+* Server: Security updates for fast-xml-parser ([#292](https://github.com/mobile-next/mobile-mcp/pull/292))
+* Server: Fix handling errors in getDeviceType to prevent empty device list ([#286](https://github.com/mobile-next/mobile-mcp/pull/286)) thanks to [@ls-andy](https://github.com/ls-andy)
+
 ## [0.0.47](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.47) (2026-03-09)
 * Server: Use zod coerce to fix number parameter parsing ([#284](https://github.com/mobile-next/mobile-mcp/pull/284))
 * Server: Updated packages for security ([#285](https://github.com/mobile-next/mobile-mcp/pull/285))
