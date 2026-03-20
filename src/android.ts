@@ -452,6 +452,12 @@ export class AndroidRobot implements Robot {
 		}
 	}
 
+	public async clearActiveField(): Promise<void> {
+		// Select all text then delete — works reliably across all Android IMEs
+		this.adb("shell", "input", "keyevent", "KEYCODE_CTRL_A");
+		this.adb("shell", "input", "keyevent", "KEYCODE_DEL");
+	}
+
 	public async pressButton(button: Button) {
 		if (!BUTTON_MAP[button]) {
 			throw new ActionableError(`Button "${button}" is not supported`);

@@ -109,6 +109,11 @@ export interface Robot {
 	sendKeys(text: string): Promise<void>;
 
 	/**
+	 * Clear the text in the currently focused input field.
+	 */
+	clearActiveField(): Promise<void>;
+
+	/**
 	 * Press a button on the device, simulating a physical button press.
 	 */
 	pressButton(button: Button): Promise<void>;
