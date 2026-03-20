@@ -517,12 +517,18 @@ export const createMcpServer = (): McpServer => {
 			const elements = await robot.getElementsOnScreen();
 
 			const q = query.toLowerCase();
-			const match = elements.find(el =>
+			const matches = (el: any) =>
 				(el.text && el.text.toLowerCase().includes(q)) ||
 				(el.label && el.label.toLowerCase().includes(q)) ||
 				(el.name && el.name.toLowerCase().includes(q)) ||
-				(el.identifier && el.identifier.toLowerCase().includes(q))
-			);
+				(el.identifier && el.identifier.toLowerCase().includes(q));
+
+			// Prefer explicitly clickable elements so we don't accidentally tap
+			// non-interactive labels (e.g. a section header "REPORTS" before the
+			// tappable "Reports" row).
+			const match =
+				elements.find(el => el.clickable && matches(el)) ??
+				elements.find(el => matches(el));
 
 			if (!match) {
 				throw new ActionableError(
