@@ -479,6 +479,9 @@ export const createMcpServer = (): McpServer => {
 						y: element.rect.y,
 						width: element.rect.width,
 						height: element.rect.height,
+						// Center coordinates for direct use with mobile_click_on_screen_at_coordinates
+						centerX: Math.round(element.rect.x + element.rect.width / 2),
+						centerY: Math.round(element.rect.y + element.rect.height / 2),
 					},
 				};
 
@@ -486,10 +489,52 @@ export const createMcpServer = (): McpServer => {
 					out.focused = true;
 				}
 
+				if (element.clickable) {
+					out.clickable = true;
+				}
+
 				return out;
 			});
 
 			return `Found these elements on screen: ${JSON.stringify(result)}`;
+		}
+	);
+
+	tool(
+		"mobile_tap_element_by_text",
+		"Tap Element by Text or Label",
+		"Find a UI element by its visible text, accessibility label, or resource-id and tap its center. "
+		+ "Especially useful for React Native apps where Pressable/TouchableOpacity components may not appear as clickable in the accessibility tree. "
+		+ "Uses a case-insensitive substring match. Taps the first matching element. "
+		+ "Throws if no element matches.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			query: z.string().describe("Text, accessibility label, or resource-id to search for (case-insensitive substring match)."),
+		},
+		{ readOnlyHint: false },
+		async ({ device, query }) => {
+			const robot = getRobotFromDevice(device);
+			const elements = await robot.getElementsOnScreen();
+
+			const q = query.toLowerCase();
+			const match = elements.find(el =>
+				(el.text && el.text.toLowerCase().includes(q)) ||
+				(el.label && el.label.toLowerCase().includes(q)) ||
+				(el.name && el.name.toLowerCase().includes(q)) ||
+				(el.identifier && el.identifier.toLowerCase().includes(q))
+			);
+
+			if (!match) {
+				throw new ActionableError(
+					`No element found matching "${query}". Use mobile_list_elements_on_screen to see available elements.`
+				);
+			}
+
+			const centerX = Math.round(match.rect.x + match.rect.width / 2);
+			const centerY = Math.round(match.rect.y + match.rect.height / 2);
+			await robot.tap(centerX, centerY);
+
+			return `Tapped element "${match.text || match.label || match.identifier || query}" at center (${centerX}, ${centerY}).`;
 		}
 	);
 

@@ -34,6 +34,9 @@ export interface ScreenElement {
 
 	// currently only on android tv
 	focused?: boolean;
+
+	// explicitly interactive element (e.g. RN Pressable) that may have no text/label
+	clickable?: boolean;
 }
 
 export class ActionableError extends Error {
