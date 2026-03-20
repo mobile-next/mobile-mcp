@@ -33,7 +33,9 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
   </a>
 </h4>
 
-https://github.com/user-attachments/assets/c4e89c4f-cc71-4424-8184-bdbc8c638fa1
+
+https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
+
 
 <p align="center">
     <a href="https://github.com/mobile-next/">
