@@ -15,6 +15,9 @@ import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 
+const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
+const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
+
 interface MobilecliDevice {
 	id: string;
 	name: string;
@@ -581,10 +584,15 @@ export const createMcpServer = (): McpServer => {
 		"Save a screenshot of the mobile device to a file",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			saveTo: z.string().describe("The path to save the screenshot to"),
+			saveTo: z.string().describe("The path to save the screenshot to. Filename must end with .png, .jpg, or .jpeg"),
 		},
 		{ destructiveHint: true },
 		async ({ device, saveTo }) => {
+			const ext = path.extname(saveTo).toLowerCase();
+			if (!ALLOWED_SCREENSHOT_EXTENSIONS.includes(ext)) {
+				throw new Error(`save_screenshot requires a ${ALLOWED_SCREENSHOT_EXTENSIONS.join(", ")} file extension, got: "${ext || "(none)"}"`);
+			}
+
 			const robot = getRobotFromDevice(device);
 
 			const screenshot = await robot.getScreenshot();
@@ -694,11 +702,18 @@ export const createMcpServer = (): McpServer => {
 		"Start recording the screen of a mobile device. The recording runs in the background until stopped with mobile_stop_screen_recording. Returns the path where the recording will be saved.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			output: z.string().optional().describe("The file path to save the recording to. If not provided, a temporary path will be used."),
+			output: z.string().optional().describe("The file path to save the recording to. Filename must end with .mp4. If not provided, a temporary path will be used."),
 			timeLimit: z.coerce.number().optional().describe("Maximum recording duration in seconds. The recording will stop automatically after this time."),
 		},
 		{ destructiveHint: true },
 		async ({ device, output, timeLimit }) => {
+			if (output) {
+				const ext = path.extname(output).toLowerCase();
+				if (!ALLOWED_RECORDING_EXTENSIONS.includes(ext)) {
+					throw new Error(`start_screen_recording requires a ${ALLOWED_RECORDING_EXTENSIONS.join(", ")} file extension, got: "${ext || "(none)"}"`);
+				}
+			}
+
 			getRobotFromDevice(device);
 
 			if (activeRecordings.has(device)) {
