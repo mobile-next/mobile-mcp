@@ -50,6 +50,13 @@ function isPathUnderRoot(filePath: string, root: string): boolean {
 	return true;
 }
 
+export function validateFileExtension(filePath: string, allowedExtensions: string[], toolName: string): void {
+	const ext = path.extname(filePath).toLowerCase();
+	if (!allowedExtensions.includes(ext)) {
+		throw new ActionableError(`${toolName} requires a ${allowedExtensions.join(", ")} file extension, got: "${ext || "(none)"}"`);
+	}
+}
+
 export function validateOutputPath(filePath: string): void {
 	const resolved = path.resolve(filePath);
 	const allowedRoots = getAllowedRoots();
