@@ -1,3 +1,6 @@
+## [0.0.49](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.49) (2026-03-24)
+* Server: Fix path traversal in save screenshot and record video ([#296](https://github.com/mobile-next/mobile-mcp/pull/296)) thanks to [@AbhiTheModder](https://github.com/AbhiTheModder) for reporting this.
+
 ## [0.0.48](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.48) (2026-03-20)
 * Server: Security updates for fast-xml-parser ([#292](https://github.com/mobile-next/mobile-mcp/pull/292))
 * Server: Fix handling errors in getDeviceType to prevent empty device list ([#286](https://github.com/mobile-next/mobile-mcp/pull/286)) thanks to [@ls-andy](https://github.com/ls-andy)
