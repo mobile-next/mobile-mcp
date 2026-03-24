@@ -1,5 +1,6 @@
 import path from "node:path";
 import os from "node:os";
+import fs from "node:fs";
 import { ActionableError } from "./robot";
 
 export function validatePackageName(packageName: string): void {
@@ -20,14 +21,10 @@ function getAllowedRoots(): string[] {
 		process.cwd(),
 	];
 
+	// macOS /tmp is a symlink to /private/tmp, add both to be safe
 	if (process.platform === "darwin") {
 		roots.push("/tmp");
 		roots.push("/private/tmp");
-	}
-
-	if (process.platform === "win32") {
-		roots.push("C:\\Temp");
-		roots.push("C:\\Tmp");
 	}
 
 	return roots.map(r => path.resolve(r));
@@ -57,8 +54,20 @@ export function validateFileExtension(filePath: string, allowedExtensions: strin
 	}
 }
 
-export function validateOutputPath(filePath: string): void {
+function resolveWithSymlinks(filePath: string): string {
 	const resolved = path.resolve(filePath);
+	const dir = path.dirname(resolved);
+	const filename = path.basename(resolved);
+
+	try {
+		return path.join(fs.realpathSync(dir), filename);
+	} catch {
+		return resolved;
+	}
+}
+
+export function validateOutputPath(filePath: string): void {
+	const resolved = resolveWithSymlinks(filePath);
 	const allowedRoots = getAllowedRoots();
 	const isWindows = process.platform === "win32";
 
