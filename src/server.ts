@@ -14,6 +14,7 @@ import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
+import { validateOutputPath } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
@@ -593,6 +594,8 @@ export const createMcpServer = (): McpServer => {
 				throw new Error(`save_screenshot requires a ${ALLOWED_SCREENSHOT_EXTENSIONS.join(", ")} file extension, got: "${ext || "(none)"}"`);
 			}
 
+			validateOutputPath(saveTo);
+
 			const robot = getRobotFromDevice(device);
 
 			const screenshot = await robot.getScreenshot();
@@ -712,6 +715,8 @@ export const createMcpServer = (): McpServer => {
 				if (!ALLOWED_RECORDING_EXTENSIONS.includes(ext)) {
 					throw new Error(`start_screen_recording requires a ${ALLOWED_RECORDING_EXTENSIONS.join(", ")} file extension, got: "${ext || "(none)"}"`);
 				}
+
+				validateOutputPath(output);
 			}
 
 			getRobotFromDevice(device);
