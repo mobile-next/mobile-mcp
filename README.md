@@ -7,24 +7,15 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
   <a href="https://github.com/mobile-next/mobile-mcp">
     <img src="https://img.shields.io/github/stars/mobile-next/mobile-mcp" alt="Mobile Next Stars" />
   </a>
-  <a href="https://github.com/mobile-next/mobile-mcp">
-    <img src="https://img.shields.io/github/contributors/mobile-next/mobile-mcp?color=green" alt="Mobile Next Downloads" />
-  </a>
   <a href="https://www.npmjs.com/package/@mobilenext/mobile-mcp">
     <img src="https://img.shields.io/npm/dm/@mobilenext/mobile-mcp?logo=npm&style=flat&color=red" alt="npm" />
   </a>
   <a href="https://github.com/mobile-next/mobile-mcp/releases">
     <img src="https://img.shields.io/github/release/mobile-next/mobile-mcp" />
   </a>
-  <a href="https://github.com/mobile-next/mobile-mcp/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-Apache 2.0-blue.svg" alt="Mobile MCP is released under the Apache-2.0 License" />
-  </a>
   <a href="https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%7B%22name%22%3A%22mobile-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40mobilenext%2Fmobile-mcp%40latest%22%5D%7D">
     <img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF" alt="Install in VS Code" />
   </a>
-</h4>
-
-<h4 align="center">
   <a href="https://github.com/mobile-next/mobile-mcp/wiki">
     <img src="https://img.shields.io/badge/documentation-wiki-blue" alt="wiki" />
   </a>
