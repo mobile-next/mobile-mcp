@@ -523,6 +523,11 @@ export const createMcpServer = (): McpServer => {
 		},
 		{ destructiveHint: true },
 		async ({ device, url }) => {
+			const allowUnsafeUrls = process.env.MOBILEMCP_ALLOW_UNSAFE_URLS === "1";
+			if (!allowUnsafeUrls && !url.startsWith("http://") && !url.startsWith("https://")) {
+				throw new Error("Only http:// and https:// URLs are allowed. Set MOBILEMCP_ALLOW_UNSAFE_URLS=1 to allow other URL schemes.");
+			}
+
 			const robot = getRobotFromDevice(device);
 			await robot.openUrl(url);
 			return `Opened URL: ${url}`;
