@@ -1,3 +1,6 @@
+## [0.0.50](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.50) (2026-03-27)
+* Server: Restrict open_url tool to http/https schemes unless `MOBILEMCP_ALLOW_UNSAFE_URLS=1` is set ([#299](https://github.com/mobile-next/mobile-mcp/pull/299)) thanks to [@manthanghasadiya](https://github.com/manthanghasadiya) for reporting this.
+
 ## [0.0.49](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.49) (2026-03-24)
 * Server: Fix path traversal in save screenshot and record video ([#296](https://github.com/mobile-next/mobile-mcp/pull/296)) thanks to [@AbhiTheModder](https://github.com/AbhiTheModder) for reporting this.
 
