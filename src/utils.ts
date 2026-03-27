@@ -66,7 +66,7 @@ function resolveWithSymlinks(filePath: string): string {
 	}
 }
 
-export function validateOutputPath(filePath: string): void {
+function validatePathAgainstAllowedRoots(filePath: string, label: string): void {
 	const resolved = resolveWithSymlinks(filePath);
 	const allowedRoots = getAllowedRoots();
 	const isWindows = process.platform === "win32";
@@ -85,4 +85,12 @@ export function validateOutputPath(filePath: string): void {
 			`"${dir}" is not in the list of allowed directories. Allowed directories include the current directory and the temp directory on this host.`
 		);
 	}
+}
+
+export function validateOutputPath(filePath: string): void {
+	validatePathAgainstAllowedRoots(filePath, "output");
+}
+
+export function validateInputPath(filePath: string): void {
+	validatePathAgainstAllowedRoots(filePath, "input");
 }

@@ -14,10 +14,11 @@ import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension } from "./utils";
+import { validateOutputPath, validateInputPath, validateFileExtension } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
+const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 
 interface MobilecliDevice {
 	id: string;
@@ -368,6 +369,8 @@ export const createMcpServer = (): McpServer => {
 		},
 		{ destructiveHint: true },
 		async ({ device, path }) => {
+			validateFileExtension(path, ALLOWED_APP_EXTENSIONS, "install_app");
+			validateInputPath(path);
 			const robot = getRobotFromDevice(device);
 			await robot.installApp(path);
 			return `Installed app from ${path}`;
