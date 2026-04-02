@@ -69,16 +69,22 @@ const main = async () => {
 	const options = program.opts();
 
 	if (options.listen) {
-		const listen = options.listen as string;
+		const listen = (options.listen as string).trim();
 		const lastColon = listen.lastIndexOf(":");
 		let host = "localhost";
-		let port: number;
+		let rawPort: string;
 
 		if (lastColon > 0) {
 			host = listen.substring(0, lastColon);
-			port = +listen.substring(lastColon + 1);
+			rawPort = listen.substring(lastColon + 1);
 		} else {
-			port = +listen;
+			rawPort = listen;
+		}
+
+		const port = Number.parseInt(rawPort, 10);
+		if (!host || !rawPort || !Number.isInteger(port) || port < 1 || port > 65535) {
+			error(`Invalid --listen value "${listen}". Expected [host:]port with port 1-65535.`);
+			process.exit(1);
 		}
 
 		await startSseServer(host, port);
