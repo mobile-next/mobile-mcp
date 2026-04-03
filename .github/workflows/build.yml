@@ -54,7 +54,7 @@ jobs:
     - name: Publish
       if: github.ref_type == 'tag'
       run: |
-	npm publish --access public --provenance
+        npm publish --access public --provenance
 
     - name: Publish on github mcp registry
       if: github.ref_type == 'tag'
