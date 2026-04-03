@@ -104,6 +104,10 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const posthog = async (event: string, properties: Record<string, string | number>) => {
+		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+			return;
+		}
+
 		try {
 			const url = "https://us.i.posthog.com/i/v0/e/";
 			const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";

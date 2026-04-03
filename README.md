@@ -350,6 +350,31 @@ Or add the standard config under `mcpServers` in your settings as shown above.
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
+### SSE Server Mode
+
+By default, Mobile MCP runs over stdio. To start an SSE server instead, use the `--listen` flag:
+
+```bash
+npx @mobilenext/mobile-mcp@latest --listen 3000
+```
+
+This binds to `localhost:3000`. To bind to a specific interface:
+
+```bash
+npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
+```
+
+Then configure your MCP client to connect to `http://<host>:3000/mcp`.
+
+#### Authorization
+
+To require Bearer token authorization on the SSE server, set the `MOBILEMCP_AUTH` environment variable:
+
+```bash
+MOBILEMCP_AUTH=my-secret-token npx @mobilenext/mobile-mcp@latest --listen 3000
+```
+
+When set, all requests must include the header `Authorization: Bearer my-secret-token`.
 
 ### 🛠️ How to Use 📝
 
@@ -434,6 +459,30 @@ When launched, Mobile MCP can connect to:
 - iOS or Android real devices (requires proper platform tools and drivers)
 
 Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and configured properly before running Mobile Next Mobile MCP.
+
+### Telemetry
+
+Mobile MCP collects anonymous usage telemetry via PostHog. To disable it, set the `MOBILEMCP_DISABLE_TELEMETRY` environment variable:
+
+```bash
+MOBILEMCP_DISABLE_TELEMETRY=1 npx @mobilenext/mobile-mcp@latest
+```
+
+For json configurations:
+
+```json
+{
+  "mcpServers": {
+    "mobile-mcp": {
+      "command": "npx",
+      "args": ["-y", "@mobilenext/mobile-mcp@latest"],
+      "env": {
+        "MOBILEMCP_DISABLE_TELEMETRY": "1"
+      }
+    }
+  }
+}
+```
 
 ### Running in "headless" mode on Simulators/Emulators
 
