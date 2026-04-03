@@ -33,7 +33,7 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm install
+      run: npm install --ignore-scripts
 
     - name: Audit
       run: npm audit --audit-level high --omit dev
@@ -53,11 +53,8 @@ jobs:
 
     - name: Publish
       if: github.ref_type == 'tag'
-      env:
-        NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
       run: |
-        echo "//registry.npmjs.org/:_authToken=$NPM_AUTH_TOKEN" >> ~/.npmrc
-        npm publish
+	npm publish --access public --provenance
 
     - name: Publish on github mcp registry
       if: github.ref_type == 'tag'
@@ -70,3 +67,4 @@ jobs:
         sed -i "s/{{VERSION}}/${{ github.ref_name }}/g" server.json
         mcp-publisher publish
         mcp-publisher logout
+
