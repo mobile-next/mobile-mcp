@@ -141,6 +141,15 @@ export class MobileDevice implements Robot {
 		return this.mobilecli.executeCommandBuffer(fullArgs);
 	}
 
+	public async getElementsOnScreen(): Promise<ScreenElement[]> {
+		const response = JSON.parse(this.runCommand(["ui", "dump"])) as DumpUIResponse;
+		return response.data.elements;
+	}
+
+	public async getPageSource(): Promise<string> {
+		return this.runCommand(["ui", "dump"]);
+	}
+
 	public async listApps(): Promise<InstalledApp[]> {
 		const response = JSON.parse(this.runCommand(["apps", "list"])) as InstalledAppsResponse;
 		return response.data.map(app => ({
@@ -151,71 +160,4 @@ export class MobileDevice implements Robot {
 
 	public async launchApp(packageName: string, locale?: string): Promise<void> {
 		const args = ["apps", "launch", packageName];
-		if (locale) {
-			args.push("--locale", locale);
-		}
-
-		this.runCommand(args);
-	}
-
-	public async terminateApp(packageName: string): Promise<void> {
-		this.runCommand(["apps", "terminate", packageName]);
-	}
-
-	public async installApp(path: string): Promise<void> {
-		this.runCommand(["apps", "install", path]);
-	}
-
-	public async uninstallApp(bundleId: string): Promise<void> {
-		this.runCommand(["apps", "uninstall", bundleId]);
-	}
-
-	public async openUrl(url: string): Promise<void> {
-		this.runCommand(["url", url]);
-	}
-
-	public async sendKeys(text: string): Promise<void> {
-		this.runCommand(["io", "text", text]);
-	}
-
-	public async pressButton(button: Button): Promise<void> {
-		this.runCommand(["io", "button", button]);
-	}
-
-	public async tap(x: number, y: number): Promise<void> {
-		this.runCommand(["io", "tap", `${x},${y}`]);
-	}
-
-	public async doubleTap(x: number, y: number): Promise<void> {
-		// TODO: should move into mobilecli itself as "io doubletap"
-		await this.tap(x, y);
-		await this.tap(x, y);
-	}
-
-	public async longPress(x: number, y: number, duration: number): Promise<void> {
-		this.runCommand(["io", "longpress", `${x},${y}`, "--duration", `${duration}`]);
-	}
-
-	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
-		return response.data.elements.map(element => ({
-			type: element.type,
-			label: element.label,
-			text: element.text,
-			name: element.name,
-			value: element.value,
-			identifier: element.identifier,
-			rect: element.rect,
-			focused: element.focused,
-		}));
-	}
-
-	public async setOrientation(orientation: Orientation): Promise<void> {
-		this.runCommand(["device", "orientation", "set", orientation]);
-	}
-
-	public async getOrientation(): Promise<Orientation> {
-		const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
-		return response.data.orientation;
-	}
-}
+		if (locale

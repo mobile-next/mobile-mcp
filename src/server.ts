@@ -502,6 +502,24 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_get_page_source",
+		"Get Page Source",
+		"Get the raw UI hierarchy of the current screen as a JSON string. This is useful for understanding the structure of the UI.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+		},
+		{ readOnlyHint: true },
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			if ("getPageSource" in robot && typeof (robot as any).getPageSource === "function") {
+				const source = await (robot as any).getPageSource();
+				return source;
+			}
+			throw new ActionableError("Getting page source is not supported for this device type.");
+		}
+	);
+
+	tool(
 		"mobile_press_button",
 		"Press Button",
 		"Press a button on device",
