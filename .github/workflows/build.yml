@@ -15,6 +15,10 @@ on:
 
 jobs:
   build:
+    permissions:
+      id-token: write  # Required for npm trusted publishing with OIDC
+      contents: write
+
     runs-on: ubuntu-latest
 
     steps:
@@ -31,7 +35,6 @@ jobs:
       with:
         node-version: '22'
         cache: 'npm'
-        registry-url: 'https://registry.npmjs.org'
 
     - name: Install dependencies
       run: npm install --ignore-scripts
