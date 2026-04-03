@@ -1,3 +1,8 @@
+## [0.0.51](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.51) (2026-04-03)
+* Server: Replace `--port` with `--listen` flag accepting `[host:]port` format, default to localhost; add optional Bearer token auth via `MOBILEMCP_AUTH` env variable ([#306](https://github.com/mobile-next/mobile-mcp/pull/306))
+* Server: Add `MOBILEMCP_DISABLE_TELEMETRY` env variable to opt out of anonymous telemetry ([#305](https://github.com/mobile-next/mobile-mcp/pull/305))
+* Server: Security update for path-to-regexp package ([#307](https://github.com/mobile-next/mobile-mcp/pull/307))
+
 ## [0.0.50](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.50) (2026-03-27)
 * Server: Restrict open_url tool to http/https schemes unless `MOBILEMCP_ALLOW_UNSAFE_URLS=1` is set ([#299](https://github.com/mobile-next/mobile-mcp/pull/299)) thanks to [@manthanghasadiya](https://github.com/manthanghasadiya) for reporting this.
 
