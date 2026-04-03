@@ -460,6 +460,30 @@ When launched, Mobile MCP can connect to:
 
 Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and configured properly before running Mobile Next Mobile MCP.
 
+### Telemetry
+
+Mobile MCP collects anonymous usage telemetry via PostHog. To disable it, set the `MOBILEMCP_DISABLE_TELEMETRY` environment variable:
+
+```bash
+MOBILEMCP_DISABLE_TELEMETRY=1 npx @mobilenext/mobile-mcp@latest
+```
+
+For json configurations:
+
+```json
+{
+  "mcpServers": {
+    "mobile-mcp": {
+      "command": "npx",
+      "args": ["-y", "@mobilenext/mobile-mcp@latest"],
+      "env": {
+        "MOBILEMCP_DISABLE_TELEMETRY": "1"
+      }
+    }
+  }
+}
+```
+
 ### Running in "headless" mode on Simulators/Emulators
 
 When you do not have a real device connected to your machine, you can run Mobile MCP with an emulator or simulator in the background.
