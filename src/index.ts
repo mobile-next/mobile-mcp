@@ -11,6 +11,10 @@ const startSseServer = async (host: string, port: number) => {
 	const server = createMcpServer();
 
 	const authToken = process.env.MOBILEMCP_AUTH;
+	if (!authToken) {
+		error("WARNING: MOBILEMCP_AUTH is not set. The SSE server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
+	}
+
 	if (authToken) {
 		app.use((req, res, next) => {
 			if (req.headers.authorization !== `Bearer ${authToken}`) {
@@ -22,6 +26,21 @@ const startSseServer = async (host: string, port: number) => {
 		});
 	}
 
+	// Block cross-origin requests — MCP clients are not browsers
+	app.use((req, res, next) => {
+		if (req.headers.origin) {
+			res.status(403).json({ error: "Cross-origin requests are not allowed" });
+			return;
+		}
+
+		if (req.method === "OPTIONS") {
+			res.status(403).end();
+			return;
+		}
+
+		next();
+	});
+
 	let transport: SSEServerTransport | null = null;
 
 	app.post("/mcp", (req, res) => {
@@ -32,10 +51,16 @@ const startSseServer = async (host: string, port: number) => {
 
 	app.get("/mcp", (req, res) => {
 		if (transport) {
-			transport.close();
+			res.status(409).json({ error: "Another client is already connected. Disconnect the existing client first." });
+			return;
 		}
 
 		transport = new SSEServerTransport("/mcp", res);
+
+		transport.onclose = () => {
+			transport = null;
+		};
+
 		server.connect(transport);
 	});
 
