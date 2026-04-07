@@ -520,9 +520,36 @@ export class AndroidRobot implements Robot {
 		return this.getDexHierarchyDump();
 	}
 
+	private ensureDexOnDevice(): void {
+		// Check if DEX already exists on device
+		try {
+			const check = this.adb("shell", "test", "-f", "/data/local/tmp/hierarchy-dumper.dex", "&&", "echo", "OK").toString().trim();
+			if (check === "OK") {
+				return;
+			}
+		} catch {
+			// file doesn't exist, push it
+		}
+
+		// Find the bundled DEX file relative to this module
+		const assetPath = path.resolve(__dirname, "..", "assets", "hierarchy-dumper.dex");
+		if (!existsSync(assetPath)) {
+			throw new ActionableError(
+				"hierarchy-dumper.dex not found in mobile-mcp assets. Reinstall mobile-mcp or manually push the DEX to /data/local/tmp/hierarchy-dumper.dex"
+			);
+		}
+
+		// Push to device
+		execFileSync(getAdbPath(), ["-s", this.deviceId, "push", assetPath, "/data/local/tmp/hierarchy-dumper.dex"], {
+			timeout: TIMEOUT,
+		});
+	}
+
 	private getDexHierarchyDump(): string {
 		const dexPath = "/data/local/tmp/hierarchy-dumper.dex";
 		const outPath = "/data/local/tmp/mobile-mcp-dump.xml";
+
+		this.ensureDexOnDevice();
 
 		try {
 			this.adb("shell", `CLASSPATH=${dexPath} app_process / HierarchyDumper ${outPath}`);
@@ -533,12 +560,12 @@ export class AndroidRobot implements Robot {
 				const check = this.adb("shell", "test", "-f", outPath, "&&", "echo", "OK").toString().trim();
 				if (check !== "OK") {
 					throw new ActionableError(
-						`DEX hierarchy dumper failed. Ensure hierarchy-dumper.dex is pushed to ${dexPath} on the device. Error: ${error.message}`
+						`DEX hierarchy dumper failed: ${error.message}`
 					);
 				}
 			} catch {
 				throw new ActionableError(
-					`DEX hierarchy dumper failed. Ensure hierarchy-dumper.dex is pushed to ${dexPath} on the device. Error: ${error.message}`
+					`DEX hierarchy dumper failed: ${error.message}`
 				);
 			}
 		}
