@@ -409,20 +409,45 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	const getInteractiveElements = async (robot: Robot) => {
+		const elements = await robot.getElementsOnScreen();
+		const interactive: Array<{ index: number; element: typeof elements[0]; cx: number; cy: number; label: string }> = [];
+		let globalIdx = 0;
+
+		elements.forEach(element => {
+			const type = (element.type || "").toLowerCase();
+			const isInput = type.includes("edittext") || type.includes("textfield") || type.includes("input") || element.password || element.editable;
+			const isButton = type.includes("button") || type.includes("imageview") || element.clickable;
+			if (isInput || isButton) {
+				globalIdx++;
+				const cx = Math.round(element.rect.x + element.rect.width / 2);
+				const cy = Math.round(element.rect.y + element.rect.height / 2);
+				const label = element.text || element.label || element.name || "";
+				interactive.push({ index: globalIdx, element, cx, cy, label });
+			}
+		});
+
+		return { elements, interactive };
+	};
+
 	tool(
-		"mobile_click_on_screen_at_coordinates",
-		"Click Screen",
-		"Click on the screen at given x,y coordinates. If clicking on an element, use the list_elements_on_screen tool to find the coordinates.",
+		"mobile_tap_element",
+		"Tap Element",
+		"Tap an interactive element by its number from mobile_list_elements_on_screen. Performs a fresh UI dump to get the current coordinates, so keyboard/modal shifts are handled automatically.",
 		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.coerce.number().describe("The x coordinate to click on the screen, in pixels"),
-			y: z.coerce.number().describe("The y coordinate to click on the screen, in pixels"),
+			device: z.string().describe("The device identifier to use."),
+			number: z.coerce.number().describe("The element number from mobile_list_elements_on_screen output (e.g. 3 for [#3])"),
 		},
 		{ destructiveHint: true },
-		async ({ device, x, y }) => {
+		async ({ device, number }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.tap(x, y);
-			return `Clicked on screen at coordinates: ${x}, ${y}`;
+			const { interactive } = await getInteractiveElements(robot);
+			const target = interactive.find(e => e.index === number);
+			if (!target) {
+				return `Element #${number} not found. There are ${interactive.length} interactive elements on screen. Use mobile_list_elements_on_screen to see them.`;
+			}
+			await robot.tap(target.cx, target.cy);
+			return `Tapped #${number} "${target.label}" at (${target.cx}, ${target.cy})`;
 		}
 	);
 
@@ -483,65 +508,24 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"mobile_double_tap_on_screen",
-		"Double Tap Screen",
-		"Double-tap on the screen at given x,y coordinates.",
-		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.coerce.number().describe("The x coordinate to double-tap, in pixels"),
-			y: z.coerce.number().describe("The y coordinate to double-tap, in pixels"),
-		},
-		{ destructiveHint: true },
-		async ({ device, x, y }) => {
-			const robot = getRobotFromDevice(device);
-			await robot!.doubleTap(x, y);
-			return `Double-tapped on screen at coordinates: ${x}, ${y}`;
-		}
-	);
-
-	tool(
-		"mobile_long_press_on_screen_at_coordinates",
-		"Long Press Screen",
-		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
-		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.coerce.number().describe("The x coordinate to long press on the screen, in pixels"),
-			y: z.coerce.number().describe("The y coordinate to long press on the screen, in pixels"),
-			duration: z.coerce.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
-		},
-		{ destructiveHint: true },
-		async ({ device, x, y, duration }) => {
-			const robot = getRobotFromDevice(device);
-			const pressDuration = duration ?? 500;
-			await robot.longPress(x, y, pressDuration);
-			return `Long pressed on screen at coordinates: ${x}, ${y} for ${pressDuration}ms`;
-		}
-	);
-
-	tool(
 		"mobile_list_elements_on_screen",
 		"List Screen Elements",
-		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
+		"List elements on screen. Interactive elements (buttons, inputs) get a [#N] number usable with mobile_tap_element. Do not cache this result.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
 		{ readOnlyHint: true },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
-			const elements = await robot.getElementsOnScreen();
+			const { elements, interactive } = await getInteractiveElements(robot);
 
-			// Categorize elements for LLM-friendly structured output
-			const texts: string[] = [];
-			const buttons: string[] = [];
-			const inputs: string[] = [];
-			const scrollables: string[] = [];
-			let idx_t = 0, idx_b = 0, idx_i = 0, idx_s = 0;
+			const lines: string[] = [];
+			const textOnly: string[] = [];
+			let globalIdx = 0;
 
 			elements.forEach(element => {
 				const cx = Math.round(element.rect.x + element.rect.width / 2);
 				const cy = Math.round(element.rect.y + element.rect.height / 2);
-				const w = element.rect.width;
-				const h = element.rect.height;
 				const displayText = element.text || element.label || element.name || "";
 				const type = (element.type || "").toLowerCase();
 
@@ -549,29 +533,23 @@ export const createMcpServer = (): McpServer => {
 				const isScrollable = type.includes("scroll") || type.includes("recycler") || type.includes("listview") || element.scrollable;
 				const isButton = type.includes("button") || type.includes("imageview") || element.clickable;
 
-				if (isInput) {
-					idx_i++;
+				if (isInput || isButton) {
+					globalIdx++;
+					const tag = isInput ? "INPUT" : "BUTTON";
 					const pwdTag = element.password ? " [PASSWORD]" : "";
-					const focusTag = element.focused ? " ** FOCUSED" : "";
-					inputs.push(`  ${idx_i}. Value: "${element.value || "Empty"}" | Hint: "${displayText}" at center (${cx}, ${cy}) [size ${w}x${h}]${pwdTag}${focusTag}${element.identifier ? "\n     ID: " + element.identifier : ""}`);
-				} else if (isScrollable) {
-					idx_s++;
-					scrollables.push(`  ${idx_s}. "${displayText || "Scrollable area"}" at center (${cx}, ${cy}) [size ${w}x${h}]`);
-				} else if (isButton && !isInput && !isScrollable) {
-					idx_b++;
-					buttons.push(`  ${idx_b}. "${displayText || "Unlabeled button"}" at center (${cx}, ${cy}) [size ${w}x${h}]${element.identifier ? "\n     ID: " + element.identifier : ""}\n     CLASS: ${element.type || "unknown"}${element.focused ? "\n     ** FOCUSED" : ""}`);
-				} else if (displayText) {
-					idx_t++;
-					texts.push(`  ${idx_t}. "${displayText}" at center (${cx}, ${cy}) [size ${w}x${h}]${element.identifier ? "\n     ID: " + element.identifier : ""}`);
+					const focusTag = element.focused ? " *FOCUSED*" : "";
+					const valueTag = isInput ? ` value="${element.value || ""}"` : "";
+					lines.push(`  [#${globalIdx}] ${tag}: "${displayText || "Unlabeled"}" (${cx},${cy})${valueTag}${pwdTag}${focusTag}`);
+				} else if (!isScrollable && displayText) {
+					textOnly.push(`  "${displayText}" (${cx},${cy})`);
 				}
 			});
 
-			let output = "=== UI ELEMENTS ANALYSIS ===\n\n";
-			output += `TEXTS:\n${texts.length ? texts.join("\n") : "  (none)"}\n\n`;
-			output += `BUTTONS/CLICKABLES:\n${buttons.length ? buttons.join("\n") : "  (none)"}\n\n`;
-			output += `INPUT FIELDS:\n${inputs.length ? inputs.join("\n") : "  (none)"}\n\n`;
-			output += `SCROLLABLE AREAS:\n${scrollables.length ? scrollables.join("\n") : "  (none)"}\n\n`;
-			output += `SUMMARY: ${elements.length} total elements (${idx_t} texts, ${idx_b} buttons, ${idx_i} inputs, ${idx_s} scrollables)`;
+			let output = `INTERACTIVE ELEMENTS (use number with mobile_tap_element):\n`;
+			output += lines.length ? lines.join("\n") : "  (none)";
+			output += `\n\nSTATIC TEXTS:\n`;
+			output += textOnly.length ? textOnly.join("\n") : "  (none)";
+			output += `\n\n${interactive.length} tappable, ${textOnly.length} static`;
 			return output;
 		}
 	);
