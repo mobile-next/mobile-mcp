@@ -438,13 +438,42 @@ export const createMcpServer = (): McpServer => {
 	const findElementByTarget = (elements: Awaited<ReturnType<Robot["getElementsOnScreen"]>>, target: string) => {
 		// Parse "Text@N" format — e.g. "Confirm@2" means 2nd element matching "Confirm"
 		const atMatch = target.match(/^(.+)@(\d+)$/);
-		const searchText = atMatch ? atMatch[1] : target;
+		let searchText = atMatch ? atMatch[1] : target;
 		const matchIndex = atMatch ? parseInt(atMatch[2], 10) : 1;
 
+		// Parse optional type prefix: "INPUT:amount", "BUTTON:Confirm", "TEXT:Bridge"
+		let typeFilter: string | null = null;
+		const colonMatch = searchText.match(/^(INPUT|BUTTON|TEXT):(.+)$/i);
+		if (colonMatch) {
+			typeFilter = colonMatch[1].toUpperCase();
+			searchText = colonMatch[2];
+		}
+
+		const getTag = (element: typeof elements[0]) => {
+			const t = (element.type || "").toLowerCase();
+			const isInput = t.includes("edittext") || t.includes("textfield") || t.includes("input") || element.password || element.editable;
+			const isButton = t.includes("button") || t.includes("imageview") || element.clickable;
+			if (isInput) {
+				return "INPUT";
+			}
+			if (isButton) {
+				return "BUTTON";
+			}
+			return "TEXT";
+		};
+
+		const matchElement = (element: typeof elements[0], label: string) => {
+			if (typeFilter && getTag(element) !== typeFilter) {
+				return false;
+			}
+			return true;
+		};
+
+		// Pass 1: exact match (case-insensitive)
 		let found = 0;
 		for (const element of elements) {
 			const label = element.text || element.label || element.name || "";
-			if (label.toLowerCase().includes(searchText.toLowerCase())) {
+			if (label.toLowerCase() === searchText.toLowerCase() && matchElement(element, label)) {
 				found++;
 				if (found === matchIndex) {
 					const cx = Math.round(element.rect.x + element.rect.width / 2);
@@ -453,6 +482,21 @@ export const createMcpServer = (): McpServer => {
 				}
 			}
 		}
+
+		// Pass 2: partial match (contains, case-insensitive)
+		found = 0;
+		for (const element of elements) {
+			const label = element.text || element.label || element.name || "";
+			if (label.toLowerCase().includes(searchText.toLowerCase()) && matchElement(element, label)) {
+				found++;
+				if (found === matchIndex) {
+					const cx = Math.round(element.rect.x + element.rect.width / 2);
+					const cy = Math.round(element.rect.y + element.rect.height / 2);
+					return { cx, cy, label };
+				}
+			}
+		}
+
 		return null;
 	};
 
