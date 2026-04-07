@@ -240,12 +240,12 @@ export class WebDriverAgent {
 	private filterSourceElements(source: SourceTreeElement): Array<ScreenElement> {
 		const output: ScreenElement[] = [];
 
-		const acceptedTypes = ["TextField", "Button", "Switch", "Icon", "SearchField", "StaticText", "Image"];
+		const acceptedTypes = ["TextField", "SecureTextField", "Button", "Switch", "Icon", "SearchField", "StaticText", "Image", "ScrollView", "Table", "CollectionView"];
 
 		if (acceptedTypes.includes(source.type)) {
 			if (source.isVisible === "1" && this.isVisible(source.rect)) {
-				if (source.label !== null || source.name !== null || source.rawIdentifier !== null) {
-					output.push({
+				if (source.label !== null || source.name !== null || source.rawIdentifier !== null || source.type === "SecureTextField" || source.type === "TextField") {
+					const element: ScreenElement = {
 						type: source.type,
 						label: source.label,
 						name: source.name,
@@ -257,7 +257,20 @@ export class WebDriverAgent {
 							width: source.rect.width,
 							height: source.rect.height,
 						},
-					});
+					};
+					if (source.type === "SecureTextField") {
+						element.password = true;
+					}
+					if (source.type === "TextField" || source.type === "SecureTextField" || source.type === "SearchField") {
+						element.editable = true;
+					}
+					if (source.type === "ScrollView" || source.type === "Table" || source.type === "CollectionView") {
+						element.scrollable = true;
+					}
+					if (source.type === "Button" || source.type === "Switch") {
+						element.clickable = true;
+					}
+					output.push(element);
 				}
 			}
 		}
