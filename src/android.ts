@@ -496,20 +496,59 @@ export class AndroidRobot implements Robot {
 	}
 
 	private async getUiAutomatorDump(): Promise<string> {
-		for (let tries = 0; tries < 10; tries++) {
-			const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();
-			// note: we're not catching other errors here. maybe we should check for <?xml
-			if (dump.includes("null root node returned by UiTestAutomationBridge")) {
-				// uncomment for debugging
-				// const screenshot = await this.getScreenshot();
-				// console.error("Failed to get UIAutomator XML. Here's a screenshot: " + screenshot.toString("base64"));
+		for (let tries = 0; tries < 3; tries++) {
+			try {
+				const dump = this.adb("exec-out", "uiautomator", "dump", "/dev/tty").toString();
+				if (dump.includes("null root node returned by UiTestAutomationBridge")) {
+					continue;
+				}
+				if (dump.includes("could not get idle state")) {
+					// React Native / animated apps block uiautomator idle detection — fall through to DEX
+					break;
+				}
+				const xmlStart = dump.indexOf("<?xml");
+				if (xmlStart >= 0) {
+					return dump.substring(xmlStart);
+				}
+			} catch {
+				// uiautomator command failed — try again or fall through to DEX
 				continue;
 			}
-
-			return dump.substring(dump.indexOf("<?xml"));
 		}
 
-		throw new ActionableError("Failed to get UIAutomator XML");
+		// Fallback: DEX hierarchy dumper bypasses idle check via UiAutomation.getRootInActiveWindow()
+		return this.getDexHierarchyDump();
+	}
+
+	private getDexHierarchyDump(): string {
+		const dexPath = "/data/local/tmp/hierarchy-dumper.dex";
+		const outPath = "/data/local/tmp/mobile-mcp-dump.xml";
+
+		try {
+			this.adb("shell", `CLASSPATH=${dexPath} app_process / HierarchyDumper ${outPath}`);
+		} catch (error: any) {
+			// app_process writes to stderr even on success (ServiceManager fallback messages)
+			// Check if the output file was created despite the "error"
+			try {
+				const check = this.adb("shell", "test", "-f", outPath, "&&", "echo", "OK").toString().trim();
+				if (check !== "OK") {
+					throw new ActionableError(
+						`DEX hierarchy dumper failed. Ensure hierarchy-dumper.dex is pushed to ${dexPath} on the device. Error: ${error.message}`
+					);
+				}
+			} catch {
+				throw new ActionableError(
+					`DEX hierarchy dumper failed. Ensure hierarchy-dumper.dex is pushed to ${dexPath} on the device. Error: ${error.message}`
+				);
+			}
+		}
+
+		const xml = this.adb("shell", "cat", outPath).toString();
+		const xmlStart = xml.indexOf("<?xml");
+		if (xmlStart < 0) {
+			throw new ActionableError("DEX hierarchy dumper produced no valid XML output");
+		}
+		return xml.substring(xmlStart);
 	}
 
 	private async getUiAutomatorXml(): Promise<UiAutomatorXml> {

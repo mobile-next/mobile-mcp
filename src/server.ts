@@ -427,6 +427,32 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_batch_taps",
+		"Batch Taps",
+		"Execute multiple taps in rapid sequence with optional delays between them. Much faster than individual click calls. Each tap is an object with x, y coordinates and an optional delayAfter in milliseconds (default 200ms).",
+		{
+			device: z.string().describe("The device identifier to use."),
+			taps: z.string().describe('JSON array of taps, e.g. [{"x":180,"y":1743},{"x":540,"y":1743,"delayAfter":500}]. Each tap has x, y (required) and delayAfter in ms (optional, default 200).'),
+		},
+		{ destructiveHint: true },
+		async ({ device, taps }) => {
+			const robot = getRobotFromDevice(device);
+			const tapList: Array<{ x: number; y: number; delayAfter?: number }> = JSON.parse(taps);
+			for (let i = 0; i < tapList.length; i++) {
+				const t = tapList[i];
+				await robot.tap(t.x, t.y);
+				if (i < tapList.length - 1) {
+					const delay = t.delayAfter ?? 200;
+					if (delay > 0) {
+						await new Promise(r => setTimeout(r, delay));
+					}
+				}
+			}
+			return `Executed ${tapList.length} taps: ${tapList.map(t => `(${t.x},${t.y})`).join(" → ")}`;
+		}
+	);
+
+	tool(
 		"mobile_double_tap_on_screen",
 		"Double Tap Screen",
 		"Double-tap on the screen at given x,y coordinates.",
