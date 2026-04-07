@@ -409,156 +409,128 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	const getNumberedElements = async (robot: Robot) => {
-		const elements = await robot.getElementsOnScreen();
-		const numbered: Array<{ index: number; element: typeof elements[0]; cx: number; cy: number; label: string }> = [];
-		let globalIdx = 0;
-
+	const formatElements = (robot: Robot, elements: Awaited<ReturnType<Robot["getElementsOnScreen"]>>) => {
+		const lines: string[] = [];
 		elements.forEach(element => {
 			const cx = Math.round(element.rect.x + element.rect.width / 2);
 			const cy = Math.round(element.rect.y + element.rect.height / 2);
 			const label = element.text || element.label || element.name || "";
-			// Skip empty unlabeled non-interactive elements (pure layout containers)
 			const type = (element.type || "").toLowerCase();
 			const isInput = type.includes("edittext") || type.includes("textfield") || type.includes("input") || element.password || element.editable;
 			const isButton = type.includes("button") || type.includes("imageview") || element.clickable;
-			if (isInput || isButton || label) {
-				globalIdx++;
-				numbered.push({ index: globalIdx, element, cx, cy, label });
+			if (!isInput && !isButton && !label) {
+				return;
 			}
+			let tag = "TEXT";
+			if (isInput) {
+				tag = "INPUT";
+			} else if (isButton) {
+				tag = "BUTTON";
+			}
+			const pwdTag = element.password ? " [PASSWORD]" : "";
+			const focusTag = element.focused ? " *FOCUSED*" : "";
+			const valueTag = isInput ? ` value="${element.value || ""}"` : "";
+			lines.push(`${tag}: "${label || "Unlabeled"}" (${cx},${cy})${valueTag}${pwdTag}${focusTag}`);
 		});
+		return lines.join("\n");
+	};
 
-		return { elements, numbered };
+	const findElementByTarget = (elements: Awaited<ReturnType<Robot["getElementsOnScreen"]>>, target: string) => {
+		// Parse "Text@N" format — e.g. "Confirm@2" means 2nd element matching "Confirm"
+		const atMatch = target.match(/^(.+)@(\d+)$/);
+		const searchText = atMatch ? atMatch[1] : target;
+		const matchIndex = atMatch ? parseInt(atMatch[2], 10) : 1;
+
+		let found = 0;
+		for (const element of elements) {
+			const label = element.text || element.label || element.name || "";
+			if (label.toLowerCase().includes(searchText.toLowerCase())) {
+				found++;
+				if (found === matchIndex) {
+					const cx = Math.round(element.rect.x + element.rect.width / 2);
+					const cy = Math.round(element.rect.y + element.rect.height / 2);
+					return { cx, cy, label };
+				}
+			}
+		}
+		return null;
+	};
+
+	const executeAction = async (robot: Robot, action: string) => {
+		// Parse action string: "tap Target", "type text", "press BACK", "swipe up", "wait 1000"
+		const spaceIdx = action.indexOf(" ");
+		const cmd = spaceIdx >= 0 ? action.substring(0, spaceIdx).toLowerCase() : action.toLowerCase();
+		const arg = spaceIdx >= 0 ? action.substring(spaceIdx + 1) : "";
+
+		switch (cmd) {
+			case "tap": {
+				const elements = await robot.getElementsOnScreen();
+				const target = findElementByTarget(elements, arg);
+				if (!target) {
+					return `NOT FOUND: "${arg}"`;
+				}
+				await robot.tap(target.cx, target.cy);
+				return `tapped "${target.label}" (${target.cx},${target.cy})`;
+			}
+			case "type":
+				await robot.sendKeys(arg);
+				return `typed "${arg}"`;
+			case "press":
+				await robot.pressButton(arg as any);
+				return `pressed ${arg}`;
+			case "swipe":
+				await robot.swipe(arg as any);
+				return `swiped ${arg}`;
+			case "wait":
+				await new Promise(r => setTimeout(r, parseInt(arg, 10) || 1000));
+				return `waited ${arg}ms`;
+			default:
+				return `unknown: ${action}`;
+		}
 	};
 
 	tool(
-		"mobile_tap_element",
-		"Tap Element",
-		"Tap any element by its [#N] number from mobile_list_elements_on_screen. Performs a fresh UI dump to get current coordinates, so keyboard/modal shifts are handled automatically.",
+		"mobile_do",
+		"Do",
+		"All-in-one mobile tool. Performs action(s) then returns the screen elements. Without actions, just reads the screen. Actions are strings: 'tap Confirm', 'tap POL@2' (2nd match), 'type hello', 'press BACK', 'swipe up', 'wait 1000'. Tap uses text matching with fresh UI dump so keyboard/modal shifts are handled automatically.",
 		{
 			device: z.string().describe("The device identifier to use."),
-			number: z.coerce.number().describe("The element number from mobile_list_elements_on_screen output (e.g. 3 for [#3])"),
-		},
-		{ destructiveHint: true },
-		async ({ device, number }) => {
-			const robot = getRobotFromDevice(device);
-			const { numbered } = await getNumberedElements(robot);
-			const target = numbered.find(e => e.index === number);
-			if (!target) {
-				return `Element #${number} not found. There are ${numbered.length} elements on screen. Use mobile_list_elements_on_screen to see them.`;
-			}
-			await robot.tap(target.cx, target.cy);
-			return `Tapped #${number} "${target.label}" at (${target.cx}, ${target.cy})`;
-		}
-	);
-
-	tool(
-		"mobile_batch_actions",
-		"Batch Actions",
-		"Execute multiple actions in rapid sequence. Much faster than individual tool calls. Each action has a type and parameters. Supported types: tap (x, y), type (text), press (button: BACK/HOME/ENTER/etc), swipe (direction, optional x/y/distance), wait (ms). Default 200ms delay between actions unless overridden with a wait action.",
-		{
-			device: z.string().describe("The device identifier to use."),
-			actions: z.string().describe('JSON array of actions. Examples: [{"action":"tap","x":180,"y":1743},{"action":"type","text":"hello"},{"action":"wait","ms":1000},{"action":"press","button":"BACK"},{"action":"swipe","direction":"up"}]'),
+			actions: z.string().optional().describe('Action(s) to perform before reading screen. Single string or JSON array. Examples: "tap Confirm", or ["tap POL", "wait 1000", "type 5", "tap Confirm@2"]'),
 		},
 		{ destructiveHint: true },
 		async ({ device, actions }) => {
 			const robot = getRobotFromDevice(device);
-			const actionList: Array<Record<string, any>> = JSON.parse(actions);
 			const results: string[] = [];
 
-			for (let i = 0; i < actionList.length; i++) {
-				const a = actionList[i];
-				switch (a.action) {
-					case "tap":
-						await robot.tap(a.x, a.y);
-						results.push(`tap(${a.x},${a.y})`);
-						break;
-					case "type":
-						await robot.sendKeys(a.text);
-						results.push(`type("${a.text}")`);
-						break;
-					case "press":
-						await robot.pressButton(a.button);
-						results.push(`press(${a.button})`);
-						break;
-					case "swipe":
-						if (a.x !== undefined && a.y !== undefined) {
-							await robot.swipeFromCoordinate(a.x, a.y, a.direction, a.distance);
-						} else {
-							await robot.swipe(a.direction);
-						}
-						results.push(`swipe(${a.direction})`);
-						break;
-					case "wait":
-						await new Promise(r => setTimeout(r, a.ms));
-						results.push(`wait(${a.ms}ms)`);
-						continue; // skip default delay after wait
-					default:
-						results.push(`unknown(${a.action})`);
-						continue;
+			if (actions) {
+				let actionList: string[];
+				try {
+					const parsed = JSON.parse(actions);
+					actionList = Array.isArray(parsed) ? parsed : [actions];
+				} catch {
+					actionList = [actions];
 				}
 
-				// Default 200ms delay between actions (unless next is a wait)
-				if (i < actionList.length - 1 && actionList[i + 1]?.action !== "wait") {
-					await new Promise(r => setTimeout(r, 200));
+				for (let i = 0; i < actionList.length; i++) {
+					const result = await executeAction(robot, actionList[i]);
+					results.push(result);
+					// Default 200ms delay between actions (unless current is wait)
+					if (i < actionList.length - 1 && !actionList[i].toLowerCase().startsWith("wait")) {
+						await new Promise(r => setTimeout(r, 200));
+					}
 				}
 			}
 
-			return `Executed ${actionList.length} actions: ${results.join(" → ")}`;
-		}
-	);
+			// Always return current screen state
+			const elements = await robot.getElementsOnScreen();
+			const screen = formatElements(robot, elements);
 
-	tool(
-		"mobile_list_elements_on_screen",
-		"List Screen Elements",
-		"List all elements on screen. Every element gets a [#N] number usable with mobile_tap_element. Do not cache this result.",
-		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
-		},
-		{ readOnlyHint: true },
-		async ({ device }) => {
-			const robot = getRobotFromDevice(device);
-			const { numbered } = await getNumberedElements(robot);
-
-			const lines: string[] = [];
-			numbered.forEach(({ index, element, cx, cy, label }) => {
-				const type = (element.type || "").toLowerCase();
-				const isInput = type.includes("edittext") || type.includes("textfield") || type.includes("input") || element.password || element.editable;
-				const isButton = type.includes("button") || type.includes("imageview") || element.clickable;
-
-				let tag = "TEXT";
-				if (isInput) {
-					tag = "INPUT";
-				} else if (isButton) {
-					tag = "BUTTON";
-				}
-
-				const pwdTag = element.password ? " [PASSWORD]" : "";
-				const focusTag = element.focused ? " *FOCUSED*" : "";
-				const valueTag = isInput ? ` value="${element.value || ""}"` : "";
-				lines.push(`  [#${index}] ${tag}: "${label || "Unlabeled"}" (${cx},${cy})${valueTag}${pwdTag}${focusTag}`);
-			});
-
-			let output = `ELEMENTS (tap any with mobile_tap_element #N):\n`;
-			output += lines.length ? lines.join("\n") : "  (none)";
-			output += `\n\n${numbered.length} elements`;
+			let output = "";
+			if (results.length > 0) {
+				output += results.join(" → ") + "\n\n";
+			}
+			output += screen;
 			return output;
-		}
-	);
-
-	tool(
-		"mobile_press_button",
-		"Press Button",
-		"Press a button on device",
-		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
-		},
-		{ destructiveHint: true },
-		async ({ device, button }) => {
-			const robot = getRobotFromDevice(device);
-			await robot.pressButton(button);
-			return `Pressed the button: ${button}`;
 		}
 	);
 
@@ -583,55 +555,6 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	tool(
-		"mobile_swipe_on_screen",
-		"Swipe Screen",
-		"Swipe on the screen",
-		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
-			x: z.coerce.number().optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			y: z.coerce.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			distance: z.coerce.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
-		},
-		{ destructiveHint: true },
-		async ({ device, direction, x, y, distance }) => {
-			const robot = getRobotFromDevice(device);
-
-			if (x !== undefined && y !== undefined) {
-				// Use coordinate-based swipe
-				await robot.swipeFromCoordinate(x, y, direction, distance);
-				const distanceText = distance ? ` ${distance} pixels` : "";
-				return `Swiped ${direction}${distanceText} from coordinates: ${x}, ${y}`;
-			} else {
-				// Use center-based swipe
-				await robot.swipe(direction);
-				return `Swiped ${direction} on screen`;
-			}
-		}
-	);
-
-	tool(
-		"mobile_type_keys",
-		"Type Text",
-		"Type text into the focused element",
-		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			text: z.string().describe("The text to type"),
-			submit: z.boolean().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
-		},
-		{ destructiveHint: true },
-		async ({ device, text, submit }) => {
-			const robot = getRobotFromDevice(device);
-			await robot.sendKeys(text);
-
-			if (submit) {
-				await robot.pressButton("ENTER");
-			}
-
-			return `Typed text: ${text}`;
-		}
-	);
 
 	tool(
 		"mobile_save_screenshot",
