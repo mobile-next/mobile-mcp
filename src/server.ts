@@ -528,6 +528,19 @@ export const createMcpServer = (): McpServer => {
 			case "swipe":
 				await robot.swipe(arg as any);
 				return `swiped ${arg}`;
+			case "dismiss": {
+				// Dismiss bottom sheet by dragging handle downward
+				const els = await robot.getElementsOnScreen();
+				const handle = findElementByTarget(els, arg || "Bottom sheet handle");
+				if (handle) {
+					const screenSize = await robot.getScreenSize();
+					await robot.swipeFromCoordinate(handle.cx, handle.cy, "down", Math.floor(screenSize.height * 0.4));
+				} else {
+					// Fallback: swipe down from center
+					await robot.swipe("down");
+				}
+				return "dismissed";
+			}
 			case "wait":
 				await new Promise(r => setTimeout(r, parseInt(arg, 10) || 1000));
 				return `waited ${arg}ms`;
@@ -539,7 +552,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_do",
 		"Do",
-		"All-in-one mobile tool. Performs action(s) then returns screen elements. Without actions, just reads screen. Each element has a stable ID like BUTTON:Confirm or INPUT:amount. Duplicates get @N suffix (BUTTON:Confirm@2). To tap, use the exact ID from the output: 'tap BUTTON:Confirm'. Other actions: 'type hello', 'press BACK', 'swipe up', 'wait 1000'. Tap does a fresh UI dump so keyboard/modal coordinate shifts are handled automatically.",
+		"All-in-one mobile tool. Performs action(s) then returns screen elements. Without actions, just reads screen. Each element has a stable ID like BUTTON:Confirm or INPUT:amount. Duplicates get @N suffix (BUTTON:Confirm@2). To tap, use the exact ID from the output: 'tap BUTTON:Confirm'. Other actions: 'type hello', 'press BACK', 'swipe up', 'dismiss' (close bottom sheet by dragging handle down), 'wait 1000'. Tap does a fresh UI dump so keyboard/modal coordinate shifts are handled automatically.",
 		{
 			device: z.string().describe("The device identifier to use."),
 			actions: z.string().optional().describe('Action(s) before reading screen. Single string or JSON array. Tap uses element IDs from output: "tap BUTTON:Confirm", or ["tap BUTTON:POL", "type 5", "wait 3000", "tap BUTTON:Confirm@2"]'),
