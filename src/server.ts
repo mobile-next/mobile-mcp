@@ -427,28 +427,58 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
-		"mobile_batch_taps",
-		"Batch Taps",
-		"Execute multiple taps in rapid sequence with optional delays between them. Much faster than individual click calls. Each tap is an object with x, y coordinates and an optional delayAfter in milliseconds (default 200ms).",
+		"mobile_batch_actions",
+		"Batch Actions",
+		"Execute multiple actions in rapid sequence. Much faster than individual tool calls. Each action has a type and parameters. Supported types: tap (x, y), type (text), press (button: BACK/HOME/ENTER/etc), swipe (direction, optional x/y/distance), wait (ms). Default 200ms delay between actions unless overridden with a wait action.",
 		{
 			device: z.string().describe("The device identifier to use."),
-			taps: z.string().describe('JSON array of taps, e.g. [{"x":180,"y":1743},{"x":540,"y":1743,"delayAfter":500}]. Each tap has x, y (required) and delayAfter in ms (optional, default 200).'),
+			actions: z.string().describe('JSON array of actions. Examples: [{"action":"tap","x":180,"y":1743},{"action":"type","text":"hello"},{"action":"wait","ms":1000},{"action":"press","button":"BACK"},{"action":"swipe","direction":"up"}]'),
 		},
 		{ destructiveHint: true },
-		async ({ device, taps }) => {
+		async ({ device, actions }) => {
 			const robot = getRobotFromDevice(device);
-			const tapList: Array<{ x: number; y: number; delayAfter?: number }> = JSON.parse(taps);
-			for (let i = 0; i < tapList.length; i++) {
-				const t = tapList[i];
-				await robot.tap(t.x, t.y);
-				if (i < tapList.length - 1) {
-					const delay = t.delayAfter ?? 200;
-					if (delay > 0) {
-						await new Promise(r => setTimeout(r, delay));
-					}
+			const actionList: Array<Record<string, any>> = JSON.parse(actions);
+			const results: string[] = [];
+
+			for (let i = 0; i < actionList.length; i++) {
+				const a = actionList[i];
+				switch (a.action) {
+					case "tap":
+						await robot.tap(a.x, a.y);
+						results.push(`tap(${a.x},${a.y})`);
+						break;
+					case "type":
+						await robot.sendKeys(a.text);
+						results.push(`type("${a.text}")`);
+						break;
+					case "press":
+						await robot.pressButton(a.button);
+						results.push(`press(${a.button})`);
+						break;
+					case "swipe":
+						if (a.x !== undefined && a.y !== undefined) {
+							await robot.swipeFromCoordinate(a.x, a.y, a.direction, a.distance);
+						} else {
+							await robot.swipe(a.direction);
+						}
+						results.push(`swipe(${a.direction})`);
+						break;
+					case "wait":
+						await new Promise(r => setTimeout(r, a.ms));
+						results.push(`wait(${a.ms}ms)`);
+						continue; // skip default delay after wait
+					default:
+						results.push(`unknown(${a.action})`);
+						continue;
+				}
+
+				// Default 200ms delay between actions (unless next is a wait)
+				if (i < actionList.length - 1 && actionList[i + 1]?.action !== "wait") {
+					await new Promise(r => setTimeout(r, 200));
 				}
 			}
-			return `Executed ${tapList.length} taps: ${tapList.map(t => `(${t.x},${t.y})`).join(" → ")}`;
+
+			return `Executed ${actionList.length} actions: ${results.join(" → ")}`;
 		}
 	);
 
