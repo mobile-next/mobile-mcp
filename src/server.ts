@@ -501,8 +501,13 @@ export const createMcpServer = (): McpServer => {
 		return null;
 	};
 
-	const executeAction = async (robot: Robot, action: string) => {
-		// Parse action string: "tap Target", "type text", "press BACK", "swipe up", "wait 1000"
+	interface ActionResult {
+		action: string;
+		result: string;
+		screen?: string; // element list at this point (reuses existing dumps, zero extra cost)
+	}
+
+	const executeAction = async (robot: Robot, action: string): Promise<ActionResult> => {
 		const spaceIdx = action.indexOf(" ");
 		const cmd = spaceIdx >= 0 ? action.substring(0, spaceIdx).toLowerCase() : action.toLowerCase();
 		const arg = spaceIdx >= 0 ? action.substring(spaceIdx + 1) : "";
@@ -510,51 +515,50 @@ export const createMcpServer = (): McpServer => {
 		switch (cmd) {
 			case "tap": {
 				const elements = await robot.getElementsOnScreen();
+				const screen = formatElements(elements); // reuse the dump we already did
 				const target = findElementByTarget(elements, arg);
 				if (!target) {
-					return `NOT FOUND: "${arg}"`;
+					return { action, result: `NOT FOUND: "${arg}"`, screen };
 				}
 				await robot.tap(target.cx, target.cy);
-				return `tapped ${target.id}`;
+				return { action, result: `tapped ${target.id}`, screen };
 			}
 			case "type":
 				await robot.sendKeys(arg);
 				await new Promise(r => setTimeout(r, 200));
 				await robot.dismissKeyboard();
-				return `typed "${arg}"`;
+				return { action, result: `typed "${arg}"` };
 			case "press":
 				await robot.pressButton(arg as any);
-				return `pressed ${arg}`;
+				return { action, result: `pressed ${arg}` };
 			case "swipe":
 				await robot.swipe(arg as any);
-				return `swiped ${arg}`;
+				return { action, result: `swiped ${arg}` };
 			case "dismiss": {
-				// Dismiss bottom sheet by dragging handle downward
 				const els = await robot.getElementsOnScreen();
+				const screen = formatElements(els);
 				const handle = findElementByTarget(els, arg || "Bottom sheet handle");
 				if (handle) {
 					const screenSize = await robot.getScreenSize();
 					await robot.swipeFromCoordinate(handle.cx, handle.cy, "down", Math.floor(screenSize.height * 0.4));
 				} else {
-					// Fallback: swipe down from center
 					await robot.swipe("down");
 				}
-				return "dismissed";
+				return { action, result: "dismissed", screen };
 			}
 			case "screenshot": {
-				// Save screenshot to specified path: "screenshot /path/to/file.png"
 				if (!arg) {
-					return "screenshot: no path specified";
+					return { action, result: "screenshot: no path specified" };
 				}
 				const screenshotData = await robot.getScreenshot();
 				fs.writeFileSync(arg, screenshotData);
-				return `screenshot ${arg}`;
+				return { action, result: `screenshot ${arg}` };
 			}
 			case "wait":
 				await new Promise(r => setTimeout(r, parseInt(arg, 10) || 1000));
-				return `waited ${arg}ms`;
+				return { action, result: `waited ${arg}ms` };
 			default:
-				return `unknown: ${action}`;
+				return { action, result: `unknown: ${action}` };
 		}
 	};
 
@@ -569,7 +573,7 @@ export const createMcpServer = (): McpServer => {
 		{ destructiveHint: true },
 		async ({ device, actions }) => {
 			const robot = getRobotFromDevice(device);
-			const results: string[] = [];
+			const actionResults: ActionResult[] = [];
 
 			if (actions) {
 				let actionList: string[];
@@ -582,24 +586,34 @@ export const createMcpServer = (): McpServer => {
 
 				for (let i = 0; i < actionList.length; i++) {
 					const result = await executeAction(robot, actionList[i]);
-					results.push(result);
-					// Default 200ms delay between actions (unless current is wait)
+					actionResults.push(result);
 					if (i < actionList.length - 1 && !actionList[i].toLowerCase().startsWith("wait")) {
 						await new Promise(r => setTimeout(r, 200));
 					}
 				}
 			}
 
-			// Always return current screen state
-			const elements = await robot.getElementsOnScreen();
-			const screen = formatElements(elements);
-
-			let output = "";
-			if (results.length > 0) {
-				output += results.join(" → ") + "\n\n";
+			// Build step-by-step output
+			if (actionResults.length === 0) {
+				// No actions — just read screen
+				const elements = await robot.getElementsOnScreen();
+				return formatElements(elements);
 			}
-			output += screen;
-			return output;
+
+			const parts: string[] = [];
+			for (const ar of actionResults) {
+				let step = `> ${ar.result}`;
+				if (ar.screen) {
+					step += `\n${ar.screen}`;
+				}
+				parts.push(step);
+			}
+
+			// Append final screen state (after all actions, fresh dump)
+			const finalElements = await robot.getElementsOnScreen();
+			parts.push(`---\n${formatElements(finalElements)}`);
+
+			return parts.join("\n\n");
 		}
 	);
 
