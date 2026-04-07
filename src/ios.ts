@@ -197,6 +197,16 @@ export class IosRobot implements Robot {
 		await wda.pressButton(button);
 	}
 
+	public async dismissKeyboard(): Promise<void> {
+		const wda = await this.wda();
+		await wda.pressButton("home");
+		await new Promise(r => setTimeout(r, 100));
+		// Re-open app — home dismisses keyboard but also backgrounds the app
+		// Better approach: tap a non-interactive area
+		const screenSize = await this.getScreenSize();
+		await wda.tap(Math.floor(screenSize.width / 2), 10);
+	}
+
 	public async tap(x: number, y: number): Promise<void> {
 		const wda = await this.wda();
 		await wda.tap(x, y);

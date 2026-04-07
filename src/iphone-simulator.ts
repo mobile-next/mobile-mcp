@@ -246,6 +246,12 @@ export class Simctl implements Robot {
 		return wda.swipeFromCoordinate(x, y, direction, distance);
 	}
 
+	public async dismissKeyboard(): Promise<void> {
+		const wda = await this.wda();
+		const screenSize = await this.getScreenSize();
+		await wda.tap(Math.floor(screenSize.width / 2), 10);
+	}
+
 	public async tap(x: number, y: number) {
 		const wda = await this.wda();
 		return wda.tap(x, y);

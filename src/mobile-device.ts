@@ -182,6 +182,11 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "button", button]);
 	}
 
+	public async dismissKeyboard(): Promise<void> {
+		const screenSize = await this.getScreenSize();
+		this.runCommand(["io", "tap", `${Math.floor(screenSize.width / 2)},10`]);
+	}
+
 	public async tap(x: number, y: number): Promise<void> {
 		this.runCommand(["io", "tap", `${x},${y}`]);
 	}

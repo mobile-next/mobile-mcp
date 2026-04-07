@@ -467,6 +467,10 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "input", "keyevent", mapped);
 	}
 
+	public async dismissKeyboard(): Promise<void> {
+		this.adb("shell", "input", "keyevent", "KEYCODE_ESCAPE");
+	}
+
 	public async tap(x: number, y: number): Promise<void> {
 		this.adb("shell", "input", "tap", `${x}`, `${y}`);
 	}

@@ -519,6 +519,8 @@ export const createMcpServer = (): McpServer => {
 			}
 			case "type":
 				await robot.sendKeys(arg);
+				await new Promise(r => setTimeout(r, 200));
+				await robot.dismissKeyboard();
 				return `typed "${arg}"`;
 			case "press":
 				await robot.pressButton(arg as any);

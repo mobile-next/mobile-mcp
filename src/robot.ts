@@ -114,6 +114,11 @@ export interface Robot {
 	pressButton(button: Button): Promise<void>;
 
 	/**
+	 * Dismiss the on-screen keyboard if visible.
+	 */
+	dismissKeyboard(): Promise<void>;
+
+	/**
 	 * Tap on a specific coordinate on the screen.
 	 */
 	tap(x: number, y: number): Promise<void>;
