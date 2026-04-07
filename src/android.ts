@@ -334,7 +334,7 @@ export class AndroidRobot implements Robot {
 			}
 		}
 
-		if (node.text || node["content-desc"] || node.hint || node["resource-id"] || node.checkable === "true") {
+		if (node.text || node["content-desc"] || node.hint || node["resource-id"] || node.checkable === "true" || node.password === "true" || node.focusable === "true" || (node.clickable === "true" && node.class)) {
 			const element: ScreenElement = {
 				type: node.class || "text",
 				text: node.text,
@@ -343,8 +343,22 @@ export class AndroidRobot implements Robot {
 			};
 
 			if (node.focused === "true") {
-				// only provide it if it's true, otherwise don't confuse llm
 				element.focused = true;
+			}
+			if (node.password === "true") {
+				element.password = true;
+			}
+			if (node.clickable === "true") {
+				element.clickable = true;
+			}
+			if (node.editable === "true" || (node.class && node.class.toLowerCase().includes("edittext"))) {
+				element.editable = true;
+			}
+			if (node.scrollable === "true") {
+				element.scrollable = true;
+			}
+			if (element.password || element.editable) {
+				element.value = node.text || "";
 			}
 
 			const resourceId = node["resource-id"];

@@ -32,8 +32,11 @@ export interface ScreenElement {
 	identifier?: string;
 	rect: ScreenElementRect;
 
-	// currently only on android tv
 	focused?: boolean;
+	password?: boolean;
+	clickable?: boolean;
+	editable?: boolean;
+	scrollable?: boolean;
 }
 
 export class ActionableError extends Error {
