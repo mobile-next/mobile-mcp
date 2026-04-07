@@ -409,39 +409,76 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	const formatElements = (robot: Robot, elements: Awaited<ReturnType<Robot["getElementsOnScreen"]>>) => {
-		const lines: string[] = [];
+	const getTag = (element: { type?: string; password?: boolean; editable?: boolean; clickable?: boolean }) => {
+		const t = (element.type || "").toLowerCase();
+		const isInput = t.includes("edittext") || t.includes("textfield") || t.includes("input") || element.password || element.editable;
+		const isButton = t.includes("button") || t.includes("imageview") || element.clickable;
+		if (isInput) {
+			return "INPUT";
+		}
+		if (isButton) {
+			return "BUTTON";
+		}
+		return "TEXT";
+	};
+
+	const buildElementIds = (elements: Awaited<ReturnType<Robot["getElementsOnScreen"]>>) => {
+		// Build TYPE:Label IDs with @N for duplicates
+		const counts = new Map<string, number>();
+		const result: Array<{ id: string; element: typeof elements[0]; cx: number; cy: number; label: string; tag: string }> = [];
+
 		elements.forEach(element => {
 			const cx = Math.round(element.rect.x + element.rect.width / 2);
 			const cy = Math.round(element.rect.y + element.rect.height / 2);
 			const label = element.text || element.label || element.name || "";
-			const type = (element.type || "").toLowerCase();
-			const isInput = type.includes("edittext") || type.includes("textfield") || type.includes("input") || element.password || element.editable;
-			const isButton = type.includes("button") || type.includes("imageview") || element.clickable;
-			if (!isInput && !isButton && !label) {
-				return;
+			const tag = getTag(element);
+			if (tag === "TEXT" && !label) {
+				return; // skip empty unlabeled non-interactive
 			}
-			let tag = "TEXT";
-			if (isInput) {
-				tag = "INPUT";
-			} else if (isButton) {
-				tag = "BUTTON";
+			const baseId = `${tag}:${label || "Unlabeled"}`;
+			const count = (counts.get(baseId) || 0) + 1;
+			counts.set(baseId, count);
+			result.push({ id: baseId, element, cx, cy, label, tag });
+		});
+
+		// Append @N for duplicates
+		const seen = new Map<string, number>();
+		return result.map(item => {
+			const total = counts.get(item.id) || 1;
+			if (total > 1) {
+				const n = (seen.get(item.id) || 0) + 1;
+				seen.set(item.id, n);
+				return { ...item, id: `${item.id}@${n}` };
 			}
+			return item;
+		});
+	};
+
+	const formatElements = (elements: Awaited<ReturnType<Robot["getElementsOnScreen"]>>) => {
+		const items = buildElementIds(elements);
+		const lines: string[] = [];
+		items.forEach(({ id, element, cx, cy, tag }) => {
 			const pwdTag = element.password ? " [PASSWORD]" : "";
 			const focusTag = element.focused ? " *FOCUSED*" : "";
-			const valueTag = isInput ? ` value="${element.value || ""}"` : "";
-			lines.push(`${tag}: "${label || "Unlabeled"}" (${cx},${cy})${valueTag}${pwdTag}${focusTag}`);
+			const valueTag = tag === "INPUT" ? ` value="${element.value || ""}"` : "";
+			lines.push(`${id}${valueTag}${pwdTag}${focusTag}`);
 		});
 		return lines.join("\n");
 	};
 
 	const findElementByTarget = (elements: Awaited<ReturnType<Robot["getElementsOnScreen"]>>, target: string) => {
-		// Parse "Text@N" format — e.g. "Confirm@2" means 2nd element matching "Confirm"
+		const items = buildElementIds(elements);
+		// Exact ID match
+		const match = items.find(item => item.id.toLowerCase() === target.toLowerCase());
+		if (match) {
+			return { cx: match.cx, cy: match.cy, label: match.label, id: match.id };
+		}
+
+		// Fallback: partial label match (case-insensitive) with optional type prefix
 		const atMatch = target.match(/^(.+)@(\d+)$/);
 		let searchText = atMatch ? atMatch[1] : target;
 		const matchIndex = atMatch ? parseInt(atMatch[2], 10) : 1;
 
-		// Parse optional type prefix: "INPUT:amount", "BUTTON:Confirm", "TEXT:Bridge"
 		let typeFilter: string | null = null;
 		const colonMatch = searchText.match(/^(INPUT|BUTTON|TEXT):(.+)$/i);
 		if (colonMatch) {
@@ -449,54 +486,18 @@ export const createMcpServer = (): McpServer => {
 			searchText = colonMatch[2];
 		}
 
-		const getTag = (element: typeof elements[0]) => {
-			const t = (element.type || "").toLowerCase();
-			const isInput = t.includes("edittext") || t.includes("textfield") || t.includes("input") || element.password || element.editable;
-			const isButton = t.includes("button") || t.includes("imageview") || element.clickable;
-			if (isInput) {
-				return "INPUT";
-			}
-			if (isButton) {
-				return "BUTTON";
-			}
-			return "TEXT";
-		};
-
-		const matchElement = (element: typeof elements[0], label: string) => {
-			if (typeFilter && getTag(element) !== typeFilter) {
-				return false;
-			}
-			return true;
-		};
-
-		// Pass 1: exact match (case-insensitive)
 		let found = 0;
-		for (const element of elements) {
-			const label = element.text || element.label || element.name || "";
-			if (label.toLowerCase() === searchText.toLowerCase() && matchElement(element, label)) {
+		for (const item of items) {
+			if (typeFilter && item.tag !== typeFilter) {
+				continue;
+			}
+			if (item.label.toLowerCase().includes(searchText.toLowerCase())) {
 				found++;
 				if (found === matchIndex) {
-					const cx = Math.round(element.rect.x + element.rect.width / 2);
-					const cy = Math.round(element.rect.y + element.rect.height / 2);
-					return { cx, cy, label };
+					return { cx: item.cx, cy: item.cy, label: item.label, id: item.id };
 				}
 			}
 		}
-
-		// Pass 2: partial match (contains, case-insensitive)
-		found = 0;
-		for (const element of elements) {
-			const label = element.text || element.label || element.name || "";
-			if (label.toLowerCase().includes(searchText.toLowerCase()) && matchElement(element, label)) {
-				found++;
-				if (found === matchIndex) {
-					const cx = Math.round(element.rect.x + element.rect.width / 2);
-					const cy = Math.round(element.rect.y + element.rect.height / 2);
-					return { cx, cy, label };
-				}
-			}
-		}
-
 		return null;
 	};
 
@@ -514,7 +515,7 @@ export const createMcpServer = (): McpServer => {
 					return `NOT FOUND: "${arg}"`;
 				}
 				await robot.tap(target.cx, target.cy);
-				return `tapped "${target.label}" (${target.cx},${target.cy})`;
+				return `tapped ${target.id}`;
 			}
 			case "type":
 				await robot.sendKeys(arg);
@@ -536,10 +537,10 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_do",
 		"Do",
-		"All-in-one mobile tool. Performs action(s) then returns the screen elements. Without actions, just reads the screen. Actions are strings: 'tap Confirm', 'tap POL@2' (2nd match), 'type hello', 'press BACK', 'swipe up', 'wait 1000'. Tap uses text matching with fresh UI dump so keyboard/modal shifts are handled automatically.",
+		"All-in-one mobile tool. Performs action(s) then returns screen elements. Without actions, just reads screen. Each element has a stable ID like BUTTON:Confirm or INPUT:amount. Duplicates get @N suffix (BUTTON:Confirm@2). To tap, use the exact ID from the output: 'tap BUTTON:Confirm'. Other actions: 'type hello', 'press BACK', 'swipe up', 'wait 1000'. Tap does a fresh UI dump so keyboard/modal coordinate shifts are handled automatically.",
 		{
 			device: z.string().describe("The device identifier to use."),
-			actions: z.string().optional().describe('Action(s) to perform before reading screen. Single string or JSON array. Examples: "tap Confirm", or ["tap POL", "wait 1000", "type 5", "tap Confirm@2"]'),
+			actions: z.string().optional().describe('Action(s) before reading screen. Single string or JSON array. Tap uses element IDs from output: "tap BUTTON:Confirm", or ["tap BUTTON:POL", "type 5", "wait 3000", "tap BUTTON:Confirm@2"]'),
 		},
 		{ destructiveHint: true },
 		async ({ device, actions }) => {
@@ -567,7 +568,7 @@ export const createMcpServer = (): McpServer => {
 
 			// Always return current screen state
 			const elements = await robot.getElementsOnScreen();
-			const screen = formatElements(robot, elements);
+			const screen = formatElements(elements);
 
 			let output = "";
 			if (results.length > 0) {
