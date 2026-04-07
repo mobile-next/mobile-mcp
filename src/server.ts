@@ -486,35 +486,35 @@ export const createMcpServer = (): McpServer => {
 				const cy = Math.round(element.rect.y + element.rect.height / 2);
 				const w = element.rect.width;
 				const h = element.rect.height;
-				const displayText = element.text || element.label || element.name || '';
-				const type = (element.type || '').toLowerCase();
+				const displayText = element.text || element.label || element.name || "";
+				const type = (element.type || "").toLowerCase();
 
-				const isInput = type.includes('edittext') || type.includes('textfield') || type.includes('input') || element.password || element.editable;
-				const isScrollable = type.includes('scroll') || type.includes('recycler') || type.includes('listview') || element.scrollable;
-				const isButton = type.includes('button') || type.includes('imageview') || element.clickable;
+				const isInput = type.includes("edittext") || type.includes("textfield") || type.includes("input") || element.password || element.editable;
+				const isScrollable = type.includes("scroll") || type.includes("recycler") || type.includes("listview") || element.scrollable;
+				const isButton = type.includes("button") || type.includes("imageview") || element.clickable;
 
 				if (isInput) {
 					idx_i++;
-					const pwdTag = element.password ? ' [PASSWORD]' : '';
-					const focusTag = element.focused ? ' ** FOCUSED' : '';
-					inputs.push(`  ${idx_i}. Value: "${element.value || 'Empty'}" | Hint: "${displayText}" at center (${cx}, ${cy}) [size ${w}x${h}]${pwdTag}${focusTag}${element.identifier ? '\n     ID: ' + element.identifier : ''}`);
+					const pwdTag = element.password ? " [PASSWORD]" : "";
+					const focusTag = element.focused ? " ** FOCUSED" : "";
+					inputs.push(`  ${idx_i}. Value: "${element.value || "Empty"}" | Hint: "${displayText}" at center (${cx}, ${cy}) [size ${w}x${h}]${pwdTag}${focusTag}${element.identifier ? "\n     ID: " + element.identifier : ""}`);
 				} else if (isScrollable) {
 					idx_s++;
-					scrollables.push(`  ${idx_s}. "${displayText || 'Scrollable area'}" at center (${cx}, ${cy}) [size ${w}x${h}]`);
+					scrollables.push(`  ${idx_s}. "${displayText || "Scrollable area"}" at center (${cx}, ${cy}) [size ${w}x${h}]`);
 				} else if (isButton && !isInput && !isScrollable) {
 					idx_b++;
-					buttons.push(`  ${idx_b}. "${displayText || 'Unlabeled button'}" at center (${cx}, ${cy}) [size ${w}x${h}]${element.identifier ? '\n     ID: ' + element.identifier : ''}\n     CLASS: ${element.type || 'unknown'}${element.focused ? '\n     ** FOCUSED' : ''}`);
+					buttons.push(`  ${idx_b}. "${displayText || "Unlabeled button"}" at center (${cx}, ${cy}) [size ${w}x${h}]${element.identifier ? "\n     ID: " + element.identifier : ""}\n     CLASS: ${element.type || "unknown"}${element.focused ? "\n     ** FOCUSED" : ""}`);
 				} else if (displayText) {
 					idx_t++;
-					texts.push(`  ${idx_t}. "${displayText}" at center (${cx}, ${cy}) [size ${w}x${h}]${element.identifier ? '\n     ID: ' + element.identifier : ''}`);
+					texts.push(`  ${idx_t}. "${displayText}" at center (${cx}, ${cy}) [size ${w}x${h}]${element.identifier ? "\n     ID: " + element.identifier : ""}`);
 				}
 			});
 
-			let output = '=== UI ELEMENTS ANALYSIS ===\n\n';
-			output += `TEXTS:\n${texts.length ? texts.join('\n') : '  (none)'}\n\n`;
-			output += `BUTTONS/CLICKABLES:\n${buttons.length ? buttons.join('\n') : '  (none)'}\n\n`;
-			output += `INPUT FIELDS:\n${inputs.length ? inputs.join('\n') : '  (none)'}\n\n`;
-			output += `SCROLLABLE AREAS:\n${scrollables.length ? scrollables.join('\n') : '  (none)'}\n\n`;
+			let output = "=== UI ELEMENTS ANALYSIS ===\n\n";
+			output += `TEXTS:\n${texts.length ? texts.join("\n") : "  (none)"}\n\n`;
+			output += `BUTTONS/CLICKABLES:\n${buttons.length ? buttons.join("\n") : "  (none)"}\n\n`;
+			output += `INPUT FIELDS:\n${inputs.length ? inputs.join("\n") : "  (none)"}\n\n`;
+			output += `SCROLLABLE AREAS:\n${scrollables.length ? scrollables.join("\n") : "  (none)"}\n\n`;
 			output += `SUMMARY: ${elements.length} total elements (${idx_t} texts, ${idx_b} buttons, ${idx_i} inputs, ${idx_s} scrollables)`;
 			return output;
 		}

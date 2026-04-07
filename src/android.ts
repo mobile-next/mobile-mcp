@@ -20,6 +20,11 @@ interface UiAutomatorXmlNode {
 	hint?: string;
 	focused?: string;
 	checkable?: string;
+	clickable?: string;
+	focusable?: string;
+	password?: string;
+	editable?: string;
+	scrollable?: string;
 	"content-desc"?: string;
 	"resource-id"?: string;
 }
