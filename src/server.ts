@@ -541,6 +541,15 @@ export const createMcpServer = (): McpServer => {
 				}
 				return "dismissed";
 			}
+			case "screenshot": {
+				// Save screenshot to specified path: "screenshot /path/to/file.png"
+				if (!arg) {
+					return "screenshot: no path specified";
+				}
+				const screenshotData = await robot.getScreenshot();
+				fs.writeFileSync(arg, screenshotData);
+				return `screenshot ${arg}`;
+			}
 			case "wait":
 				await new Promise(r => setTimeout(r, parseInt(arg, 10) || 1000));
 				return `waited ${arg}ms`;
@@ -552,10 +561,10 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_do",
 		"Do",
-		"All-in-one mobile tool. Performs action(s) then returns screen elements. Without actions, just reads screen. Each element has a stable ID like BUTTON:Confirm or INPUT:amount. Duplicates get @N suffix (BUTTON:Confirm@2). To tap, use the exact ID from the output: 'tap BUTTON:Confirm'. Other actions: 'type hello', 'press BACK', 'swipe up', 'dismiss' (close bottom sheet by dragging handle down), 'wait 1000'. Tap does a fresh UI dump so keyboard/modal coordinate shifts are handled automatically.",
+		"All-in-one mobile tool. Performs action(s) then returns screen elements. Without actions, just reads screen. Each element has a stable ID like BUTTON:Confirm or INPUT:amount. Duplicates get @N suffix (BUTTON:Confirm@2). Actions: 'tap BUTTON:Confirm', 'type hello', 'press BACK', 'swipe up', 'dismiss', 'screenshot /path/to/file.png', 'wait 1000'. Use screenshot mid-batch to capture each screen during DFS exploration.",
 		{
 			device: z.string().describe("The device identifier to use."),
-			actions: z.string().optional().describe('Action(s) before reading screen. Single string or JSON array. Tap uses element IDs from output: "tap BUTTON:Confirm", or ["tap BUTTON:POL", "type 5", "wait 3000", "tap BUTTON:Confirm@2"]'),
+			actions: z.string().optional().describe('Action(s) before reading screen. Single string or JSON array. Examples: "tap BUTTON:Confirm", or ["tap TEXT:Send", "wait 1000", "screenshot /tmp/send.png", "press BACK"]'),
 		},
 		{ destructiveHint: true },
 		async ({ device, actions }) => {
