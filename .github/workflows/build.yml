@@ -37,7 +37,7 @@ jobs:
         registry-url: 'https://registry.npmjs.org'
 
     - name: Install dependencies
-      run: npm install --ignore-scripts
+      run: npm ci --ignore-scripts
 
     - name: Audit
       run: npm audit --audit-level high --omit dev
@@ -47,9 +47,10 @@ jobs:
 
     - name: Update version
       if: github.ref_type == 'tag'
+      env:
+        VERSION: ${{ github.ref_name }}
       run: |
-        npm version "${{ github.ref_name }}" --no-git-tag-version
-        npm update
+        npm version "$VERSION" --no-git-tag-version
 
     - name: Build
       run: |
@@ -62,13 +63,15 @@ jobs:
 
     - name: Publish on github mcp registry
       if: github.ref_type == 'tag'
+      env:
+        VERSION: ${{ github.ref_name }}
       run: |
         # get homebrew in path
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-        brew install mcp-publisher
+        brew install mcp-publisher@1.5.0
         mcp-publisher login github-oidc
         # patch version
-        sed -i "s/{{VERSION}}/${{ github.ref_name }}/g" server.json
+        sed -i "s/{{VERSION}}/$VERSION/g" server.json
         mcp-publisher publish
         mcp-publisher logout
 
