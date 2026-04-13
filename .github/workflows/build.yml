@@ -51,7 +51,6 @@ jobs:
         VERSION: ${{ github.ref_name }}
       run: |
         npm version "$VERSION" --no-git-tag-version
-        npm update
 
     - name: Build
       run: |
