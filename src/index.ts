@@ -36,9 +36,6 @@ const startSseServer = async (host: string, port: number) => {
 		}
 
 		transport = new SSEServerTransport("/mcp", res);
-		transport.onclose = () => {
-			transport = null;
-		};
 		server.connect(transport);
 	});
 
