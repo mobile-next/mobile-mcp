@@ -615,13 +615,14 @@ export const createMcpServer = (): McpServer => {
 			title: "Take Screenshot",
 			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 			inputSchema: {
-				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+				compress: z.boolean().optional().default(true).describe("Whether to compress the screenshot image. Defaults to true. Set to false to return the original uncompressed PNG screenshot."),
 			},
 			annotations: {
 				readOnlyHint: true,
 			},
 		},
-		async ({ device }) => {
+		async ({ device, compress }) => {
 			try {
 				const robot = getRobotFromDevice(device);
 				const screenSize = await robot.getScreenSize();
@@ -636,7 +637,7 @@ export const createMcpServer = (): McpServer => {
 					throw new ActionableError("Screenshot is invalid. Please try again.");
 				}
 
-				if (isScalingAvailable()) {
+				if (compress && isScalingAvailable()) {
 					trace("Image scaling is available, resizing screenshot");
 					const image = Image.fromBuffer(screenshot);
 					const beforeSize = screenshot.length;
