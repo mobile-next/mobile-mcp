@@ -79,7 +79,7 @@ export class Mobilecli {
 			// We're inside node_modules, go to the last node_modules in the path
 			const nodeModulesParts = pathParts.slice(0, lastNodeModulesIndex + 1);
 			const lastNodeModulesPath = nodeModulesParts.join(sep);
-			const mobilecliPath = join(lastNodeModulesPath, "@mobilenext", "mobilecli", "bin", binaryName);
+			const mobilecliPath = join(lastNodeModulesPath, "mobilecli", "bin", binaryName);
 
 			if (existsSync(mobilecliPath)) {
 				return mobilecliPath;
@@ -89,7 +89,7 @@ export class Mobilecli {
 		// Not in node_modules, look one directory up from current script
 		const scriptDir = dirname(__filename);
 		const parentDir = dirname(scriptDir);
-		const mobilecliPath = join(parentDir, "node_modules", "@mobilenext", "mobilecli", "bin", binaryName);
+		const mobilecliPath = join(parentDir, "node_modules", "mobilecli", "bin", binaryName);
 
 		if (existsSync(mobilecliPath)) {
 			return mobilecliPath;
