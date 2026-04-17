@@ -124,6 +124,10 @@ How we help to scale mobile automation:
 More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) for setup, configuration and debugging related questions.
 
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/mobile-next-mobile-mcp).
+
 ## Installation and configuration
 
 **Standard config** works in most of the tools:
