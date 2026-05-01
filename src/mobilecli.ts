@@ -137,16 +137,16 @@ export class Mobilecli {
 		}
 	}
 
-	fleetListDevices(): string {
-		return this.executeCommand(["fleet", "list-devices"]);
+	remoteListDevices(): string {
+		return this.executeCommand(["remote", "list-devices"]);
 	}
 
-	fleetAllocate(platform: "ios" | "android"): string {
-		return this.executeCommand(["fleet", "allocate", "--platform", platform]);
+	remoteAllocate(platform: "ios" | "android"): string {
+		return this.executeCommand(["remote", "allocate", "--platform", platform]);
 	}
 
-	fleetRelease(deviceId: string): string {
-		return this.executeCommand(["fleet", "release", "--device", deviceId]);
+	remoteRelease(deviceId: string): string {
+		return this.executeCommand(["remote", "release", "--device", deviceId]);
 	}
 
 	crashesList(deviceId: string): MobilecliCrashesListResponse {

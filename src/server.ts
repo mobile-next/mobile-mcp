@@ -282,21 +282,21 @@ export const createMcpServer = (): McpServer => {
 
 	if (process.env.MOBILEFLEET_ENABLE === "1") {
 		tool(
-			"mobile_list_fleet_devices",
-			"List Fleet Devices",
+			"mobile_list_remote_devices",
+			"List Remote Devices",
 			"List devices available in the remote fleet",
 			{},
 			{ readOnlyHint: true },
 			async ({}) => {
 				ensureMobilecliAvailable();
-				const result = mobilecli.fleetListDevices();
+				const result = mobilecli.remoteListDevices();
 				return result;
 			}
 		);
 
 		tool(
-			"mobile_allocate_fleet_device",
-			"Allocate Fleet Device",
+			"mobile_allocate_remote_device",
+			"Allocate Remote Device",
 			"Reserve a device from the remote fleet",
 			{
 				platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
@@ -304,22 +304,22 @@ export const createMcpServer = (): McpServer => {
 			{ destructiveHint: true },
 			async ({ platform }) => {
 				ensureMobilecliAvailable();
-				const result = mobilecli.fleetAllocate(platform);
+				const result = mobilecli.remoteAllocate(platform);
 				return result;
 			}
 		);
 
 		tool(
-			"mobile_release_fleet_device",
-			"Release Fleet Device",
+			"mobile_release_remote_device",
+			"Release Remote Device",
 			"Release a device back to the remote fleet",
 			{
-				device: z.string().describe("The device identifier to release back to the fleet"),
+				device: z.string().describe("The device identifier to release back to the remote fleet"),
 			},
 			{ destructiveHint: true },
 			async ({ device }) => {
 				ensureMobilecliAvailable();
-				const result = mobilecli.fleetRelease(device);
+				const result = mobilecli.remoteRelease(device);
 				return result;
 			}
 		);
