@@ -155,8 +155,8 @@ export class Mobilecli {
 	}
 
 	crashesGet(deviceId: string, id: string): MobilecliCrashGetResponse {
-		const output = this.executeCommand(["device", "crashes", "get", id, "--device", deviceId]);
-		return JSON.parse(output) as MobilecliCrashGetResponse;
+		const output = this.executeCommandBuffer(["device", "crashes", "get", id, "--device", deviceId]);
+		return JSON.parse(output.toString().trim()) as MobilecliCrashGetResponse;
 	}
 
 	agentStatus(deviceId: string): MobilecliAgentStatusResponse {
