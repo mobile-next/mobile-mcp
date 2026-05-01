@@ -1,9 +1,8 @@
 ## [0.0.53](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.53) (2026-05-01)
 * Server: Add `mobile_list_crashes` tool to list crash reports on a device
 * Server: Add `mobile_get_crash` tool to retrieve full crash report content
-* Server: Automatically install mobilecli agent on iOS simulators when needed
-* Server: Include CI environment flag in telemetry
-* General: Upgrade mobilecli from 0.2.0 to 0.3.68
+* Server: Upgrade mobilecli from 0.2.0 to 0.3.68
+* iOS: Replaced use of WebdriverAgent with iOS Device Kit (open source, apache license)
 * CI: Restrict `contents` permission to `read`
 * CI: Remove Java setup step from build workflow
 
