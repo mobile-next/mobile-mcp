@@ -118,6 +118,7 @@ export const createMcpServer = (): McpServer => {
 				Product: "mobile-mcp",
 				Version: getAgentVersion(),
 				NodeVersion: process.version,
+				CI: process.env.CI || "0",
 			};
 
 			const clientName = getClientName();
@@ -147,6 +148,7 @@ export const createMcpServer = (): McpServer => {
 
 	const mobilecli = new Mobilecli();
 	const activeRecordings = new Map<string, ActiveRecording>();
+	const agentVerifiedSimulators = new Set<string>();
 	posthog("launch", {}).then();
 
 	const ensureMobilecliAvailable = (): void => {
@@ -191,6 +193,15 @@ export const createMcpServer = (): McpServer => {
 		if (response.status === "ok" && response.data && response.data.devices) {
 			for (const device of response.data.devices) {
 				if (device.id === deviceId) {
+					if (!agentVerifiedSimulators.has(deviceId)) {
+						const agentStatus = mobilecli.agentStatus(deviceId);
+						if (agentStatus.status === "fail") {
+							mobilecli.agentInstall(deviceId);
+						}
+
+						agentVerifiedSimulators.add(deviceId);
+					}
+
 					return new MobileDevice(deviceId);
 				}
 			}
@@ -271,21 +282,21 @@ export const createMcpServer = (): McpServer => {
 
 	if (process.env.MOBILEFLEET_ENABLE === "1") {
 		tool(
-			"mobile_list_fleet_devices",
-			"List Fleet Devices",
+			"mobile_list_remote_devices",
+			"List Remote Devices",
 			"List devices available in the remote fleet",
 			{},
 			{ readOnlyHint: true },
 			async ({}) => {
 				ensureMobilecliAvailable();
-				const result = mobilecli.fleetListDevices();
+				const result = mobilecli.remoteListDevices();
 				return result;
 			}
 		);
 
 		tool(
-			"mobile_allocate_fleet_device",
-			"Allocate Fleet Device",
+			"mobile_allocate_remote_device",
+			"Allocate Remote Device",
 			"Reserve a device from the remote fleet",
 			{
 				platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
@@ -293,22 +304,22 @@ export const createMcpServer = (): McpServer => {
 			{ destructiveHint: true },
 			async ({ platform }) => {
 				ensureMobilecliAvailable();
-				const result = mobilecli.fleetAllocate(platform);
+				const result = mobilecli.remoteAllocate(platform);
 				return result;
 			}
 		);
 
 		tool(
-			"mobile_release_fleet_device",
-			"Release Fleet Device",
+			"mobile_release_remote_device",
+			"Release Remote Device",
 			"Release a device back to the remote fleet",
 			{
-				device: z.string().describe("The device identifier to release back to the fleet"),
+				device: z.string().describe("The device identifier to release back to the remote fleet"),
 			},
 			{ destructiveHint: true },
 			async ({ device }) => {
 				ensureMobilecliAvailable();
-				const result = mobilecli.fleetRelease(device);
+				const result = mobilecli.remoteRelease(device);
 				return result;
 			}
 		);
@@ -793,6 +804,37 @@ export const createMcpServer = (): McpServer => {
 			const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
 			return `Recording stopped. File: ${outputPath} (${fileSizeMB} MB, ~${durationSeconds}s)`;
+		}
+	);
+
+	tool(
+		"mobile_list_crashes",
+		"List Crash Reports",
+		"List crash reports available on the device",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+		},
+		{ readOnlyHint: true },
+		async ({ device }) => {
+			ensureMobilecliAvailable();
+			const response = mobilecli.crashesList(device);
+			return JSON.stringify(response.data);
+		}
+	);
+
+	tool(
+		"mobile_get_crash",
+		"Get Crash Report",
+		"Get the full content of a crash report by its ID. Use mobile_list_crashes to find available crash IDs.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			id: z.string().describe("The crash report ID to retrieve"),
+		},
+		{ readOnlyHint: true },
+		async ({ device, id }) => {
+			ensureMobilecliAvailable();
+			const response = mobilecli.crashesGet(device, id);
+			return response.data.content;
 		}
 	);
 

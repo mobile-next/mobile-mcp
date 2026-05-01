@@ -1,3 +1,11 @@
+## [0.0.53](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.53) (2026-05-01)
+* Server: Add `mobile_list_crashes` tool to list crash reports on a device
+* Server: Add `mobile_get_crash` tool to retrieve full crash report content
+* Server: Upgrade mobilecli from 0.2.0 to 0.3.68
+* iOS: Replaced use of WebdriverAgent with iOS Device Kit (open source, apache license)
+* CI: Restrict `contents` permission to `read`
+* CI: Remove Java setup step from build workflow
+
 ## [0.0.52](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.52) (2026-04-13)
 * Server: Block cross-origin requests on SSE transport ([#311](https://github.com/mobile-next/mobile-mcp/pull/311))
 * Server: Warn when SSE server starts without `MOBILEMCP_AUTH` set ([#311](https://github.com/mobile-next/mobile-mcp/pull/311))

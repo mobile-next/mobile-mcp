@@ -1,7 +1,7 @@
 name: Build
 permissions:
   id-token: write
-  contents: write
+  contents: read
 
 on:
   push:
@@ -16,19 +16,13 @@ on:
 jobs:
   build:
     permissions:
-      id-token: write  # Required for npm trusted publishing with OIDC
-      contents: write
+      id-token: write
+      contents: read
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v5
-
-    - name: Setup Java
-      uses: actions/setup-java@v5
-      with:
-        distribution: 'temurin'
-        java-version: '17'
 
     - name: Use Node.js 24
       uses: actions/setup-node@v5
@@ -66,12 +60,9 @@ jobs:
       env:
         VERSION: ${{ github.ref_name }}
       run: |
-        # get homebrew in path
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-        brew install mcp-publisher@1.5.0
+        curl -fsSL https://github.com/modelcontextprotocol/registry/releases/download/v1.5.0/mcp-publisher_linux_amd64.tar.gz | tar xz -C /usr/local/bin mcp-publisher
         mcp-publisher login github-oidc
         # patch version
         sed -i "s/{{VERSION}}/$VERSION/g" server.json
         mcp-publisher publish
         mcp-publisher logout
-
