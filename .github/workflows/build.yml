@@ -60,9 +60,7 @@ jobs:
       env:
         VERSION: ${{ github.ref_name }}
       run: |
-        # get homebrew in path
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-        brew install mcp-publisher@1.5.0
+        curl -fsSL https://github.com/modelcontextprotocol/registry/releases/download/v1.5.0/mcp-publisher_linux_amd64.tar.gz | tar xz -C /usr/local/bin mcp-publisher
         mcp-publisher login github-oidc
         # patch version
         sed -i "s/{{VERSION}}/$VERSION/g" server.json
