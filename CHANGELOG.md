@@ -1,3 +1,8 @@
+## [0.0.54](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.54) (2026-05-04)
+* Server: Update mobilecli to 0.3.70
+* iOS: Fixed cases where testmanagerd would get Device Kit stuck in a black screen of death
+* iOS: Added 'placeholder' to view tree response
+
 ## [0.0.53](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.53) (2026-05-01)
 * Server: Add `mobile_list_crashes` tool to list crash reports on a device
 * Server: Add `mobile_get_crash` tool to retrieve full crash report content
