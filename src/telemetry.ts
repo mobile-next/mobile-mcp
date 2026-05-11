@@ -24,7 +24,7 @@ function loadOrCreateAnonymousId(): string {
 	const dataDir = path.join(os.homedir(), ...(
 		process.platform === "darwin"
 			? ["Library", "Application Support", "mobile-mcp"]
-			: ["local", "share", "mobile-mcp"]
+			: [".local", "share", "mobile-mcp"]
 	));
 	const idFile = path.join(dataDir, "anonymous-id");
 
