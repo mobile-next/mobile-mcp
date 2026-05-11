@@ -1,3 +1,13 @@
+## Unreleased
+
+### Changed
+
+* Security: Telemetry is now disabled by default and must be explicitly enabled with `MOBILEMCP_TELEMETRY=1`
+* Security: Removed embedded PostHog project token from source
+* Security: Added `MOBILEMCP_POSTHOG_PROJECT_TOKEN` and `MOBILEMCP_POSTHOG_HOST` environment variables for user-supplied telemetry configuration
+* Security: Telemetry initialization fails closed to a no-op implementation when configuration is missing or incomplete
+* Security: `MOBILEMCP_DISABLE_TELEMETRY` is deprecated because telemetry is no longer enabled by default
+
 ## [0.0.54](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.54) (2026-05-04)
 * Server: Update mobilecli to 0.3.70
 * iOS: Fixed cases where testmanagerd would get Device Kit stuck in a black screen of death

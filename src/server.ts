@@ -3,7 +3,6 @@ import { z } from "zod";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import crypto from "node:crypto";
 import { ChildProcess } from "node:child_process";
 
 import { error, trace } from "./logger";
@@ -15,6 +14,7 @@ import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension } from "./utils";
+import { createTelemetry, Telemetry } from "./telemetry";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
@@ -51,22 +51,14 @@ export const createMcpServer = (): McpServer => {
 	});
 
 
-	const getClientName = (): string => {
-		try {
-			const clientInfo = server.server.getClientVersion();
-			const clientName = clientInfo?.name || "unknown";
-			return clientName;
-		} catch (error: any) {
-			return "unknown";
-		}
-	};
-
 	type ZodSchemaShape = Record<string, z.ZodType>;
 
 	interface ToolAnnotations {
 		readOnlyHint?: boolean;
 		destructiveHint?: boolean;
 	}
+
+	const telemetry: Telemetry = createTelemetry();
 
 	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: (args: any) => Promise<string>) => {
 		server.registerTool(name, {
@@ -81,12 +73,12 @@ export const createMcpServer = (): McpServer => {
 				const response = await cb(args);
 				const duration = +new Date() - start;
 				trace(`=> ${response}`);
-				posthog("tool_invoked", { "ToolName": name, "Duration": duration }).then();
+				telemetry.capture("tool_invoked", { "ToolName": name, "Duration": duration });
 				return {
 					content: [{ type: "text", text: response }],
 				};
 			} catch (error: any) {
-				posthog("tool_failed", { "ToolName": name }).then();
+				telemetry.capture("tool_failed", { "ToolName": name });
 				if (error instanceof ActionableError) {
 					return {
 						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
@@ -103,53 +95,10 @@ export const createMcpServer = (): McpServer => {
 		}) as any);
 	};
 
-	const posthog = async (event: string, properties: Record<string, string | number>) => {
-		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
-			return;
-		}
-
-		try {
-			const url = "https://us.i.posthog.com/i/v0/e/";
-			const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";
-			const name = os.hostname() + process.execPath;
-			const distinct_id = crypto.createHash("sha256").update(name).digest("hex");
-			const systemProps: any = {
-				Platform: os.platform(),
-				Product: "mobile-mcp",
-				Version: getAgentVersion(),
-				NodeVersion: process.version,
-				CI: process.env.CI || "0",
-			};
-
-			const clientName = getClientName();
-			if (clientName !== "unknown") {
-				systemProps.AgentName = clientName;
-			}
-
-			await fetch(url, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify({
-					api_key,
-					event,
-					properties: {
-						...systemProps,
-						...properties,
-					},
-					distinct_id,
-				})
-			});
-		} catch (err: any) {
-			// ignore
-		}
-	};
-
 	const mobilecli = new Mobilecli();
 	const activeRecordings = new Map<string, ActiveRecording>();
 	const agentVerifiedSimulators = new Set<string>();
-	posthog("launch", {}).then();
+	telemetry.capture("launch");
 
 	const ensureMobilecliAvailable = (): void => {
 		try {
@@ -663,13 +612,13 @@ export const createMcpServer = (): McpServer => {
 
 				const screenshot64 = screenshot.toString("base64");
 				trace(`Screenshot taken: ${screenshot.length} bytes`);
-				posthog("tool_invoked", {
+				telemetry.capture("tool_invoked", {
 					"ToolName": "mobile_take_screenshot",
 					"ScreenshotFilesize": screenshot64.length,
 					"ScreenshotMimeType": mimeType,
 					"ScreenshotWidth": pngSize.width,
 					"ScreenshotHeight": pngSize.height,
-				}).then();
+				});
 
 				return {
 					content: [{ type: "image", data: screenshot64, mimeType }]
