@@ -464,6 +464,10 @@ Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and 
 
 Mobile MCP does not collect telemetry by default.
 
+**Why this changed:** Earlier versions of Mobile MCP sent anonymous usage telemetry to a maintainer-controlled PostHog project by default, using a project token embedded in the source tree. Security scanning identified two concerns with that design: the embedded token cannot be rotated without a code change and prevents users from controlling their telemetry destination; and Mobile MCP operates against real devices, app screens, accessibility trees, crash logs, and automation workflows — contexts where inadvertent capture of sensitive or enterprise data is plausible. Sending telemetry to a third-party project by default, without explicit user consent, creates a compliance risk. Telemetry is now opt-in and requires users to supply their own PostHog project token.
+
+Additionally, the earlier `distinct_id` was derived from a hash of the machine hostname and Node.js executable path — a stable device fingerprint that could be used to correlate events across sessions. It has been replaced with a randomly generated UUID that is persisted locally per install, which is anonymous and non-correlatable across machines.
+
 To opt in, set the following environment variables with your own PostHog project token:
 
 ```bash

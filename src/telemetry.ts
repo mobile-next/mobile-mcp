@@ -1,4 +1,6 @@
 import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
 import crypto from "node:crypto";
 
 export interface Telemetry {
@@ -11,6 +13,40 @@ export class NoopTelemetry implements Telemetry {
 	async shutdown(): Promise<void> {}
 }
 
+/**
+ * Returns a randomly generated v4 UUID that is persisted to disk so it
+ * survives restarts.  The file lives in the platform's user-data directory
+ * (~/.local/share on Linux, ~/Library/Application Support on macOS) under
+ * "mobile-mcp/anonymous-id".  If the file cannot be read or written the
+ * function falls back to a fresh in-memory UUID so telemetry is never blocked.
+ */
+function loadOrCreateAnonymousId(): string {
+	const dataDir = path.join(os.homedir(), ...(
+		process.platform === "darwin"
+			? ["Library", "Application Support", "mobile-mcp"]
+			: ["local", "share", "mobile-mcp"]
+	));
+	const idFile = path.join(dataDir, "anonymous-id");
+
+	try {
+		const existing = fs.readFileSync(idFile, "utf8").trim();
+		if (/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)) {
+			return existing;
+		}
+	} catch {
+		// file missing or unreadable — create a new one below
+	}
+
+	const id = crypto.randomUUID();
+	try {
+		fs.mkdirSync(dataDir, { recursive: true });
+		fs.writeFileSync(idFile, id, { encoding: "utf8", mode: 0o600 });
+	} catch {
+		// if we cannot persist, use the in-memory UUID for this session
+	}
+	return id;
+}
+
 export class PostHogTelemetry implements Telemetry {
 	private readonly token: string;
 	private readonly host: string;
@@ -19,8 +55,7 @@ export class PostHogTelemetry implements Telemetry {
 	constructor(token: string, host: string) {
 		this.token = token;
 		this.host = host;
-		const name = os.hostname() + process.execPath;
-		this.distinctId = crypto.createHash("sha256").update(name).digest("hex");
+		this.distinctId = loadOrCreateAnonymousId();
 	}
 
 	capture(event: string, properties: Record<string, string | number> = {}): void {
