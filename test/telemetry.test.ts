@@ -1,5 +1,54 @@
 import assert from "node:assert";
+import fs from "node:fs";
+import path from "node:path";
 import { createTelemetry, NoopTelemetry, PostHogTelemetry } from "../src/telemetry";
+
+const HARDCODED_TOKEN_RE = /phc_[A-Za-z0-9_-]{20,}/;
+
+/**
+ * Recursively collects all files under `dir`, skipping node_modules and
+ * files that cannot be read as UTF-8 text (treat them as binary).
+ */
+function collectTextFiles(dir: string): string[] {
+	const results: string[] = [];
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		if (entry.name === "node_modules") {
+			continue;
+		}
+		const full = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			results.push(...collectTextFiles(full));
+		} else if (entry.isFile()) {
+			results.push(full);
+		}
+	}
+	return results;
+}
+
+/**
+ * Returns all file paths that contain a hardcoded PostHog project token.
+ * Scans the provided root paths (files or directories) recursively.
+ * Binary files are skipped silently.
+ */
+function findHardcodedTokens(roots: string[]): string[] {
+	const hits: string[] = [];
+	for (const root of roots) {
+		const stat = fs.statSync(root);
+		const files = stat.isDirectory() ? collectTextFiles(root) : [root];
+		for (const file of files) {
+			let content: string;
+			try {
+				content = fs.readFileSync(file, "utf8");
+			} catch {
+				continue;
+			}
+			if (HARDCODED_TOKEN_RE.test(content)) {
+				hits.push(file);
+			}
+		}
+	}
+	return hits;
+}
 
 describe("telemetry", () => {
 	const originalEnv = process.env;
@@ -124,21 +173,16 @@ describe("telemetry", () => {
 	});
 
 	it("no hardcoded PostHog token exists in source", () => {
-		const { execSync } = require("node:child_process");
-		let found = false;
-		try {
-			execSync(
-				"grep -rniE 'phc_[a-zA-Z0-9_-]{20,}' src test package.json 2>/dev/null",
-				{ cwd: process.cwd() }
-			);
-			found = true;
-		} catch {
-			found = false;
-		}
-		assert.strictEqual(
-			found,
-			false,
-			"A hardcoded PostHog project token was found in source. Remove it."
+		const root = path.resolve(__dirname, "..");
+		const hits = findHardcodedTokens([
+			path.join(root, "src"),
+			path.join(root, "test"),
+			path.join(root, "package.json"),
+		]);
+		assert.deepStrictEqual(
+			hits,
+			[],
+			`Hardcoded PostHog project token found in: ${hits.join(", ")}`
 		);
 	});
 });
