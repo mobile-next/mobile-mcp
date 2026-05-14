@@ -18,6 +18,7 @@ import { validateOutputPath, validateFileExtension } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
+const ALLOWED_INSTALL_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 
 interface MobilecliDevice {
 	id: string;
@@ -368,6 +369,8 @@ export const createMcpServer = (): McpServer => {
 		},
 		{ destructiveHint: true },
 		async ({ device, path }) => {
+			validateFileExtension(path, ALLOWED_INSTALL_EXTENSIONS, "mobile_install_app");
+			validateOutputPath(path);
 			const robot = getRobotFromDevice(device);
 			await robot.installApp(path);
 			return `Installed app from ${path}`;
