@@ -39,6 +39,9 @@ jobs:
     - name: Lint
       run: npm run lint
 
+    - name: Check for hardcoded telemetry tokens
+      run: bash scripts/check-no-hardcoded-telemetry-tokens.sh
+
     - name: Update version
       if: github.ref_type == 'tag'
       env:

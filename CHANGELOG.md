@@ -1,3 +1,26 @@
+## Unreleased
+
+### Changed
+
+* Security: Telemetry is now disabled by default and must be explicitly enabled with `MOBILEMCP_TELEMETRY=1`
+* Security: Removed embedded PostHog project token from source
+* Security: Added `MOBILEMCP_POSTHOG_PROJECT_TOKEN` and `MOBILEMCP_POSTHOG_HOST` environment variables for user-supplied telemetry configuration
+* Security: Telemetry initialization fails closed to a no-op implementation when configuration is missing or incomplete
+* Security: `MOBILEMCP_DISABLE_TELEMETRY` is deprecated because telemetry is no longer enabled by default
+* Privacy: Replaced the telemetry `distinct_id` (previously a SHA-256 hash of hostname and Node.js executable path — a stable device fingerprint) with a randomly generated UUID persisted locally per install
+
+### Motivation
+
+Earlier versions sent anonymous telemetry to a maintainer-controlled PostHog project by default, using a project token embedded in the source tree. Security scanning identified two concerns:
+
+1. **Embedded token:** The hardcoded PostHog project token cannot be rotated without a code change, prevents users from controlling where their telemetry goes, and allows anyone who obtains the token to submit events to the same project.
+
+2. **Default-on telemetry against sensitive contexts:** Mobile MCP operates against real devices, app screens, accessibility trees, crash logs, and automation workflows. Sending telemetry to a third-party analytics project by default, without explicit user consent, creates a privacy and compliance risk — particularly for enterprise and security-sensitive users.
+
+3. **Correlatable device identifier:** The `distinct_id` was derived from `sha256(hostname + execPath)`, which is deterministic and stable across sessions. This constitutes a device fingerprint that can correlate telemetry events back to a specific machine. It has been replaced with a randomly generated UUID that is persisted locally (in the platform user-data directory) and created once per install. Events from the same install remain correlatable to each other across sessions and version upgrades, but the identifier is not derived from any hardware or account information and cannot be linked to a specific machine by a third party. Users can reset it by deleting the persisted file.
+
+These changes were intentional departures from prior behavior in order to address the above concerns. Users who relied on the previous default-on behavior must now explicitly opt in.
+
 ## [0.0.54](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.54) (2026-05-04)
 * Server: Update mobilecli to 0.3.70
 * iOS: Fixed cases where testmanagerd would get Device Kit stuck in a black screen of death

@@ -462,27 +462,27 @@ Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and 
 
 ### Telemetry
 
-Mobile MCP collects anonymous usage telemetry via PostHog. To disable it, set the `MOBILEMCP_DISABLE_TELEMETRY` environment variable:
+Mobile MCP does not collect telemetry by default.
+
+**Why this changed:** Earlier versions of Mobile MCP sent anonymous usage telemetry to a maintainer-controlled PostHog project by default, using a project token embedded in the source tree. Security scanning identified two concerns with that design: the embedded token cannot be rotated without a code change and prevents users from controlling their telemetry destination; and Mobile MCP operates against real devices, app screens, accessibility trees, crash logs, and automation workflows — contexts where inadvertent capture of sensitive or enterprise data is plausible. Sending telemetry to a third-party project by default, without explicit user consent, creates a compliance risk. Telemetry is now opt-in and requires users to supply their own PostHog project token.
+
+Additionally, the earlier `distinct_id` was derived from a hash of the machine hostname and Node.js executable path — a stable device fingerprint that could be used to correlate events across sessions. It has been replaced with a randomly generated UUID that is persisted locally in the platform user-data directory and created once per install. Events from the same install remain correlatable to each other across sessions and version upgrades, but the identifier is not derived from any hardware or account information and cannot be linked to a specific machine by a third party. Users can reset it by deleting the persisted file.
+
+To opt in, set the following environment variables with your own PostHog project token:
 
 ```bash
-MOBILEMCP_DISABLE_TELEMETRY=1 npx @mobilenext/mobile-mcp@latest
+MOBILEMCP_TELEMETRY=1
+MOBILEMCP_POSTHOG_PROJECT_TOKEN=<your PostHog project token>
+MOBILEMCP_POSTHOG_HOST=https://us.i.posthog.com  # optional, defaults to us.i.posthog.com
 ```
 
-For json configurations:
+If `MOBILEMCP_TELEMETRY` is not set, or is set to any value other than `1` or `true`, no telemetry client is initialized and no telemetry events are sent.
 
-```json
-{
-  "mcpServers": {
-    "mobile-mcp": {
-      "command": "npx",
-      "args": ["-y", "@mobilenext/mobile-mcp@latest"],
-      "env": {
-        "MOBILEMCP_DISABLE_TELEMETRY": "1"
-      }
-    }
-  }
-}
-```
+If `MOBILEMCP_TELEMETRY=1` is set but `MOBILEMCP_POSTHOG_PROJECT_TOKEN` is not provided, telemetry is disabled and a warning is printed. Telemetry always fails closed when configuration is incomplete.
+
+`MOBILEMCP_DISABLE_TELEMETRY` is deprecated. Telemetry is now disabled by default and this variable is no longer required.
+
+Telemetry (when opted in) does not include screenshots, accessibility trees, crash logs, device identifiers, app contents, file paths, URLs opened by users, environment variables, secrets, or other sensitive mobile interaction data.
 
 ### Running in "headless" mode on Simulators/Emulators
 
