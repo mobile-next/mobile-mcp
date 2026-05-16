@@ -31,10 +31,8 @@
     "fast-xml-parser": "5.5.7",
     "qs": "^6.15.0",
     "zod": "^4.1.13",
-    "zod-to-json-schema": "3.25.0"
-  },
-  "optionalDependencies": {
-    "mobilecli": "0.3.70"
+    "zod-to-json-schema": "3.25.0",
+    "mobilewright": "0.0.37"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
