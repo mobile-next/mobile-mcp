@@ -1,3 +1,7 @@
+## [0.0.56](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.56) (2026-05-17)
+* Chore: Update mobilewright to 0.0.38 ([#338](https://github.com/mobile-next/mobile-mcp/pull/338))
+* Fix: Restore mcp-publisher functionality ([#337](https://github.com/mobile-next/mobile-mcp/pull/337))
+
 ## [0.0.55](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.55) (2026-05-16)
 * General: Replace mobilecli with mobilewright SDK ([#334](https://github.com/mobile-next/mobile-mcp/pull/334))
 * General: Bump fast-xml-parser to 5.8.0 to fix security vulnerability ([#335](https://github.com/mobile-next/mobile-mcp/pull/335))
