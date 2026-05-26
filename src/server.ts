@@ -480,6 +480,42 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_pull_file",
+		"Pull File",
+		"Pull a file from the device or from an app's container to the local machine. The local path must be within the current directory or the temp directory.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			remotePath: z.string().describe("The path on the device to pull from"),
+			localPath: z.string().describe("The destination path on the local machine. Must be within the current working directory or the system temp directory."),
+		},
+		{ readOnlyHint: true },
+		async ({ device, remotePath, localPath }) => {
+			ensureMobilecliAvailable();
+			validateOutputPath(localPath);
+			mobilecli.fsPull(device, remotePath, localPath);
+			return `Pulled ${remotePath} to ${localPath}`;
+		}
+	);
+
+	tool(
+		"mobile_push_file",
+		"Push File",
+		"Push a file from the local machine to the device or into an app's container. The local path must be within the current directory or the temp directory.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			localPath: z.string().describe("The source path on the local machine. Must be within the current working directory or the system temp directory."),
+			remotePath: z.string().describe("The destination path on the device"),
+		},
+		{ destructiveHint: true },
+		async ({ device, localPath, remotePath }) => {
+			ensureMobilecliAvailable();
+			validateOutputPath(localPath);
+			mobilecli.fsPush(device, localPath, remotePath);
+			return `Pushed ${localPath} to ${remotePath}`;
+		}
+	);
+
+	tool(
 		"mobile_get_screen_size",
 		"Get Screen Size",
 		"Get the screen size of the mobile device in pixels",
