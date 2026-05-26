@@ -217,6 +217,45 @@ export class Mobilecli {
 		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
 	}
 
+	appsPath(deviceId: string, bundleId: string): MobilecliAppContainerPathResponse {
+		const output = this.executeCommand(["apps", "path", bundleId, "--device", deviceId]);
+		return JSON.parse(output) as MobilecliAppContainerPathResponse;
+	}
+
+	fsMkdir(deviceId: string, remotePath: string, bundleId?: string, parents?: boolean): void {
+		const args = ["fs", "mkdir"];
+
+		if (bundleId) {
+			args.push(bundleId);
+		}
+
+		args.push(remotePath);
+
+		if (parents) {
+			args.push("-p");
+		}
+
+		args.push("--device", deviceId);
+		this.executeCommand(args);
+	}
+
+	fsRm(deviceId: string, remotePath: string, bundleId?: string, recursive?: boolean): void {
+		const args = ["fs", "rm"];
+
+		if (bundleId) {
+			args.push(bundleId);
+		}
+
+		args.push(remotePath);
+
+		if (recursive) {
+			args.push("-r");
+		}
+
+		args.push("--device", deviceId);
+		this.executeCommand(args);
+	}
+
 	fsList(deviceId: string, bundleId?: string, remotePath?: string): MobilecliFilesListResponse {
 		const args = ["fs", "ls"];
 

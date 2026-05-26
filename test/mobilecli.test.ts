@@ -117,6 +117,85 @@ describe("mobilecli", () => {
 		});
 	});
 
+	describe("appsPath", () => {
+		const mockResponse = JSON.stringify({
+			status: "ok",
+			data: { path: "/var/containers/Bundle/Application/ABC123" }
+		});
+
+		it("should call apps path with bundle id and device", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.appsPath("device1", "com.example.app");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["apps", "path", "com.example.app", "--device", "device1"]);
+		});
+
+		it("should parse and return the container path", () => {
+			const { mobilecli } = createMockMobilecli(mockResponse);
+			const result = mobilecli.appsPath("device1", "com.example.app");
+
+			assert.equal(result.status, "ok");
+			assert.equal(result.data.path, "/var/containers/Bundle/Application/ABC123");
+		});
+	});
+
+	describe("fsMkdir", () => {
+		const mockResponse = JSON.stringify({ status: "ok" });
+
+		it("should call fs mkdir with path and device", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsMkdir("device1", "/data/newdir");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "mkdir", "/data/newdir", "--device", "device1"]);
+		});
+
+		it("should include bundleId when provided", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsMkdir("device1", "/Documents/newdir", "com.example.app");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "mkdir", "com.example.app", "/Documents/newdir", "--device", "device1"]);
+		});
+
+		it("should include -p flag when parents is true", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsMkdir("device1", "/data/a/b/c", undefined, true);
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "mkdir", "/data/a/b/c", "-p", "--device", "device1"]);
+		});
+	});
+
+	describe("fsRm", () => {
+		const mockResponse = JSON.stringify({ status: "ok" });
+
+		it("should call fs rm with path and device", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsRm("device1", "/data/file.txt");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "rm", "/data/file.txt", "--device", "device1"]);
+		});
+
+		it("should include bundleId when provided", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsRm("device1", "/Documents/file.txt", "com.example.app");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "rm", "com.example.app", "/Documents/file.txt", "--device", "device1"]);
+		});
+
+		it("should include -r flag when recursive is true", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsRm("device1", "/data/mydir", undefined, true);
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "rm", "/data/mydir", "-r", "--device", "device1"]);
+		});
+	});
+
 	describe("fsList", () => {
 		const mockResponse = JSON.stringify({
 			status: "ok",
