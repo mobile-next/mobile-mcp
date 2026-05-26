@@ -116,4 +116,50 @@ describe("mobilecli", () => {
 			assert.deepEqual(calls[0].args, ["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
 		});
 	});
+
+	describe("fsList", () => {
+		const mockResponse = JSON.stringify({
+			status: "ok",
+			data: [
+				{ name: "Documents", path: "/data/Documents", size: 0, modTime: "2026-01-01T00:00:00Z", isDir: true },
+				{ name: "config.json", path: "/data/config.json", size: 512, modTime: "2026-01-01T00:00:00Z", isDir: false },
+			]
+		});
+
+		it("should call fs ls with device only", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsList("device1");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "ls", "--device", "device1"]);
+		});
+
+		it("should call fs ls with bundleId", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsList("device1", "com.example.app");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "ls", "com.example.app", "--device", "device1"]);
+		});
+
+		it("should call fs ls with bundleId and path", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsList("device1", "com.example.app", "/Documents");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "ls", "com.example.app", "/Documents", "--device", "device1"]);
+		});
+
+		it("should parse and return the file list", () => {
+			const { mobilecli } = createMockMobilecli(mockResponse);
+			const result = mobilecli.fsList("device1");
+
+			assert.equal(result.status, "ok");
+			assert.equal(result.data.length, 2);
+			assert.equal(result.data[0].name, "Documents");
+			assert.equal(result.data[0].isDir, true);
+			assert.equal(result.data[1].name, "config.json");
+			assert.equal(result.data[1].size, 512);
+		});
+	});
 });

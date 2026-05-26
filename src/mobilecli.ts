@@ -47,6 +47,26 @@ export interface MobilecliDevicesResponse {
 	};
 }
 
+export interface MobilecliFileEntry {
+	name: string;
+	path: string;
+	size: number;
+	modTime: string;
+	isDir: boolean;
+}
+
+export interface MobilecliFilesListResponse {
+	status: "ok";
+	data: MobilecliFileEntry[];
+}
+
+export interface MobilecliAppContainerPathResponse {
+	status: "ok";
+	data: {
+		path: string;
+	};
+}
+
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
@@ -195,5 +215,21 @@ export class Mobilecli {
 
 		const mobilecliOutput = this.executeCommand(args);
 		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
+	}
+
+	fsList(deviceId: string, bundleId?: string, remotePath?: string): MobilecliFilesListResponse {
+		const args = ["fs", "ls"];
+
+		if (bundleId) {
+			args.push(bundleId);
+		}
+
+		if (remotePath) {
+			args.push(remotePath);
+		}
+
+		args.push("--device", deviceId);
+		const output = this.executeCommand(args);
+		return JSON.parse(output) as MobilecliFilesListResponse;
 	}
 }
