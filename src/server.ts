@@ -406,6 +406,44 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_list_files",
+		"List Files",
+		"List files on the device or in an app's container. Use mobile_get_app_container_path to get the container path for a specific app.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			bundleId: z.string().optional().describe("App bundle ID to list files in its container. Omit to list the device root."),
+			path: z.string().optional().describe("Remote path to list. Omit to list the root of the bundle or device."),
+		},
+		{ readOnlyHint: true },
+		async ({ device, bundleId, path: remotePath }) => {
+			ensureMobilecliAvailable();
+			const response = mobilecli.fsList(device, bundleId, remotePath);
+			const entries = response.data.map(entry => {
+				const type = entry.isDir ? "dir " : "file";
+				const size = entry.isDir ? "" : ` (${entry.size} bytes)`;
+				return `${type}  ${entry.name}${size}`;
+			});
+			return entries.join("\n") || "Empty directory";
+		}
+	);
+
+	tool(
+		"mobile_get_app_container_path",
+		"Get App Container Path",
+		"Get the container path of an app on the device. Useful as a base path for mobile_list_files, mobile_pull_file, mobile_push_file, and similar tools.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			bundleId: z.string().describe("The app bundle ID whose container path to retrieve"),
+		},
+		{ readOnlyHint: true },
+		async ({ device, bundleId }) => {
+			ensureMobilecliAvailable();
+			const response = mobilecli.appsPath(device, bundleId);
+			return response.data.path;
+		}
+	);
+
+	tool(
 		"mobile_get_screen_size",
 		"Get Screen Size",
 		"Get the screen size of the mobile device in pixels",
