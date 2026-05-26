@@ -117,6 +117,30 @@ describe("mobilecli", () => {
 		});
 	});
 
+	describe("fsPull", () => {
+		const mockResponse = JSON.stringify({ status: "ok" });
+
+		it("should call fs pull with remote path, local path, and device", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsPull("device1", "/data/remote.txt", "/tmp/local.txt");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "pull", "/data/remote.txt", "/tmp/local.txt", "--device", "device1"]);
+		});
+	});
+
+	describe("fsPush", () => {
+		const mockResponse = JSON.stringify({ status: "ok" });
+
+		it("should call fs push with local path, remote path, and device", () => {
+			const { mobilecli, calls } = createMockMobilecli(mockResponse);
+			mobilecli.fsPush("device1", "/tmp/local.txt", "/data/remote.txt");
+
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0].args, ["fs", "push", "/tmp/local.txt", "/data/remote.txt", "--device", "device1"]);
+		});
+	});
+
 	describe("appsPath", () => {
 		const mockResponse = JSON.stringify({
 			status: "ok",
