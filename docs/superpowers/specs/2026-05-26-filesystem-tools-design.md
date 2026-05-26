@@ -79,6 +79,16 @@ MCP client → tool() in server.ts → Mobilecli method → execFileSync(mobilec
 `fsPull`/`fsPush`/`fsMkdir`/`fsRm` return a brief success message.  
 `appsPath` returns the container path string.
 
+## Security
+
+Two tools interact with local file paths and need validation before execution:
+
+- **`mobile_pull_file`** — writes to a caller-specified `localPath`. Must call `validateOutputPath(localPath)` (already used by `mobile_save_screenshot`) to prevent path traversal writes to sensitive locations such as `~/.ssh/authorized_keys` or `/etc/passwd`. Only paths under `os.tmpdir()` and `process.cwd()` are permitted.
+
+- **`mobile_push_file`** — reads from a caller-specified `localPath` and sends it to the device. Must also call `validateOutputPath(localPath)` to prevent an agent from reading sensitive local files (credentials, private keys) and exfiltrating them onto the device.
+
+No validation is needed for remote paths (they operate on the device, not the local machine).
+
 ## Error Handling
 
 No special handling needed beyond what the existing `tool()` wrapper already does — it catches thrown errors and returns them as MCP error responses.
