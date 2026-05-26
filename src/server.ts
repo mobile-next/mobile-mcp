@@ -444,6 +444,42 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_create_directory",
+		"Create Directory",
+		"Create a directory on the device or in an app's container",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().describe("The remote path of the directory to create"),
+			bundleId: z.string().optional().describe("App bundle ID to create the directory in its container. Omit to operate on the device filesystem."),
+			parents: z.boolean().optional().describe("Create parent directories as needed"),
+		},
+		{ destructiveHint: true },
+		async ({ device, path: remotePath, bundleId, parents }) => {
+			ensureMobilecliAvailable();
+			mobilecli.fsMkdir(device, remotePath, bundleId, parents);
+			return `Created directory ${remotePath}`;
+		}
+	);
+
+	tool(
+		"mobile_remove_file",
+		"Remove File",
+		"Remove a file or directory on the device or in an app's container",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().describe("The remote path to remove"),
+			bundleId: z.string().optional().describe("App bundle ID to remove from its container. Omit to operate on the device filesystem."),
+			recursive: z.boolean().optional().describe("Remove directories and their contents recursively"),
+		},
+		{ destructiveHint: true },
+		async ({ device, path: remotePath, bundleId, recursive }) => {
+			ensureMobilecliAvailable();
+			mobilecli.fsRm(device, remotePath, bundleId, recursive);
+			return `Removed ${remotePath}`;
+		}
+	);
+
+	tool(
 		"mobile_get_screen_size",
 		"Get Screen Size",
 		"Get the screen size of the mobile device in pixels",
