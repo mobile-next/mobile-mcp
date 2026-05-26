@@ -408,16 +408,15 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_files",
 		"List Files",
-		"List files on the device or in an app's container. Use mobile_get_app_container_path to get the container path for a specific app.",
+		"List files on the device at the given path. Use mobile_get_app_container_path to get the container path for a specific app.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			bundleId: z.string().optional().describe("App bundle ID to list files in its container. Omit to list the device root."),
-			path: z.string().optional().describe("Remote path to list. Omit to list the root of the bundle or device."),
+			path: z.string().optional().describe("Remote path to list. Omit to list the device root."),
 		},
 		{ readOnlyHint: true },
-		async ({ device, bundleId, path: remotePath }) => {
+		async ({ device, path: remotePath }) => {
 			ensureMobilecliAvailable();
-			const response = mobilecli.fsList(device, bundleId, remotePath);
+			const response = mobilecli.fsList(device, remotePath);
 			const entries = response.data.map(entry => {
 				const type = entry.isDir ? "dir " : "file";
 				const size = entry.isDir ? "" : ` (${entry.size} bytes)`;

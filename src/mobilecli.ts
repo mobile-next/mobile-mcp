@@ -264,12 +264,8 @@ export class Mobilecli {
 		this.executeCommand(["fs", "push", localPath, remotePath, "--device", deviceId]);
 	}
 
-	fsList(deviceId: string, bundleId?: string, remotePath?: string): MobilecliFilesListResponse {
+	fsList(deviceId: string, remotePath?: string): MobilecliFilesListResponse {
 		const args = ["fs", "ls"];
-
-		if (bundleId) {
-			args.push(bundleId);
-		}
 
 		if (remotePath) {
 			args.push(remotePath);
