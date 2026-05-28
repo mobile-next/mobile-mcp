@@ -1,3 +1,6 @@
+## [0.0.57](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.57) (2026-05-28)
+* Chore: Update mobilewright to 0.0.41 ([#341](https://github.com/mobile-next/mobile-mcp/pull/341))
+
 ## [0.0.56](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.56) (2026-05-17)
 * Chore: Update mobilewright to 0.0.38 ([#338](https://github.com/mobile-next/mobile-mcp/pull/338))
 * Fix: Restore mcp-publisher functionality ([#337](https://github.com/mobile-next/mobile-mcp/pull/337))
