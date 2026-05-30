@@ -47,6 +47,26 @@ export interface MobilecliDevicesResponse {
 	};
 }
 
+export interface MobilecliFileEntry {
+	name: string;
+	path: string;
+	size: number;
+	modTime: string;
+	isDir: boolean;
+}
+
+export interface MobilecliFilesListResponse {
+	status: "ok";
+	data: MobilecliFileEntry[];
+}
+
+export interface MobilecliAppContainerPathResponse {
+	status: "ok";
+	data: {
+		path: string;
+	};
+}
+
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
@@ -195,5 +215,64 @@ export class Mobilecli {
 
 		const mobilecliOutput = this.executeCommand(args);
 		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
+	}
+
+	appsPath(deviceId: string, bundleId: string): MobilecliAppContainerPathResponse {
+		const output = this.executeCommand(["apps", "path", bundleId, "--device", deviceId]);
+		return JSON.parse(output) as MobilecliAppContainerPathResponse;
+	}
+
+	fsMkdir(deviceId: string, remotePath: string, bundleId?: string, parents?: boolean): void {
+		const args = ["fs", "mkdir"];
+
+		if (bundleId) {
+			args.push(bundleId);
+		}
+
+		args.push(remotePath);
+
+		if (parents) {
+			args.push("-p");
+		}
+
+		args.push("--device", deviceId);
+		this.executeCommand(args);
+	}
+
+	fsRm(deviceId: string, remotePath: string, bundleId?: string, recursive?: boolean): void {
+		const args = ["fs", "rm"];
+
+		if (bundleId) {
+			args.push(bundleId);
+		}
+
+		args.push(remotePath);
+
+		if (recursive) {
+			args.push("-r");
+		}
+
+		args.push("--device", deviceId);
+		this.executeCommand(args);
+	}
+
+	fsPull(deviceId: string, remotePath: string, localPath: string): void {
+		this.executeCommand(["fs", "pull", remotePath, localPath, "--device", deviceId]);
+	}
+
+	fsPush(deviceId: string, localPath: string, remotePath: string): void {
+		this.executeCommand(["fs", "push", localPath, remotePath, "--device", deviceId]);
+	}
+
+	fsList(deviceId: string, remotePath?: string): MobilecliFilesListResponse {
+		const args = ["fs", "ls"];
+
+		if (remotePath) {
+			args.push(remotePath);
+		}
+
+		args.push("--device", deviceId);
+		const output = this.executeCommand(args);
+		return JSON.parse(output) as MobilecliFilesListResponse;
 	}
 }
