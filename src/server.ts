@@ -7,7 +7,6 @@ import crypto from "node:crypto";
 import { ChildProcess } from "node:child_process";
 
 import { error, trace } from "./logger";
-import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
@@ -176,11 +175,12 @@ export const createMcpServer = (): McpServer => {
 		}
 
 		// Check if it's an Android device
-		const androidManager = new AndroidDeviceManager();
-		const androidDevices = androidManager.getConnectedDevices();
-		const androidDevice = androidDevices.find(d => d.deviceId === deviceId);
-		if (androidDevice) {
-			return new AndroidRobot(deviceId);
+		const androidDevicesResponse = mobilecli.getDevices({ platform: "android" });
+		if (androidDevicesResponse.status === "ok" && androidDevicesResponse.data?.devices) {
+			const androidDevice = androidDevicesResponse.data.devices.find(d => d.id === deviceId);
+			if (androidDevice) {
+				return new MobileDevice(deviceId);
+			}
 		}
 
 		// Check if it's a simulator (will later replace all other device types as well)
@@ -222,20 +222,21 @@ export const createMcpServer = (): McpServer => {
 			ensureMobilecliAvailable();
 
 			const iosManager = new IosManager();
-			const androidManager = new AndroidDeviceManager();
 			const devices: MobilecliDevice[] = [];
 
 			// Get Android devices with details
-			const androidDevices = androidManager.getConnectedDevicesWithDetails();
-			for (const device of androidDevices) {
-				devices.push({
-					id: device.deviceId,
-					name: device.name,
-					platform: "android",
-					type: "emulator",
-					version: device.version,
-					state: "online",
-				});
+			const androidDevicesResponse = mobilecli.getDevices({ platform: "android" });
+			if (androidDevicesResponse.status === "ok" && androidDevicesResponse.data?.devices) {
+				for (const device of androidDevicesResponse.data.devices) {
+					devices.push({
+						id: device.id,
+						name: device.name,
+						platform: "android",
+						type: device.type,
+						version: device.version,
+						state: "online",
+					});
+				}
 			}
 
 			// Get iOS physical devices with details
