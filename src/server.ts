@@ -498,6 +498,9 @@ export const createMcpServer = (): McpServer => {
 						y: element.rect.y,
 						width: element.rect.width,
 						height: element.rect.height,
+						// Center coordinates for direct use with mobile_click_on_screen_at_coordinates
+						centerX: Math.round(element.rect.x + element.rect.width / 2),
+						centerY: Math.round(element.rect.y + element.rect.height / 2),
 					},
 				};
 
@@ -505,10 +508,58 @@ export const createMcpServer = (): McpServer => {
 					out.focused = true;
 				}
 
+				if (element.clickable) {
+					out.clickable = true;
+				}
+
 				return out;
 			});
 
 			return `Found these elements on screen: ${JSON.stringify(result)}`;
+		}
+	);
+
+	tool(
+		"mobile_tap_element_by_text",
+		"Tap Element by Text or Label",
+		"Find a UI element by its visible text, accessibility label, or resource-id and tap its center. "
+		+ "Especially useful for React Native apps where Pressable/TouchableOpacity components may not appear as clickable in the accessibility tree. "
+		+ "Uses a case-insensitive substring match. Taps the first matching element. "
+		+ "Throws if no element matches.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			query: z.string().describe("Text, accessibility label, or resource-id to search for (case-insensitive substring match)."),
+		},
+		{ readOnlyHint: false },
+		async ({ device, query }) => {
+			const robot = getRobotFromDevice(device);
+			const elements = await robot.getElementsOnScreen();
+
+			const q = query.toLowerCase();
+			const matches = (el: any) =>
+				(el.text && el.text.toLowerCase().includes(q)) ||
+				(el.label && el.label.toLowerCase().includes(q)) ||
+				(el.name && el.name.toLowerCase().includes(q)) ||
+				(el.identifier && el.identifier.toLowerCase().includes(q));
+
+			// Prefer explicitly clickable elements so we don't accidentally tap
+			// non-interactive labels (e.g. a section header "REPORTS" before the
+			// tappable "Reports" row).
+			const match =
+				elements.find(el => el.clickable && matches(el)) ??
+				elements.find(el => matches(el));
+
+			if (!match) {
+				throw new ActionableError(
+					`No element found matching "${query}". Use mobile_list_elements_on_screen to see available elements.`
+				);
+			}
+
+			const centerX = Math.round(match.rect.x + match.rect.width / 2);
+			const centerY = Math.round(match.rect.y + match.rect.height / 2);
+			await robot.tap(centerX, centerY);
+
+			return `Tapped element "${match.text || match.label || match.identifier || query}" at center (${centerX}, ${centerY}).`;
 		}
 	);
 
@@ -580,15 +631,21 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_type_keys",
 		"Type Text",
-		"Type text into the focused element",
+		"Type text into the focused element. Set clear=true to erase existing text first (select-all + delete), which prevents accidentally appending to pre-filled fields.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			text: z.string().describe("The text to type"),
-			submit: z.boolean().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
+			submit: z.boolean().optional().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
+			clear: z.boolean().optional().describe("If true, clear any existing text in the focused field before typing. Useful for form fields that may be pre-filled."),
 		},
 		{ destructiveHint: true },
-		async ({ device, text, submit }) => {
+		async ({ device, text, submit, clear }) => {
 			const robot = getRobotFromDevice(device);
+
+			if (clear) {
+				await robot.clearActiveField();
+			}
+
 			await robot.sendKeys(text);
 
 			if (submit) {
@@ -596,6 +653,116 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			return `Typed text: ${text}`;
+		}
+	);
+
+	tool(
+		"mobile_clear_field",
+		"Clear Text Field",
+		"Clear all text in the currently focused input field (select-all + delete). Tap the field first with mobile_click_on_screen_at_coordinates, then call this tool before typing new text.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+		},
+		{ destructiveHint: true },
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			await robot.clearActiveField();
+			return "Cleared text field.";
+		}
+	);
+
+	tool(
+		"mobile_wait_for_element",
+		"Wait For Element",
+		"Poll the screen until an element matching the query appears (or timeout is reached). "
+		+ "Use after taps/navigation to wait for the next screen to load instead of hardcoded sleeps. "
+		+ "Returns the matched element's coordinates on success.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			query: z.string().describe("Text, accessibility label, or resource-id to wait for (case-insensitive substring match)."),
+			timeoutMs: z.number().optional().describe("Maximum time to wait in milliseconds. Defaults to 10000 (10 seconds)."),
+			intervalMs: z.number().optional().describe("How often to poll in milliseconds. Defaults to 500."),
+		},
+		{ readOnlyHint: true },
+		async ({ device, query, timeoutMs, intervalMs }) => {
+			const robot = getRobotFromDevice(device);
+			const timeout = timeoutMs ?? 10000;
+			const interval = intervalMs ?? 500;
+			const deadline = Date.now() + timeout;
+			const q = query.toLowerCase();
+
+			while (Date.now() < deadline) {
+				const elements = await robot.getElementsOnScreen();
+				const match = elements.find(el =>
+					(el.text && el.text.toLowerCase().includes(q)) ||
+					(el.label && el.label.toLowerCase().includes(q)) ||
+					(el.identifier && el.identifier.toLowerCase().includes(q))
+				);
+
+				if (match) {
+					const centerX = Math.round(match.rect.x + match.rect.width / 2);
+					const centerY = Math.round(match.rect.y + match.rect.height / 2);
+					return `Element "${match.text || match.label || query}" found at (${centerX}, ${centerY}).`;
+				}
+
+				await new Promise(resolve => setTimeout(resolve, interval));
+			}
+
+			throw new ActionableError(
+				`Element matching "${query}" did not appear within ${timeout}ms. Use mobile_take_screenshot to see current screen state.`
+			);
+		}
+	);
+
+	tool(
+		"mobile_scroll_to_element",
+		"Scroll Until Element Visible",
+		"Scroll the screen in a direction until an element matching the query becomes visible, then return its coordinates. "
+		+ "Useful for long lists where the target element is off-screen. Stops as soon as the element appears.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			query: z.string().describe("Text, accessibility label, or resource-id to scroll to (case-insensitive substring match)."),
+			direction: z.enum(["up", "down", "left", "right"]).optional().describe("Scroll direction. Defaults to 'down'."),
+			maxScrolls: z.number().optional().describe("Maximum number of scroll attempts before giving up. Defaults to 10."),
+		},
+		{ destructiveHint: false },
+		async ({ device, query, direction, maxScrolls }) => {
+			const robot = getRobotFromDevice(device);
+			const dir = direction ?? "down";
+			const limit = maxScrolls ?? 10;
+			const q = query.toLowerCase();
+
+			const findMatch = async () => {
+				const elements = await robot.getElementsOnScreen();
+				return elements.find(el =>
+					(el.text && el.text.toLowerCase().includes(q)) ||
+					(el.label && el.label.toLowerCase().includes(q)) ||
+					(el.identifier && el.identifier.toLowerCase().includes(q))
+				);
+			};
+
+			// Check if already visible
+			let match = await findMatch();
+			if (match) {
+				const centerX = Math.round(match.rect.x + match.rect.width / 2);
+				const centerY = Math.round(match.rect.y + match.rect.height / 2);
+				return `Element "${match.text || match.label || query}" already visible at (${centerX}, ${centerY}).`;
+			}
+
+			for (let i = 0; i < limit; i++) {
+				await robot.swipe(dir);
+				await new Promise(resolve => setTimeout(resolve, 600));
+				match = await findMatch();
+				if (match) {
+					const centerX = Math.round(match.rect.x + match.rect.width / 2);
+					const centerY = Math.round(match.rect.y + match.rect.height / 2);
+					return `Element "${match.text || match.label || query}" found after ${i + 1} scroll(s) at (${centerX}, ${centerY}).`;
+				}
+			}
+
+			throw new ActionableError(
+				`Element matching "${query}" not found after ${limit} scroll(s) in direction "${dir}".`
+			);
 		}
 	);
 
