@@ -111,7 +111,12 @@ export class AndroidRobot implements Robot {
 			throw new Error("Failed to get screen size");
 		}
 
-		const scale = 1;
+		const screenDensity = this.adb("shell", "wm", "density")
+			.toString()
+			.split(" ")
+			.pop();
+
+		const scale = screenDensity ? +screenDensity / 160 : 1;
 		const [width, height] = screenSize.split("x").map(Number);
 		return { width, height, scale };
 	}
