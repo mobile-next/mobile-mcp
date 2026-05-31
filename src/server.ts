@@ -282,7 +282,7 @@ export const createMcpServer = (): McpServer => {
 		tool(
 			"mobile_allocate_fleet_device",
 			"Allocate Fleet Device",
-			"Reserve a device from the remote fleet",
+			"Reserve a real device from the mobilenext cloud fleet. Returns the device id and a link to the live session in the mobilenext dashboard.",
 			{
 				platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
 			},
@@ -290,7 +290,28 @@ export const createMcpServer = (): McpServer => {
 			async ({ platform }) => {
 				ensureMobilecliAvailable();
 				const result = mobilecli.fleetAllocate(platform);
-				return result;
+
+				if (result.status === "error" || !result.data) {
+					return `Failed to allocate device: ${result.error ?? "unknown error"}`;
+				}
+
+				const { sessionId, sessionUrl, device } = result.data;
+				const lines: string[] = [];
+
+				if (device) {
+					lines.push(`Allocated ${device.name} (${device.platform} ${device.version}, id: ${device.id})`);
+				} else {
+					lines.push(`Device allocation started (session: ${sessionId})`);
+				}
+
+				if (sessionUrl) {
+					lines.push(`Session: ${sessionUrl}`);
+				} else if (sessionId) {
+					lines.push(`Session: https://app.mobilenext.ai/sessions/${sessionId}`);
+				}
+
+				lines.push(`Use device id "${device?.id ?? ""}" with other mobile tools.`);
+				return lines.join("\n");
 			}
 		);
 

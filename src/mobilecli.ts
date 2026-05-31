@@ -2,6 +2,23 @@ import { existsSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { execFileSync, spawn, ChildProcess } from "node:child_process";
 
+export interface FleetAllocateResponse {
+	status: "ok" | "error";
+	data?: {
+		sessionId: string;
+		sessionUrl?: string;
+		state?: string;
+		device?: {
+			id: string;
+			name: string;
+			platform: string;
+			version: string;
+			model?: string;
+		};
+	};
+	error?: string;
+}
+
 export interface MobilecliDevicesOptions {
 	includeOffline?: boolean;
 	platform?: "ios" | "android";
@@ -115,8 +132,9 @@ export class Mobilecli {
 		return this.executeCommand(["fleet", "list-devices"]);
 	}
 
-	fleetAllocate(platform: "ios" | "android"): string {
-		return this.executeCommand(["fleet", "allocate", "--platform", platform]);
+	fleetAllocate(platform: "ios" | "android"): FleetAllocateResponse {
+		const raw = this.executeCommand(["fleet", "allocate", "--platform", platform, "--wait"]);
+		return JSON.parse(raw) as FleetAllocateResponse;
 	}
 
 	fleetRelease(deviceId: string): string {
