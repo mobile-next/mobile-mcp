@@ -1,4 +1,4 @@
-import assert from "node:assert";
+import { test, expect } from "@playwright/test";
 import { Mobilecli } from "../src/mobilecli";
 
 type ExecuteCommandCall = {
@@ -17,46 +17,46 @@ function createMockMobilecli(mockResponse: string): { mobilecli: Mobilecli; call
 	return { mobilecli, calls };
 }
 
-describe("mobilecli", () => {
+test.describe("mobilecli", () => {
 
 	const mobilecli = new Mobilecli();
 
-	describe("getVersion", () => {
-		it("should return a version string", () => {
+	test.describe("getVersion", () => {
+		test("should return a version string", () => {
 			const version = mobilecli.getVersion();
-			assert.ok(version.length > 0);
-			assert.ok(!version.includes("failed"));
+			expect(version.length).toBeGreaterThan(0);
+			expect(version).not.toContain("failed");
 		});
 
-		it("should return version in correct format", () => {
+		test("should return version in correct format", () => {
 			const version = mobilecli.getVersion();
 			// Version should be in format like "0.0.45" or similar
 			const versionPattern = /^\d+\.\d+\.\d+/;
-			assert.ok(versionPattern.test(version), `Version "${version}" should match pattern X.Y.Z`);
+			expect(version, `Version "${version}" should match pattern X.Y.Z`).toMatch(versionPattern);
 		});
 
-		it("should return failed when MOBILECLI_PATH points to invalid location", () => {
+		test("should return failed when MOBILECLI_PATH points to invalid location", () => {
 			try {
 				process.env.MOBILECLI_PATH = "/tmp";
 				const mobilecli = new Mobilecli();
 				const version = mobilecli.getVersion();
-				assert.ok(version.includes("failed"), `Expected version to include "failed" but got: ${version}`);
+				expect(version, `Expected version to include "failed" but got: ${version}`).toContain("failed");
 			} finally {
 				delete process.env.MOBILECLI_PATH;
 			}
 		});
 
-		it("should call executeCommand with --version argument", () => {
+		test("should call executeCommand with --version argument", () => {
 			const { mobilecli, calls } = createMockMobilecli("mobilecli version 1.0.0");
 			const version = mobilecli.getVersion();
 
-			assert.equal(calls.length, 1);
-			assert.deepEqual(calls[0].args, ["--version"]);
-			assert.equal(version, "1.0.0");
+			expect(calls.length).toBe(1);
+			expect(calls[0].args).toEqual(["--version"]);
+			expect(version).toBe("1.0.0");
 		});
 	});
 
-	describe("getDevices", () => {
+	test.describe("getDevices", () => {
 		const mockDevicesResponse = JSON.stringify({
 			status: "ok",
 			data: {
@@ -72,39 +72,39 @@ describe("mobilecli", () => {
 			}
 		});
 
-		it("should call executeCommand with devices argument when no options", () => {
+		test("should call executeCommand with devices argument when no options", () => {
 			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
 			mobilecli.getDevices();
 
-			assert.equal(calls.length, 1);
-			assert.deepEqual(calls[0].args, ["devices"]);
+			expect(calls.length).toBe(1);
+			expect(calls[0].args).toEqual(["devices"]);
 		});
 
-		it("should call executeCommand with platform filter", () => {
+		test("should call executeCommand with platform filter", () => {
 			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
 			mobilecli.getDevices({ platform: "ios" });
 
-			assert.equal(calls.length, 1);
-			assert.deepEqual(calls[0].args, ["devices", "--platform", "ios"]);
+			expect(calls.length).toBe(1);
+			expect(calls[0].args).toEqual(["devices", "--platform", "ios"]);
 		});
 
-		it("should call executeCommand with type filter", () => {
+		test("should call executeCommand with type filter", () => {
 			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
 			mobilecli.getDevices({ type: "simulator" });
 
-			assert.equal(calls.length, 1);
-			assert.deepEqual(calls[0].args, ["devices", "--type", "simulator"]);
+			expect(calls.length).toBe(1);
+			expect(calls[0].args).toEqual(["devices", "--type", "simulator"]);
 		});
 
-		it("should call executeCommand with includeOffline flag", () => {
+		test("should call executeCommand with includeOffline flag", () => {
 			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
 			mobilecli.getDevices({ includeOffline: true });
 
-			assert.equal(calls.length, 1);
-			assert.deepEqual(calls[0].args, ["devices", "--include-offline"]);
+			expect(calls.length).toBe(1);
+			expect(calls[0].args).toEqual(["devices", "--include-offline"]);
 		});
 
-		it("should call executeCommand with combined options", () => {
+		test("should call executeCommand with combined options", () => {
 			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
 			mobilecli.getDevices({
 				platform: "android",
@@ -112,8 +112,8 @@ describe("mobilecli", () => {
 				includeOffline: true
 			});
 
-			assert.equal(calls.length, 1);
-			assert.deepEqual(calls[0].args, ["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
+			expect(calls.length).toBe(1);
+			expect(calls[0].args).toEqual(["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
 		});
 	});
 });

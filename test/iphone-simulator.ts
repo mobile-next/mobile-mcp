@@ -1,11 +1,11 @@
-import assert from "node:assert";
+import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
 
 import { PNG } from "../src/png";
 import { MobileDevice } from "../src/mobile-device";
 import { Mobilecli } from "../src/mobilecli";
 
-describe("iphone-simulator", () => {
+test.describe("iphone-simulator", () => {
 
 	const mobilecli = new Mobilecli();
 	const devicesResponse = mobilecli.getDevices({
@@ -32,38 +32,38 @@ describe("iphone-simulator", () => {
 		await restartApp("com.apple.reminders");
 	};
 
-	it("should be able to swipe", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to swipe", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		await restartPreferencesApp();
 
 		// make sure "General" is present (since it's at the top of the list)
 		const elements1 = await device.getElementsOnScreen();
-		assert.ok(elements1.findIndex(e => e.name === "com.apple.settings.general") !== -1);
+		expect(elements1.findIndex(e => e.name === "com.apple.settings.general")).not.toBe(-1);
 
 		// swipe up (bottom of screen to top of screen)
 		await device.swipe("up");
 
 		// make sure "General" is not visible now
 		const elements2 = await device.getElementsOnScreen();
-		assert.ok(elements2.findIndex(e => e.name === "com.apple.settings.general") === -1);
+		expect(elements2.findIndex(e => e.name === "com.apple.settings.general")).toBe(-1);
 
 		// swipe down
 		await device.swipe("down");
 
 		// make sure "General" is visible again
 		const elements3 = await device.getElementsOnScreen();
-		assert.ok(elements3.findIndex(e => e.name === "com.apple.settings.general") !== -1);
+		expect(elements3.findIndex(e => e.name === "com.apple.settings.general")).not.toBe(-1);
 	});
 
-	it("should be able to send keys and press enter", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to send keys and press enter", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		await restartRemindersApp();
 
 		// find new reminder element
 		await new Promise(resolve => setTimeout(resolve, 3000));
 		const elements = await device.getElementsOnScreen();
 		const newElement = elements.find(e => e.label === "New Reminder");
-		assert.ok(newElement !== undefined, "should have found New Reminder element");
+		expect(newElement, "should have found New Reminder element").toBeDefined();
 
 		// click on new reminder
 		await device.tap(newElement.rect.x, newElement.rect.y);
@@ -81,23 +81,23 @@ describe("iphone-simulator", () => {
 		await device.sendKeys(random2 + "\n");
 
 		const elements2 = await device.getElementsOnScreen();
-		assert.ok(elements2.findIndex(e => e.value === random1) !== -1);
-		assert.ok(elements2.findIndex(e => e.value === random2) !== -1);
+		expect(elements2.findIndex(e => e.value === random1)).not.toBe(-1);
+		expect(elements2.findIndex(e => e.value === random2)).not.toBe(-1);
 	});
 
-	it("should be able to get the screen size", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to get the screen size", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		const screenSize = await device.getScreenSize();
-		assert.ok(screenSize.width > 256);
-		assert.ok(screenSize.height > 256);
-		assert.ok(screenSize.scale >= 1);
-		assert.equal(Object.keys(screenSize).length, 3, "screenSize should have exactly 3 properties");
+		expect(screenSize.width).toBeGreaterThan(256);
+		expect(screenSize.height).toBeGreaterThan(256);
+		expect(screenSize.scale).toBeGreaterThanOrEqual(1);
+		expect(Object.keys(screenSize).length, "screenSize should have exactly 3 properties").toBe(3);
 	});
 
-	it("should be able to get screenshot", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to get screenshot", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		const screenshot = await device.getScreenshot();
-		assert.ok(screenshot.length > 64 * 1024);
+		expect(screenshot.length).toBeGreaterThan(64 * 1024);
 
 		// must be a valid png image that matches the screen size
 		const image = new PNG(screenshot);
@@ -105,91 +105,85 @@ describe("iphone-simulator", () => {
 		const screenSize = await device.getScreenSize();
 
 		// wda returns screen size as points, round up
-		assert.equal(Math.ceil(pngSize.width / screenSize.scale), screenSize.width);
-		assert.equal(Math.ceil(pngSize.height / screenSize.scale), screenSize.height);
+		expect(Math.ceil(pngSize.width / screenSize.scale)).toBe(screenSize.width);
+		expect(Math.ceil(pngSize.height / screenSize.scale)).toBe(screenSize.height);
 	});
 
-	it("should be able to open url", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to open url", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		// simply checking thato openurl with https:// launches safari
 		await device.openUrl("https://www.example.com");
 		await new Promise(resolve => setTimeout(resolve, 1000));
 
 		const elements = await device.getElementsOnScreen();
-		assert.ok(elements.length > 0);
+		expect(elements.length).toBeGreaterThan(0);
 
 		const addressBar = elements.find(element => element.type === "TextField" && element.name === "TabBarItemTitle" && element.label === "Address");
-		assert.ok(addressBar !== undefined, "should have address bar");
+		expect(addressBar, "should have address bar").toBeDefined();
 	});
 
-	it("should be able to list apps", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to list apps", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		const apps = await device.listApps();
 		const packages = apps.map(app => app.packageName);
-		assert.ok(packages.includes("com.apple.mobilesafari"));
-		assert.ok(packages.includes("com.apple.reminders"));
-		assert.ok(packages.includes("com.apple.Preferences"));
+		expect(packages).toContain("com.apple.mobilesafari");
+		expect(packages).toContain("com.apple.reminders");
+		expect(packages).toContain("com.apple.Preferences");
 	});
 
-	it("should be able to get elements on screen", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to get elements on screen", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		await device.pressButton("HOME");
 		await new Promise(resolve => setTimeout(resolve, 2000));
 
 		const elements = await device.getElementsOnScreen();
-		assert.ok(elements.length > 0);
+		expect(elements.length).toBeGreaterThan(0);
 
 		// must have News app in home screen
 		const element = elements.find(e => e.type === "Icon" && e.label === "News");
-		assert.ok(element !== undefined, "should have News app in home screen");
+		expect(element, "should have News app in home screen").toBeDefined();
 	});
 
-	it("should be able to launch and terminate app", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to launch and terminate app", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 		await restartPreferencesApp();
 		await new Promise(resolve => setTimeout(resolve, 2000));
 		const elements = await device.getElementsOnScreen();
 
 		const buttons = elements.filter(e => e.type === "Button").map(e => e.label);
-		assert.ok(buttons.includes("General"));
-		assert.ok(buttons.includes("Accessibility"));
+		expect(buttons).toContain("General");
+		expect(buttons).toContain("Accessibility");
 
 		// make sure app is terminated
 		await device.terminateApp("com.apple.Preferences");
 		const elements2 = await device.getElementsOnScreen();
 		const buttons2 = elements2.filter(e => e.type === "Button").map(e => e.label);
-		assert.ok(!buttons2.includes("General"));
+		expect(buttons2).not.toContain("General");
 	});
 
 	/*
-	it("should be able to get and set orientation", async function() {
-		hasOneSimulator || this.skip();
+	test("should be able to get and set orientation", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
 
 		// Set to portrait and verify
 		await device.setOrientation("portrait");
 		const portrait = await device.getOrientation();
-		assert.equal(portrait, "portrait");
+		expect(portrait).toBe("portrait");
 
 		// Set to landscape and verify
 		await device.setOrientation("landscape");
 		const landscape = await device.getOrientation();
-		assert.equal(landscape, "landscape");
+		expect(landscape).toBe("landscape");
 
 		// Return to portrait
 		await device.setOrientation("portrait");
 		const portraitAgain = await device.getOrientation();
-		assert.equal(portraitAgain, "portrait");
+		expect(portraitAgain).toBe("portrait");
 	});
 	*/
 
-	it("should throw an error if button is not supported", async function() {
-		hasOneSimulator || this.skip();
-		try {
-			await device.pressButton("NOT_A_BUTTON" as any);
-			assert.fail("should have thrown an error");
-		} catch (error) {
-			assert.ok(error instanceof Error);
-			assert.ok(error.message.includes("unsupported button: NOT_A_BUTTON"));
-		}
+	test("should throw an error if button is not supported", async () => {
+		test.skip(!hasOneSimulator, "requires a booted ios simulator");
+		await expect(device.pressButton("NOT_A_BUTTON" as any)).rejects.toThrow("unsupported button: NOT_A_BUTTON");
 	});
 });

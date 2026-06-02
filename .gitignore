@@ -1,5 +1,7 @@
 **/.DS_Store
 node_modules
 lib
-.nyc_output
 .vscode
+coverage
+test-results
+playwright-report
