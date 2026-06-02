@@ -1,3 +1,7 @@
+## [0.0.58](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.58) (2026-06-02)
+* Fix: Understand getRobot device types and platforms ([#346](https://github.com/mobile-next/mobile-mcp/pull/346))
+* Chore: Moved tests from mocha/nyc to playwright to reduce dependency vulnerabilities ([#347](https://github.com/mobile-next/mobile-mcp/pull/347))
+
 ## [0.0.57](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.57) (2026-05-28)
 * Chore: Update mobilewright to 0.0.41 ([#341](https://github.com/mobile-next/mobile-mcp/pull/341))
 
