@@ -1,0 +1,6 @@
+{
+	"all": true,
+	"src": ["src"],
+	"include": ["src/**/*.ts"],
+	"reporter": ["text", "html"]
+}
