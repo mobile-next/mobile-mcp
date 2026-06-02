@@ -172,6 +172,7 @@ export const createMcpServer = (): McpServer => {
 		const iosDevices = iosManager.listDevices();
 		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
 		if (iosDevice) {
+			posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
 			return new IosRobot(deviceId);
 		}
 
@@ -180,6 +181,7 @@ export const createMcpServer = (): McpServer => {
 		const androidDevices = androidManager.getConnectedDevices();
 		const androidDevice = androidDevices.find(d => d.deviceId === deviceId);
 		if (androidDevice) {
+			posthog("get_robot", { "DevicePlatform": "android" }).then();
 			return new AndroidRobot(deviceId);
 		}
 
@@ -202,6 +204,7 @@ export const createMcpServer = (): McpServer => {
 						agentVerifiedSimulators.add(deviceId);
 					}
 
+					posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "simulator" }).then();
 					return new MobileDevice(deviceId);
 				}
 			}
@@ -278,7 +281,6 @@ export const createMcpServer = (): McpServer => {
 			return JSON.stringify(out);
 		}
 	);
-
 
 	if (process.env.MOBILEFLEET_ENABLE === "1") {
 		tool(
