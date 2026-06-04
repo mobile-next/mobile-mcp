@@ -34,6 +34,9 @@ export interface ScreenElement {
 
 	// currently only on android tv
 	focused?: boolean;
+
+	// explicitly interactive element (e.g. RN Pressable) that may have no text/label
+	clickable?: boolean;
 }
 
 export class ActionableError extends Error {
@@ -104,6 +107,11 @@ export interface Robot {
 	 * Send keys to the device, simulating keyboard input.
 	 */
 	sendKeys(text: string): Promise<void>;
+
+	/**
+	 * Clear the text in the currently focused input field.
+	 */
+	clearActiveField(): Promise<void>;
 
 	/**
 	 * Press a button on the device, simulating a physical button press.

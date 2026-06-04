@@ -236,6 +236,11 @@ export class Simctl implements Robot {
 		return wda.sendKeys(keys);
 	}
 
+	public async clearActiveField(): Promise<void> {
+		const wda = await this.wda();
+		return wda.clearActiveField();
+	}
+
 	public async swipe(direction: SwipeDirection): Promise<void> {
 		const wda = await this.wda();
 		return wda.swipe(direction);
