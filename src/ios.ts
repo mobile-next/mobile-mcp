@@ -248,7 +248,9 @@ export class IosManager {
 		try {
 			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
 			const json: VersionCommandOutput = JSON.parse(output);
-			return json.version !== undefined && (json.version.startsWith("v") || json.version === "local-build");
+			// go-ios installed via `npm install -g go-ios` reports a bare semver ("1.2.0"),
+			// while GitHub release builds report a "v"-prefixed tag ("v1.2.0"). Accept both.
+			return json.version !== undefined && (/^v?\d+\.\d+\.\d+/.test(json.version) || json.version === "local-build");
 		} catch (error) {
 			return false;
 		}
