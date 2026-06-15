@@ -1,3 +1,6 @@
+## [0.0.60](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.60) (2026-06-15)
+* Chore: Updated mobilewright SDK version ([#361](https://github.com/mobile-next/mobile-mcp/pull/361))
+
 ## [0.0.59](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.59) (2026-06-09)
 * Chore: Updated hono packages for security ([#349](https://github.com/mobile-next/mobile-mcp/pull/349))
 * Chore: Updated mobilewright SDK version ([#350](https://github.com/mobile-next/mobile-mcp/pull/350))
