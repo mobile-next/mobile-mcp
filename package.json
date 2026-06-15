@@ -32,7 +32,7 @@
     "qs": "^6.15.0",
     "zod": "^4.1.13",
     "zod-to-json-schema": "3.25.0",
-    "mobilewright": "0.0.42"
+    "mobilewright": "0.0.45"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
