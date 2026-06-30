@@ -22,7 +22,7 @@ const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 interface MobilecliDevice {
 	id: string;
 	name: string;
-	platform: "android" | "ios";
+	platform: "android" | "ios" | "tvos";
 	type: "real" | "emulator" | "simulator";
 	version: string;
 	state: "online" | "offline";
@@ -187,7 +187,6 @@ export const createMcpServer = (): McpServer => {
 
 		// Check if it's a simulator (will later replace all other device types as well)
 		const response = mobilecli.getDevices({
-			platform: "ios",
 			type: "simulator",
 			includeOffline: false,
 		});
@@ -204,7 +203,7 @@ export const createMcpServer = (): McpServer => {
 						agentVerifiedSimulators.add(deviceId);
 					}
 
-					posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "simulator" }).then();
+					posthog("get_robot", { "DevicePlatform": device.platform, "DeviceType": "simulator" }).then();
 					return new MobileDevice(deviceId);
 				}
 			}
@@ -258,9 +257,8 @@ export const createMcpServer = (): McpServer => {
 				// If go-ios is not available, silently skip
 			}
 
-			// Get iOS simulators from mobilecli (excluding offline devices)
+			// Get iOS and tvOS simulators from mobilecli (excluding offline devices)
 			const response = mobilecli.getDevices({
-				platform: "ios",
 				type: "simulator",
 				includeOffline: false,
 			});
@@ -520,7 +518,7 @@ export const createMcpServer = (): McpServer => {
 		"Press a button on device",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
+			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only), UP (tvOS only), DOWN (tvOS only), LEFT (tvOS only), RIGHT (tvOS only), SELECT (tvOS only), MENU (tvOS only), PLAY_PAUSE (tvOS only)"),
 		},
 		{ destructiveHint: true },
 		async ({ device, button }) => {
