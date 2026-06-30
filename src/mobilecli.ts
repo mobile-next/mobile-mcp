@@ -34,16 +34,24 @@ export interface MobilecliDevicesOptions {
 	type?: "real" | "emulator" | "simulator";
 }
 
+export interface MobilecliDeviceProvider {
+	type: string; // e.g. "mobilefleet" for remote devices
+	allocationId?: string;
+}
+
+export interface MobilecliDevice {
+	id: string;
+	name: string;
+	platform: "android" | "ios";
+	type: "real" | "emulator" | "simulator";
+	version: string;
+	provider?: MobilecliDeviceProvider;
+}
+
 export interface MobilecliDevicesResponse {
 	status: "ok";
 	data: {
-		devices: Array<{
-			id: string;
-			name: string;
-			platform: "android" | "ios";
-			type: "real" | "emulator" | "simulator";
-			version: string;
-		}>;
+		devices: MobilecliDevice[];
 	};
 }
 
