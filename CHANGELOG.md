@@ -1,3 +1,9 @@
+## [0.0.61](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.61) (2026-07-02)
+* Fix: Catch system signals for clean v8 exit ([#366](https://github.com/mobile-next/mobile-mcp/pull/366))
+* Fix: Detect go-ios installed via npm (bare semver version) ([#355](https://github.com/mobile-next/mobile-mcp/pull/355)), thanks to [@ravijagga](https://github.com/ravijagga)
+* Docs: Added CONTRIBUTING.md ([#365](https://github.com/mobile-next/mobile-mcp/pull/365))
+* Chore: Updated hono packages for security ([#367](https://github.com/mobile-next/mobile-mcp/pull/367))
+
 ## [0.0.60](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.60) (2026-06-15)
 * Chore: Updated mobilewright SDK version ([#361](https://github.com/mobile-next/mobile-mcp/pull/361))
 
