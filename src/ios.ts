@@ -31,6 +31,16 @@ export interface IosDevice {
 	deviceName: string;
 }
 
+export type IosPlatform = "ios" | "tvos";
+
+/**
+ * Real Apple TV units are enumerated over the same go-ios connection as iPhones and
+ * iPads, so they are distinguished by their product type (e.g. "AppleTV14,1") rather
+ * than a separate device class.
+ */
+export const platformFromProductType = (productType: string): IosPlatform =>
+	productType.startsWith("AppleTV") ? "tvos" : "ios";
+
 const getGoIosPath = (): string => {
 	if (process.env.GO_IOS_PATH) {
 		return process.env.GO_IOS_PATH;
@@ -282,7 +292,7 @@ export class IosManager {
 		return devices;
 	}
 
-	public listDevicesWithDetails(): Array<IosDevice & { version: string }> {
+	public listDevicesWithDetails(): Array<IosDevice & { version: string; platform: IosPlatform }> {
 		if (!this.isGoIosInstalled()) {
 			console.error("go-ios is not installed, no physical iOS devices can be detected");
 			return [];
@@ -296,6 +306,7 @@ export class IosManager {
 				deviceId: device,
 				deviceName: info.DeviceName,
 				version: info.ProductVersion,
+				platform: platformFromProductType(info.ProductType),
 			};
 		});
 

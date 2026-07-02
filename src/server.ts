@@ -9,7 +9,7 @@ import { ChildProcess } from "node:child_process";
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
-import { IosManager, IosRobot } from "./ios";
+import { IosManager, IosRobot, platformFromProductType } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
@@ -173,6 +173,24 @@ export const createMcpServer = (): McpServer => {
 		const iosDevices = iosManager.listDevices();
 		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
 		if (iosDevice) {
+			// Real Apple TV units are driven through mobilecli, which installs and drives
+			// the tvOS runner (re-signed with a provisioning profile). iPhones and iPads
+			// keep using the WebDriverAgent-based IosRobot.
+			const platform = platformFromProductType(iosManager.getDeviceInfo(deviceId).ProductType);
+			if (platform === "tvos") {
+				if (!agentVerifiedSimulators.has(deviceId)) {
+					const agentStatus = mobilecli.agentStatus(deviceId);
+					if (agentStatus.status === "fail") {
+						mobilecli.agentInstall(deviceId);
+					}
+
+					agentVerifiedSimulators.add(deviceId);
+				}
+
+				posthog("get_robot", { "DevicePlatform": "tvos", "DeviceType": "real" }).then();
+				return new MobileDevice(deviceId);
+			}
+
 			posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
 			return new IosRobot(deviceId);
 		}
@@ -242,7 +260,7 @@ export const createMcpServer = (): McpServer => {
 				});
 			}
 
-			// Get iOS physical devices with details
+			// Get iOS and tvOS physical devices with details
 			telemetry.IosRealCount = 0;
 			try {
 				const iosDevices = iosManager.listDevicesWithDetails();
@@ -251,7 +269,7 @@ export const createMcpServer = (): McpServer => {
 					devices.push({
 						id: device.deviceId,
 						name: device.deviceName,
-						platform: "ios",
+						platform: device.platform,
 						type: "real",
 						version: device.version,
 						state: "online",
