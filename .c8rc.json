@@ -1,6 +1,6 @@
 {
-	"all": true,
-	"src": ["src"],
-	"include": ["src/**/*.ts"],
-	"reporter": ["text", "html"]
+  "include": ["lib/**/*.js"],
+  "exclude": ["node_modules/**", "lib/**/*.js.map"],
+  "reporter": ["html", "text"],
+  "temp-directory": "./coverage/tmp"
 }
