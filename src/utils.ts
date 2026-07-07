@@ -4,7 +4,10 @@ import fs from "node:fs";
 import { ActionableError } from "./robot";
 
 export function validatePackageName(packageName: string): void {
-	if (!/^[a-zA-Z0-9._]+$/.test(packageName)) {
+	// iOS bundle identifiers (which flow through this same "packageName" parameter
+	// for launch/terminate) are allowed to contain hyphens per Apple's CFBundleIdentifier
+	// format, e.g. "com.some-company.app".
+	if (!/^[a-zA-Z0-9._-]+$/.test(packageName)) {
 		throw new ActionableError(`Invalid package name: "${packageName}"`);
 	}
 }
@@ -12,6 +15,16 @@ export function validatePackageName(packageName: string): void {
 export function validateLocale(locale: string): void {
 	if (!/^[a-zA-Z0-9,\- ]+$/.test(locale)) {
 		throw new ActionableError(`Invalid locale: "${locale}"`);
+	}
+}
+
+function resolveRoot(root: string): string {
+	const resolved = path.resolve(root);
+
+	try {
+		return fs.realpathSync(resolved);
+	} catch {
+		return resolved;
 	}
 }
 
@@ -27,7 +40,10 @@ function getAllowedRoots(): string[] {
 		roots.push("/private/tmp");
 	}
 
-	return roots.map(r => path.resolve(r));
+	// Resolve symlinks so roots line up with resolveWithSymlinks() below. On macOS,
+	// os.tmpdir() itself lives under /var/folders/..., and /var is a symlink to
+	// /private/var, so without this the real temp directory never matches here.
+	return roots.map(resolveRoot);
 }
 
 function isPathUnderRoot(filePath: string, root: string): boolean {
