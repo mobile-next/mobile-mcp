@@ -262,16 +262,21 @@ export const createMcpServer = (): McpServer => {
 				// If go-ios is not available, silently skip
 			}
 
-			// Get iOS simulators from mobilecli (excluding offline devices)
+			// Get iOS simulators from mobilecli, including offline ones so we can
+			// report how many are installed vs booted. only booted ones are returned.
 			const response = mobilecli.getDevices({
 				platform: "ios",
 				type: "simulator",
-				includeOffline: false,
+				includeOffline: true,
 			});
+			telemetry.IosSimInstalledCount = 0;
 			telemetry.IosSimCount = 0;
 			if (response.status === "ok" && response.data && response.data.devices) {
-				telemetry.IosSimCount = response.data.devices.length;
-				for (const device of response.data.devices) {
+				const simulators = response.data.devices;
+				const booted = simulators.filter(device => device.state === "online");
+				telemetry.IosSimInstalledCount = simulators.length;
+				telemetry.IosSimCount = booted.length;
+				for (const device of booted) {
 					devices.push({
 						id: device.id,
 						name: device.name,
