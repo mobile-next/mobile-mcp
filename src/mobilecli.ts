@@ -45,6 +45,7 @@ export interface MobilecliDevice {
 	platform: "android" | "ios";
 	type: "real" | "emulator" | "simulator";
 	version: string;
+	state: "online" | "offline";
 	provider?: MobilecliDeviceProvider;
 }
 

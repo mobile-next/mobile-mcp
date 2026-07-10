@@ -68,7 +68,7 @@ export const createMcpServer = (): McpServer => {
 		destructiveHint?: boolean;
 	}
 
-	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: (args: any) => Promise<string>) => {
+	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: (args: any, telemetry: Record<string, string | number>) => Promise<string>) => {
 		server.registerTool(name, {
 			title,
 			description,
@@ -78,10 +78,11 @@ export const createMcpServer = (): McpServer => {
 			try {
 				trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
 				const start = +new Date();
-				const response = await cb(args);
+				const telemetry: Record<string, string | number> = {};
+				const response = await cb(args, telemetry);
 				const duration = +new Date() - start;
 				trace(`=> ${response}`);
-				posthog("tool_invoked", { "ToolName": name, "Duration": duration }).then();
+				posthog("tool_invoked", { "ToolName": name, "Duration": duration, ...telemetry }).then();
 				return {
 					content: [{ type: "text", text: response }],
 				};
@@ -219,7 +220,7 @@ export const createMcpServer = (): McpServer => {
 		"List all available devices. This includes both physical mobile devices and mobile simulators and emulators. It returns both Android and iOS devices.",
 		{},
 		{ readOnlyHint: true },
-		async ({}) => {
+		async ({}, telemetry) => {
 
 			// from today onward, we must have mobilecli working
 			ensureMobilecliAvailable();
@@ -230,6 +231,7 @@ export const createMcpServer = (): McpServer => {
 
 			// Get Android devices with details
 			const androidDevices = androidManager.getConnectedDevicesWithDetails();
+			telemetry.AndroidCount = androidDevices.length;
 			for (const device of androidDevices) {
 				devices.push({
 					id: device.deviceId,
@@ -242,8 +244,10 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			// Get iOS physical devices with details
+			telemetry.IosRealCount = 0;
 			try {
 				const iosDevices = iosManager.listDevicesWithDetails();
+				telemetry.IosRealCount = iosDevices.length;
 				for (const device of iosDevices) {
 					devices.push({
 						id: device.deviceId,
@@ -258,14 +262,21 @@ export const createMcpServer = (): McpServer => {
 				// If go-ios is not available, silently skip
 			}
 
-			// Get iOS simulators from mobilecli (excluding offline devices)
+			// Get iOS simulators from mobilecli, including offline ones so we can
+			// report how many are installed vs booted. only booted ones are returned.
 			const response = mobilecli.getDevices({
 				platform: "ios",
 				type: "simulator",
-				includeOffline: false,
+				includeOffline: true,
 			});
+			telemetry.IosSimInstalledCount = 0;
+			telemetry.IosSimCount = 0;
 			if (response.status === "ok" && response.data && response.data.devices) {
-				for (const device of response.data.devices) {
+				const simulators = response.data.devices;
+				const booted = simulators.filter(device => device.state === "online");
+				telemetry.IosSimInstalledCount = simulators.length;
+				telemetry.IosSimCount = booted.length;
+				for (const device of booted) {
 					devices.push({
 						id: device.id,
 						name: device.name,
