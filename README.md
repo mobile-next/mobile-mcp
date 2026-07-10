@@ -97,6 +97,8 @@ How we help to scale mobile automation:
 - **`mobile_double_tap_on_screen`** - Double-tap at specific coordinates
 - **`mobile_long_press_on_screen_at_coordinates`** - Long press at specific coordinates
 - **`mobile_swipe_on_screen`** - Swipe in any direction (up, down, left, right)
+- **`mobile_start_screen_recording`** - Start recording the device screen to a video file
+- **`mobile_stop_screen_recording`** - Stop the active screen recording and save the video
 
 ### Input & Navigation
 - **`mobile_type_keys`** - Type text into focused elements with optional submit
@@ -448,7 +450,7 @@ What you will need to connect MCP with your agent and mobile devices:
 
 - [Xcode command line tools](https://developer.apple.com/xcode/resources/)
 - [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
-- [node.js](https://nodejs.org/en/download/) v22+
+- [node.js](https://nodejs.org/en/download/) v20+
 - [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
 
 ### Simulators, Emulators, and Real Devices
