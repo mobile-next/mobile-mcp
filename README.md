@@ -19,7 +19,7 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
   <a href="https://github.com/mobile-next/mobile-mcp/wiki">
     <img src="https://img.shields.io/badge/documentation-wiki-blue" alt="wiki" />
   </a>
-  <a href="https://mobilenexthq.com/join-slack">
+  <a href="https://mobilenext.ai/join-slack">
     <img src="https://img.shields.io/badge/join-Slack-blueviolet?logo=slack&style=flat" alt="join on Slack" />
   </a>
 </h4>
@@ -33,14 +33,6 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
         <img alt="mobile-mcp" src="https://raw.githubusercontent.com/mobile-next/mobile-next-assets/refs/heads/main/mobile-mcp-banner.png" width="600" />
     </a>
 </p>
-
-### 🚀 Mobile MCP Roadmap: Building the Future of Mobile
-
-Join us on our journey as we continuously enhance Mobile MCP!
-Check out our detailed roadmap to see upcoming features, improvements, and milestones. Your feedback is invaluable in shaping the future of mobile automation.
-
-👉 [Explore the Roadmap](https://github.com/orgs/mobile-next/projects/3)
-
 
 ### Main use cases
 
@@ -58,7 +50,7 @@ How we help to scale mobile automation:
 - 🤖 **LLM-friendly**: No computer vision model required in Accessibility (Snapshot).
 - 🧿 **Visual Sense**: Evaluates and analyses what's actually rendered on screen to decide the next action. If accessibility data or view-hierarchy coordinates are unavailable, it falls back to screenshot-based analysis.
 - 📊 **Deterministic tool application**: Reduces ambiguity found in purely screenshot-based approaches by relying on structured data whenever possible.
-- 📺 **Extract structured data**: Enables you to extract structred data from anything visible on screen.
+- 📺 **Extract structured data**: Enables you to extract structured data from anything visible on screen.
 
 ### 🎯 Platform Support
 
@@ -163,6 +155,24 @@ Run the following command in your terminal:
 
 ```bash
 amp mcp add mobile-mcp -- npx @mobilenext/mobile-mcp@latest
+```
+
+</details>
+
+<details>
+<summary>Antigravity 2</summary>
+
+Antigravity doesn't have a CLI command to add MCP servers, so add it manually. Edit `~/.gemini/config/mcp_config.json` and add:
+
+```json
+{
+  "mcpServers": {
+    "mobile-mcp": {
+      "command": "npx",
+      "args": ["-y", "@mobilenext/mobile-mcp@latest"]
+    }
+  }
+}
 ```
 
 </details>
@@ -327,16 +337,6 @@ Follow the MCP Servers documentation. For example in `~/.config/opencode/opencod
 </details>
 
 <details>
-<summary>Qodo Gen</summary>
-
-Open [Qodo Gen](https://docs.qodo.ai/qodo-documentation/qodo-gen) chat panel in VSCode or IntelliJ → Connect more tools → + Add new MCP → Paste the standard config above.
-
-Click <code>Save</code>.
-
-</details>
-
-
-<details>
 <summary>Windsurf</summary>
 
 Open Windsurf settings, navigate to MCP servers, and add a new server using the `command` type with:
@@ -381,14 +381,14 @@ When set, all requests must include the header `Authorization: Bearer my-secret-
 ### 🛠️ How to Use 📝
 
 After adding the MCP server to your IDE/Client, you can instruct your AI assistant to use the available tools.
-For example, in Cursor's agent mode, you could use the prompts below to quickly validate, test and iterate on UI intereactions, read information from screen, go through complex workflows.
+For example, in Cursor's agent mode, you could use the prompts below to quickly validate, test and iterate on UI interactions, read information from screen, go through complex workflows.
 Be descriptive, straight to the point.
 
 ### ✨ Example Prompts
 
 #### Workflows
 
-You can specifiy detailed workflows in a single prompt, verify business logic, setup automations. You can go crazy:
+You can specify detailed workflows in a single prompt, verify business logic, setup automations. You can go crazy:
 
 **Search for a video, comment, like and share it.**
 ```
@@ -497,6 +497,28 @@ For example, on Android:
 On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with that simulator instance.
 - `xcrun simctl list`
 - `xcrun simctl boot "iPhone 16"`
+
+## 🧩 Part of Mobile Next
+
+Mobile MCP is one piece of a toolkit for driving real mobile devices:
+
+- **[mobilewright](https://github.com/mobile-next/mobilewright)** — "Playwright for mobile." When you're ready to turn agent-driven exploration into **repeatable, deterministic tests** for iOS and Android, graduate to mobilewright.
+- **[mobilecli](https://github.com/mobile-next/mobilecli)** — the universal device CLI that Mobile MCP is built on: control devices, simulators, and emulators from the command line or a JSON-RPC API.
+- **[Mobile Next Cloud](https://mobilenext.ai)** — run all of it against real iOS and Android devices in the cloud, on demand.
+
+## 🚀 Roadmap
+
+We're continuously improving Mobile MCP. See what we're building next in [ROADMAP.md](ROADMAP.md) — priorities are shaped heavily by community feedback, so tell us what you'd like to see.
+
+## 🤝 Contributing
+
+Contributions are welcome — code, docs, bug reports, and ideas.
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test, and open a pull request.
+- Browse [open issues](https://github.com/mobile-next/mobile-mcp/issues) to find something to work on.
+- Questions and ideas are also welcome in our [Slack community](https://mobilenext.ai/join-slack).
+
+Please also review our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 # Thanks to all contributors ❤️
 
