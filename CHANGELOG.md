@@ -1,3 +1,11 @@
+## [0.0.62](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.62) (2026-07-11)
+* iOS: Support "-" (hyphen) in iOS bundle identifier ([#377](https://github.com/mobile-next/mobile-mcp/pull/377)), thanks to [@TsurP](https://github.com/TsurP)
+* Fix: Properly resolve symlinks for paths allowlist ([#377](https://github.com/mobile-next/mobile-mcp/pull/377)), thanks to [@TsurP](https://github.com/TsurP)
+* Fix: Node v20 is required ([#375](https://github.com/mobile-next/mobile-mcp/pull/375))
+* Android: Get screen density of Android devices ([#162](https://github.com/mobile-next/mobile-mcp/pull/162)), thanks to [@hiking93](https://github.com/hiking93)
+* Docs: Revamp README and add ROADMAP.md ([#378](https://github.com/mobile-next/mobile-mcp/pull/378))
+* Chore: Bump mobilewright to 0.0.48 ([#373](https://github.com/mobile-next/mobile-mcp/pull/373))
+
 ## [0.0.61](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.61) (2026-07-02)
 * Fix: Catch system signals for clean v8 exit ([#366](https://github.com/mobile-next/mobile-mcp/pull/366))
 * Fix: Detect go-ios installed via npm (bare semver version) ([#355](https://github.com/mobile-next/mobile-mcp/pull/355)), thanks to [@ravijagga](https://github.com/ravijagga)
