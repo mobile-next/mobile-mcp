@@ -3,6 +3,8 @@
 This is a [Model Context Protocol (MCP) server](https://github.com/modelcontextprotocol) that enables scalable mobile automation, development through a platform-agnostic interface, eliminating the need for distinct iOS or Android knowledge. You can run it on emulators, simulators, and real devices (iOS and Android).
 This server allows Agents and LLMs to interact with native iOS/Android applications and devices through structured accessibility snapshots or coordinate-based taps based on screenshots.
 
+**Works with Claude Code, Codex, Gemini, GitHub Copilot, Antigravity** — or any MCP-compatible client.
+
 <h4 align="center">
   <a href="https://github.com/mobile-next/mobile-mcp">
     <img src="https://img.shields.io/github/stars/mobile-next/mobile-mcp" alt="Mobile Next Stars" />
@@ -46,27 +48,22 @@ How we help to scale mobile automation:
 
 ## Main Features
 
-- 🚀 **Fast and lightweight**: Uses native accessibility trees for most interactions, or screenshot based coordinates where a11y labels are not available.
-- 🤖 **LLM-friendly**: No computer vision model required in Accessibility (Snapshot).
-- 🧿 **Visual Sense**: Evaluates and analyses what's actually rendered on screen to decide the next action. If accessibility data or view-hierarchy coordinates are unavailable, it falls back to screenshot-based analysis.
-- 📊 **Deterministic tool application**: Reduces ambiguity found in purely screenshot-based approaches by relying on structured data whenever possible.
-- 📺 **Extract structured data**: Enables you to extract structured data from anything visible on screen.
+- 🚀 **Accessibility-first — fast and cheap**: drives apps from the native accessibility tree (no vision model, no image tokens), falling back to screenshots + coordinates only when needed.
+- 📱 **One API, every target**: the same tools work across iOS and Android — simulators, emulators, and real devices.
+- 🧠 **No platform expertise required**: no XCUITest, no Espresso, no per-platform glue — describe the goal and the agent does it.
+- 🧰 **Full device control**: taps, swipes, and gestures; app install/launch/terminate; screen recording; hardware buttons; deep links; orientation.
+- 📊 **Structured, deterministic output**: reads real UI elements and extracts structured data, cutting the ambiguity of screenshot-only approaches.
 
 ### 🎯 Platform Support
 
-| Platform | Supported |
-|----------|:---------:|
-| iOS Real Device | ✅ |
-| iOS Simulator | ✅ |
-| Android Real Device | ✅ |
-| Android Emulator | ✅ |
+| Target | Supported | Setup |
+|---|:---:|---|
+| iOS Simulator | ✅ | Xcode + a booted simulator (`xcrun simctl`) |
+| iOS Real Device | ✅ | go-ios + WebDriverAgent + tunnel |
+| Android Emulator | ✅ | Android SDK + running emulator (`adb`) |
+| Android Real Device | ✅ | `adb` + USB debugging enabled & authorized |
 
 ## 🔧 Available MCP Tools
-
-<details>
-<summary>📱 <strong>Click to expand tool list</strong> - List of Mobile MCP tools for automation and development</summary>
-
-> For detailed implementation and parameter specifications, see [`src/server.ts`](src/server.ts)
 
 ### Device Management
 - **`mobile_list_available_devices`** - List all available devices (simulators, emulators, and real devices)
@@ -97,12 +94,9 @@ How we help to scale mobile automation:
 - **`mobile_press_button`** - Press device buttons (HOME, BACK, VOLUME_UP/DOWN, ENTER, etc.)
 - **`mobile_open_url`** - Open URLs in the device browser
 
-### Platform Support
-- **iOS**: Simulators and real devices via native accessibility and WebDriverAgent
-- **Android**: Emulators and real devices via ADB and UI Automator
-- **Cross-platform**: Unified API works across both iOS and Android
-
-</details>
+### Crash Reports
+- **`mobile_list_crashes`** - List crash reports available on the device
+- **`mobile_get_crash`** - Get the full content of a crash report by its ID
 
 ## 🏗️ Mobile MCP Architecture
 
@@ -116,6 +110,16 @@ How we help to scale mobile automation:
 ## 📚 Wiki page
 
 More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) for setup, configuration and debugging related questions.
+
+
+## Prerequisites
+
+What you will need to connect MCP with your agent and mobile devices:
+
+- [Xcode command line tools](https://developer.apple.com/xcode/resources/)
+- [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
+- [node.js](https://nodejs.org/en/download/) v20+
+- [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
 
 
 ## Installation and configuration
@@ -352,6 +356,14 @@ Or add the standard config under `mcpServers` in your settings as shown above.
 
 [Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
 
+### ✅ Verify it works
+
+Once the server is configured, ask your agent to list devices:
+
+> list available devices
+
+You should get back your running simulators, emulators, and connected devices. If you do, Mobile MCP is wired up correctly. If the list is empty, make sure a simulator or emulator is running (see [Prerequisites](#prerequisites)) — for more help, check the [wiki](https://github.com/mobile-next/mobile-mcp/wiki).
+
 ### SSE Server Mode
 
 By default, Mobile MCP runs over stdio. To start an SSE server instead, use the `--listen` flag:
@@ -444,14 +456,15 @@ Gmail to contacts "team@example.com".
 ```
 [More prompt examples can be found here.](https://github.com/mobile-next/mobile-mcp/wiki/Prompt-Example-repo-list)
 
-## Prerequisites
+## Running & configuration
 
-What you will need to connect MCP with your agent and mobile devices:
+### Environment variables
 
-- [Xcode command line tools](https://developer.apple.com/xcode/resources/)
-- [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
-- [node.js](https://nodejs.org/en/download/) v20+
-- [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
+| Variable | Description | Example |
+|---|---|---|
+| `MOBILEMCP_AUTH` | Require a Bearer token on the SSE server — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
+| `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
+| `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 
 ### Simulators, Emulators, and Real Devices
 
@@ -514,6 +527,7 @@ We're continuously improving Mobile MCP. See what we're building next in [ROADMA
 
 Contributions are welcome — code, docs, bug reports, and ideas.
 
+- ⭐ **[Star the repo](https://github.com/mobile-next/mobile-mcp)** — the easiest way to help others discover Mobile MCP.
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test, and open a pull request.
 - Browse [open issues](https://github.com/mobile-next/mobile-mcp/issues) to find something to work on.
 - Questions and ideas are also welcome in our [Slack community](https://mobilenext.ai/join-slack).
