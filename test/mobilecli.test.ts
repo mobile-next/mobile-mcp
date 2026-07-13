@@ -168,4 +168,37 @@ test.describe("mobilecli", () => {
 			expect(mobilecli.resolveAndroidDeviceId("emulator-5554", "")).toBe("emulator-5554");
 		});
 	});
+
+	test.describe("startScreenRecording", () => {
+		test.beforeEach(() => {
+			process.env.MOBILECLI_PATH = process.execPath;
+		});
+
+		test.afterEach(() => {
+			delete process.env.MOBILECLI_PATH;
+		});
+
+		test("rejects when mobilecli exits before reporting that recording started", async () => {
+			const mobilecli = new Mobilecli();
+
+			await expect(mobilecli.startScreenRecording([
+				"-e",
+				"process.stderr.write('device not found\\n'); process.exit(1);",
+			])).rejects.toThrow("device not found");
+		});
+
+		test("resolves only after mobilecli reports that recording started", async () => {
+			const mobilecli = new Mobilecli();
+			const child = await mobilecli.startScreenRecording([
+				"-e",
+				"process.stderr.write('Screen recording has started\\n'); setTimeout(() => {}, 5000);",
+			]);
+
+			try {
+				expect(child.exitCode).toBeNull();
+			} finally {
+				child.kill();
+			}
+		});
+	});
 });

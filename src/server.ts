@@ -762,12 +762,12 @@ export const createMcpServer = (): McpServer => {
 			const outputPath = output || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
 
 			const mobilecliDevice = getMobilecliDeviceId(device);
-			const args = ["screenrecord", "--device", mobilecliDevice, "--output", outputPath, "--silent"];
+			const args = ["screenrecord", "--device", mobilecliDevice, "--output", outputPath];
 			if (timeLimit !== undefined) {
 				args.push("--time-limit", String(timeLimit));
 			}
 
-			const child = mobilecli.spawnCommand(args);
+			const child = await mobilecli.startScreenRecording(args);
 
 			const cleanup = () => {
 				activeRecordings.delete(device);

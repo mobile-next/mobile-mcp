@@ -58,6 +58,7 @@ export interface MobilecliDevicesResponse {
 
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
+const SCREEN_RECORDING_STARTED = "Screen recording has started";
 
 function normalizeDeviceName(value: string): string {
 	return value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -84,10 +85,50 @@ export class Mobilecli {
 		return execFileSync(path, args, { encoding: "utf8" }).toString().trim();
 	}
 
-	public spawnCommand(args: string[]): ChildProcess {
+	public startScreenRecording(args: string[]): Promise<ChildProcess> {
 		const binaryPath = this.getPath();
-		return spawn(binaryPath, args, {
-			stdio: ["ignore", "ignore", "ignore"],
+		const child = spawn(binaryPath, args, {
+			stdio: ["ignore", "ignore", "pipe"],
+		});
+		const stderr = child.stderr!;
+
+		return new Promise((resolve, reject) => {
+			let output = "";
+			let settled = false;
+			const timer = setTimeout(() => {
+				child.kill();
+				fail(new Error("Timed out waiting for mobilecli to start screen recording"));
+			}, TIMEOUT);
+
+			function fail(startupError: Error): void {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				clearTimeout(timer);
+				stderr.off("data", onData);
+				reject(startupError);
+			}
+			function onData(chunk: Buffer): void {
+				output = (output + chunk.toString()).slice(-MAX_BUFFER_SIZE);
+				if (!settled && output.includes(SCREEN_RECORDING_STARTED)) {
+					settled = true;
+					clearTimeout(timer);
+					stderr.off("data", onData);
+					stderr.resume();
+					resolve(child);
+				}
+			}
+
+			stderr.on("data", onData);
+			child.once("error", fail);
+			child.once("exit", (code, signal) => {
+				if (settled) {
+					return;
+				}
+				const status = signal ? `signal ${signal}` : `code ${code ?? "unknown"}`;
+				fail(new Error(output.trim() || `mobilecli exited before screen recording started (${status})`));
+			});
 		});
 	}
 
