@@ -648,8 +648,12 @@ export const createMcpServer = (): McpServer => {
 		async ({ device }) => {
 			try {
 				const robot = getRobotFromDevice(device);
-				const screenSize = await robot.getScreenSize();
 
+				// Take the screenshot in a single mobilecli invocation. Calling
+				// getScreenSize() first (a separate mobilecli process) starts the
+				// DeviceKit/WebDriverAgent runner, then getScreenshot() cannot see
+				// that agent process and tries to start a second one — which races
+				// and times out with "timed out waiting for WebDriverAgent to be ready".
 				let screenshot = await robot.getScreenshot();
 				let mimeType = "image/png";
 
@@ -664,7 +668,11 @@ export const createMcpServer = (): McpServer => {
 					trace("Image scaling is available, resizing screenshot");
 					const image = Image.fromBuffer(screenshot);
 					const beforeSize = screenshot.length;
-					screenshot = image.resize(Math.floor(pngSize.width / screenSize.scale))
+					// Cap width for the LLM payload instead of pngWidth/screenScale,
+					// which required the extra getScreenSize() call above.
+					const maxWidth = 512;
+					const targetWidth = Math.min(pngSize.width, maxWidth);
+					screenshot = image.resize(targetWidth)
 						.jpeg({ quality: 75 })
 						.toBuffer();
 
