@@ -113,6 +113,12 @@ export class WebDriverAgent {
 		});
 	}
 
+	public async clearActiveField(): Promise<void> {
+		// iOS: select all + delete via WDA key events
+		await this.sendKeys("\ue009a"); // Ctrl+A in WebDriver protocol
+		await this.sendKeys("\ue017");  // Delete key
+	}
+
 	public async pressButton(button: string) {
 		const _map = {
 			"HOME": "home",
