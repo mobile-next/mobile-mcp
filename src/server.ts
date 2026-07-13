@@ -163,6 +163,15 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
+	const getMobilecliDeviceId = (deviceId: string): string => {
+		const androidDevice = new AndroidDeviceManager()
+			.getConnectedDevicesWithDetails()
+			.find(device => device.deviceId === deviceId);
+		return androidDevice
+			? mobilecli.resolveAndroidDeviceId(deviceId, androidDevice.name)
+			: deviceId;
+	};
+
 	const getRobotFromDevice = (deviceId: string): Robot => {
 
 		// from now on, we must have mobilecli working
@@ -752,7 +761,8 @@ export const createMcpServer = (): McpServer => {
 
 			const outputPath = output || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
 
-			const args = ["screenrecord", "--device", device, "--output", outputPath, "--silent"];
+			const mobilecliDevice = getMobilecliDeviceId(device);
+			const args = ["screenrecord", "--device", mobilecliDevice, "--output", outputPath, "--silent"];
 			if (timeLimit !== undefined) {
 				args.push("--time-limit", String(timeLimit));
 			}
@@ -830,7 +840,7 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: true },
 		async ({ device }) => {
 			ensureMobilecliAvailable();
-			const response = mobilecli.crashesList(device);
+			const response = mobilecli.crashesList(getMobilecliDeviceId(device));
 			return JSON.stringify(response.data);
 		}
 	);
@@ -846,7 +856,7 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: true },
 		async ({ device, id }) => {
 			ensureMobilecliAvailable();
-			const response = mobilecli.crashesGet(device, id);
+			const response = mobilecli.crashesGet(getMobilecliDeviceId(device), id);
 			return response.data.content;
 		}
 	);

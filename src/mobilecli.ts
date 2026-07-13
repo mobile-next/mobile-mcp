@@ -59,6 +59,14 @@ export interface MobilecliDevicesResponse {
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
+function normalizeDeviceName(value: string): string {
+	return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function mobilecliAvdId(value: string): string {
+	return value.trim().replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
 export class Mobilecli {
 	private path: string | null = null;
 
@@ -166,6 +174,34 @@ export class Mobilecli {
 	crashesGet(deviceId: string, id: string): MobilecliCrashGetResponse {
 		const output = this.executeCommandBuffer(["device", "crashes", "get", id, "--device", deviceId]);
 		return JSON.parse(output.toString().trim()) as MobilecliCrashGetResponse;
+	}
+
+	resolveAndroidDeviceId(deviceId: string, deviceName: string): string {
+		if (!/^emulator-\d+$/.test(deviceId)) {
+			return deviceId;
+		}
+
+		const response = this.getDevices({ platform: "android" });
+		const devices = response.data?.devices ?? [];
+		const exactMatch = devices.find(device => device.id === deviceId);
+		if (exactMatch) {
+			return exactMatch.id;
+		}
+
+		const normalizedName = normalizeDeviceName(deviceName);
+		if (!normalizedName) {
+			return deviceId;
+		}
+		const nameMatch = devices.find(device =>
+			normalizeDeviceName(device.id) === normalizedName ||
+			normalizeDeviceName(device.name) === normalizedName
+		);
+		if (nameMatch) {
+			return nameMatch.id;
+		}
+
+		const avdId = mobilecliAvdId(deviceName);
+		return avdId || deviceId;
 	}
 
 	agentStatus(deviceId: string): MobilecliAgentStatusResponse {

@@ -116,4 +116,56 @@ test.describe("mobilecli", () => {
 			expect(calls[0].args).toEqual(["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
 		});
 	});
+
+	test.describe("resolveAndroidDeviceId", () => {
+		test("maps an adb emulator id to the mobilecli AVD id", () => {
+			const mockDevicesResponse = JSON.stringify({
+				status: "ok",
+				data: {
+					devices: [{
+						id: "Codex_API_36",
+						name: "Codex API 36",
+						platform: "android",
+						type: "emulator",
+						version: "16",
+						state: "online",
+					}],
+				},
+			});
+			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
+
+			const resolved = mobilecli.resolveAndroidDeviceId("emulator-5554", "Codex API 36");
+
+			expect(resolved).toBe("Codex_API_36");
+			expect(calls).toEqual([{ args: ["devices", "--platform", "android"] }]);
+		});
+
+		test("keeps a physical-device serial without querying mobilecli", () => {
+			const mockDevicesResponse = JSON.stringify({
+				status: "ok",
+				data: {
+					devices: [{
+						id: "R5CT123456",
+						name: "Galaxy S24",
+						platform: "android",
+						type: "real",
+						version: "16",
+						state: "online",
+					}],
+				},
+			});
+			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
+
+			expect(mobilecli.resolveAndroidDeviceId("R5CT123456", "Galaxy S24")).toBe("R5CT123456");
+			expect(calls).toEqual([]);
+		});
+
+		test("falls back to the AVD id when mobilecli discovery has no match", () => {
+			const mockDevicesResponse = JSON.stringify({ status: "ok", data: { devices: [] } });
+			const { mobilecli } = createMockMobilecli(mockDevicesResponse);
+
+			expect(mobilecli.resolveAndroidDeviceId("emulator-5554", "Codex API 36")).toBe("Codex_API_36");
+			expect(mobilecli.resolveAndroidDeviceId("emulator-5554", "")).toBe("emulator-5554");
+		});
+	});
 });
