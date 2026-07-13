@@ -368,6 +368,9 @@ export class AndroidRobot implements Robot {
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const parsedXml = await this.getUiAutomatorXml();
 		const hierarchy = parsedXml.hierarchy;
+		if (!hierarchy?.node) {
+			throw new ActionableError("Screen hierarchy is unavailable — the device may be on the lock screen or in a restricted state");
+		}
 		const elements = this.collectElements(hierarchy.node);
 		return elements;
 	}
@@ -409,7 +412,7 @@ export class AndroidRobot implements Robot {
 
 	private escapeShellText(text: string): string {
 		// escape all shell special characters that could be used for injection
-		return text.replace(/[\\'"` \t\n\r|&;()<>{}[\]$*?]/g, "\\$&");
+		return text.replace(/[\\\'"\` \t\n\r|&;()<>{}[\]$*?]/g, "\\$&");
 	}
 
 	private async isDeviceKitInstalled(): Promise<boolean> {
@@ -570,6 +573,24 @@ export class AndroidDeviceManager {
 		}
 	}
 
+	private isEmulator(deviceId: string): boolean {
+		// ADB emulator serial numbers always start with "emulator-" (e.g. "emulator-5554").
+		// All other serials — alphanumeric USB serials or host:port for ADB-over-TLS/Wi-Fi —
+		// are physical devices.
+		if (deviceId.startsWith("emulator-")) {
+			return true;
+		}
+		// Secondary check via ro.boot.qemu.avd_name: non-empty only on QEMU-based emulators
+		try {
+			const avdName = execFileSync(getAdbPath(), ["-s", deviceId, "shell", "getprop", "ro.boot.qemu.avd_name"], {
+				timeout: 5000,
+			}).toString().trim();
+			return avdName !== "";
+		} catch {
+			return false;
+		}
+	}
+
 	public getConnectedDevices(): AndroidDevice[] {
 		try {
 			const names = execFileSync(getAdbPath(), ["devices"])
@@ -591,7 +612,7 @@ export class AndroidDeviceManager {
 		}
 	}
 
-	public getConnectedDevicesWithDetails(): Array<AndroidDevice & { version: string, name: string }> {
+	public getConnectedDevicesWithDetails(): Array<AndroidDevice & { version: string, name: string, isEmulator: boolean }> {
 		try {
 			const names = execFileSync(getAdbPath(), ["devices"])
 				.toString()
@@ -607,6 +628,7 @@ export class AndroidDeviceManager {
 				deviceType: this.getDeviceType(deviceId),
 				version: this.getDeviceVersion(deviceId),
 				name: this.getDeviceName(deviceId),
+				isEmulator: this.isEmulator(deviceId),
 			}));
 		} catch (error) {
 			console.error("Could not execute adb command, maybe ANDROID_HOME is not set?");

@@ -237,7 +237,7 @@ export const createMcpServer = (): McpServer => {
 					id: device.deviceId,
 					name: device.name,
 					platform: "android",
-					type: "emulator",
+					type: device.isEmulator ? "emulator" : "real",
 					version: device.version,
 					state: "online",
 				});
