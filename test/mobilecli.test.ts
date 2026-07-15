@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { Mobilecli } from "../src/mobilecli";
+import { isAdbEmulatorId, Mobilecli } from "../src/mobilecli";
 
 type ExecuteCommandCall = {
 	args: string[];
@@ -118,6 +118,12 @@ test.describe("mobilecli", () => {
 	});
 
 	test.describe("resolveAndroidDeviceId", () => {
+		test("identifies only adb emulator serials", () => {
+			expect(isAdbEmulatorId("emulator-5554")).toBe(true);
+			expect(isAdbEmulatorId("Codex_API_36")).toBe(false);
+			expect(isAdbEmulatorId("R5CT123456")).toBe(false);
+		});
+
 		test("maps an adb emulator id to the mobilecli AVD id", () => {
 			const mockDevicesResponse = JSON.stringify({
 				status: "ok",

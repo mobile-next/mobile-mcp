@@ -68,6 +68,10 @@ function mobilecliAvdId(value: string): string {
 	return value.trim().replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
+export function isAdbEmulatorId(deviceId: string): boolean {
+	return /^emulator-\d+$/.test(deviceId);
+}
+
 export class Mobilecli {
 	private path: string | null = null;
 
@@ -218,7 +222,7 @@ export class Mobilecli {
 	}
 
 	resolveAndroidDeviceId(deviceId: string, deviceName: string): string {
-		if (!/^emulator-\d+$/.test(deviceId)) {
+		if (!isAdbEmulatorId(deviceId)) {
 			return deviceId;
 		}
 

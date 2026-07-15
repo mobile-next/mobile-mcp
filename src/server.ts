@@ -12,7 +12,7 @@ import { ActionableError, Robot } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
-import { Mobilecli } from "./mobilecli";
+import { isAdbEmulatorId, Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension } from "./utils";
 
@@ -164,6 +164,9 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const getMobilecliDeviceId = (deviceId: string): string => {
+		if (!isAdbEmulatorId(deviceId)) {
+			return deviceId;
+		}
 		const androidDevice = new AndroidDeviceManager()
 			.getConnectedDevicesWithDetails()
 			.find(device => device.deviceId === deviceId);
