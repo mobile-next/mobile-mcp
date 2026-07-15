@@ -9,11 +9,12 @@ import { ChildProcess } from "node:child_process";
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
-import { IosManager, IosRobot, platformFromProductType } from "./ios";
+import { IosManager, IosRobot, IosPlatform } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
+import { TvosRobot } from "./tvos";
 import { validateOutputPath, validateFileExtension } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
@@ -42,6 +43,14 @@ export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
 };
+
+/**
+ * Pure platform->robot selection for iOS-family devices (D2). Real Apple TVs
+ * (platform === "tvos") require the Siri Remote / DeviceKit-backed TvosRobot,
+ * while iPhones/iPads keep the unchanged WDA-backed IosRobot.
+ */
+export const robotForIosDevice = (deviceId: string, platform: IosPlatform): Robot =>
+	platform === "tvos" ? new TvosRobot(deviceId) : new IosRobot(deviceId);
 
 export const createMcpServer = (): McpServer => {
 
@@ -173,26 +182,16 @@ export const createMcpServer = (): McpServer => {
 		const iosDevices = iosManager.listDevices();
 		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
 		if (iosDevice) {
-			// Real Apple TV units are driven through mobilecli, which installs and drives
-			// the tvOS runner (re-signed with a provisioning profile). iPhones and iPads
-			// keep using the WebDriverAgent-based IosRobot.
-			const platform = platformFromProductType(iosManager.getDeviceInfo(deviceId).ProductType);
-			if (platform === "tvos") {
-				if (!agentVerifiedSimulators.has(deviceId)) {
-					const agentStatus = mobilecli.agentStatus(deviceId);
-					if (agentStatus.status === "fail") {
-						mobilecli.agentInstall(deviceId);
-					}
-
-					agentVerifiedSimulators.add(deviceId);
-				}
-
+			// Real Apple TVs are enumerated over the same connection as iPhones but
+			// require a dedicated Siri Remote / DeviceKit-backed robot (D2). Route
+			// them before the platform-blind iPhone branch.
+			if (iosDevice.platform === "tvos") {
 				posthog("get_robot", { "DevicePlatform": "tvos", "DeviceType": "real" }).then();
-				return new MobileDevice(deviceId);
+				return new TvosRobot(deviceId);
 			}
 
 			posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
-			return new IosRobot(deviceId);
+			return robotForIosDevice(deviceId, iosDevice.platform);
 		}
 
 		// Check if it's an Android device
@@ -554,6 +553,31 @@ export const createMcpServer = (): McpServer => {
 			const robot = getRobotFromDevice(device);
 			await robot.pressButton(button);
 			return `Pressed the button: ${button}`;
+		}
+	);
+
+	tool(
+		"mobile_focus_by_identifier",
+		"Focus Element By Identity",
+		"Focus an on-screen element by accessibility identifier and/or label using Siri Remote navigation. tvOS (real Apple TV) only. At least one of identifier or label must be provided.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			identifier: z.string().optional().describe("The accessibility identifier of the element to focus."),
+			label: z.string().optional().describe("The accessibility label of the element to focus."),
+		},
+		{ destructiveHint: true },
+		async ({ device, identifier, label }) => {
+			if (!identifier && !label) {
+				throw new ActionableError("At least one of identifier or label must be provided.");
+			}
+
+			const robot = getRobotFromDevice(device);
+			if (!(robot instanceof TvosRobot)) {
+				throw new ActionableError("focus by identity is only supported on tvOS (real Apple TV).");
+			}
+
+			const element = await robot.focus(identifier, label);
+			return `Focused element: ${JSON.stringify(element)}`;
 		}
 	);
 

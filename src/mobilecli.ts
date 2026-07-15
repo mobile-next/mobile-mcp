@@ -56,6 +56,14 @@ export interface MobilecliDevicesResponse {
 	};
 }
 
+export interface MobilecliFocusResponse {
+	status: "ok" | "error";
+	data?: {
+		element: unknown;
+	};
+	error?: string;
+}
+
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 
@@ -175,6 +183,24 @@ export class Mobilecli {
 
 	agentInstall(deviceId: string): void {
 		this.executeCommand(["agent", "install", "--device", deviceId]);
+	}
+
+	pressButton(deviceId: string, button: string): void {
+		this.executeCommand(["io", "button", button, "--device", deviceId]);
+	}
+
+	focusByIdentifier(deviceId: string, identifier?: string, label?: string): MobilecliFocusResponse {
+		const args = ["io", "focus", "--device", deviceId];
+		if (identifier) {
+			args.push("--identifier", identifier);
+		}
+
+		if (label) {
+			args.push("--label", label);
+		}
+
+		const output = this.executeCommand(args);
+		return JSON.parse(output) as MobilecliFocusResponse;
 	}
 
 	getDevices(options?: MobilecliDevicesOptions): MobilecliDevicesResponse {
