@@ -30,7 +30,7 @@ export interface MobilecliAgentStatusResponse {
 
 export interface MobilecliDevicesOptions {
 	includeOffline?: boolean;
-	platform?: "ios" | "android";
+	platform?: "ios" | "android" | "tvos";
 	type?: "real" | "emulator" | "simulator";
 }
 
@@ -54,6 +54,14 @@ export interface MobilecliDevicesResponse {
 	data: {
 		devices: MobilecliDevice[];
 	};
+}
+
+export interface MobilecliFocusResponse {
+	status: "ok" | "error";
+	data?: {
+		element: unknown;
+	};
+	error?: string;
 }
 
 const TIMEOUT = 30000;
@@ -177,6 +185,24 @@ export class Mobilecli {
 		this.executeCommand(["agent", "install", "--device", deviceId]);
 	}
 
+	pressButton(deviceId: string, button: string): void {
+		this.executeCommand(["io", "button", button, "--device", deviceId]);
+	}
+
+	focusByIdentifier(deviceId: string, identifier?: string, label?: string): MobilecliFocusResponse {
+		const args = ["io", "focus", "--device", deviceId];
+		if (identifier) {
+			args.push("--identifier", identifier);
+		}
+
+		if (label) {
+			args.push("--label", label);
+		}
+
+		const output = this.executeCommand(args);
+		return JSON.parse(output) as MobilecliFocusResponse;
+	}
+
 	getDevices(options?: MobilecliDevicesOptions): MobilecliDevicesResponse {
 		const args = ["devices"];
 
@@ -186,8 +212,8 @@ export class Mobilecli {
 			}
 
 			if (options.platform) {
-				if (options.platform !== "ios" && options.platform !== "android") {
-					throw new Error(`Invalid platform: ${options.platform}. Must be "ios" or "android"`);
+				if (options.platform !== "ios" && options.platform !== "android" && options.platform !== "tvos") {
+					throw new Error(`Invalid platform: ${options.platform}. Must be "ios", "android" or "tvos"`);
 				}
 
 				args.push("--platform", options.platform);

@@ -9,11 +9,12 @@ import { ChildProcess } from "node:child_process";
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
-import { IosManager, IosRobot } from "./ios";
+import { IosManager, IosRobot, IosPlatform } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
+import { TvosRobot } from "./tvos";
 import { validateOutputPath, validateFileExtension } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
@@ -22,7 +23,7 @@ const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 interface MobilecliDevice {
 	id: string;
 	name: string;
-	platform: "android" | "ios";
+	platform: "android" | "ios" | "tvos";
 	type: "real" | "emulator" | "simulator";
 	version: string;
 	state: "online" | "offline";
@@ -42,6 +43,14 @@ export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
 };
+
+/**
+ * Pure platform->robot selection for iOS-family devices (D2). Real Apple TVs
+ * (platform === "tvos") require the Siri Remote / DeviceKit-backed TvosRobot,
+ * while iPhones/iPads keep the unchanged WDA-backed IosRobot.
+ */
+export const robotForIosDevice = (deviceId: string, platform: IosPlatform): Robot =>
+	platform === "tvos" ? new TvosRobot(deviceId) : new IosRobot(deviceId);
 
 export const createMcpServer = (): McpServer => {
 
@@ -173,8 +182,16 @@ export const createMcpServer = (): McpServer => {
 		const iosDevices = iosManager.listDevices();
 		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
 		if (iosDevice) {
+			// Real Apple TVs are enumerated over the same connection as iPhones but
+			// require a dedicated Siri Remote / DeviceKit-backed robot (D2). Route
+			// them before the platform-blind iPhone branch.
+			if (iosDevice.platform === "tvos") {
+				posthog("get_robot", { "DevicePlatform": "tvos", "DeviceType": "real" }).then();
+				return new TvosRobot(deviceId);
+			}
+
 			posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
-			return new IosRobot(deviceId);
+			return robotForIosDevice(deviceId, iosDevice.platform);
 		}
 
 		// Check if it's an Android device
@@ -188,7 +205,6 @@ export const createMcpServer = (): McpServer => {
 
 		// Check if it's a simulator (will later replace all other device types as well)
 		const response = mobilecli.getDevices({
-			platform: "ios",
 			type: "simulator",
 			includeOffline: false,
 		});
@@ -205,7 +221,7 @@ export const createMcpServer = (): McpServer => {
 						agentVerifiedSimulators.add(deviceId);
 					}
 
-					posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "simulator" }).then();
+					posthog("get_robot", { "DevicePlatform": device.platform, "DeviceType": "simulator" }).then();
 					return new MobileDevice(deviceId);
 				}
 			}
@@ -243,7 +259,7 @@ export const createMcpServer = (): McpServer => {
 				});
 			}
 
-			// Get iOS physical devices with details
+			// Get iOS and tvOS physical devices with details
 			telemetry.IosRealCount = 0;
 			try {
 				const iosDevices = iosManager.listDevicesWithDetails();
@@ -252,7 +268,7 @@ export const createMcpServer = (): McpServer => {
 					devices.push({
 						id: device.deviceId,
 						name: device.deviceName,
-						platform: "ios",
+						platform: device.platform,
 						type: "real",
 						version: device.version,
 						state: "online",
@@ -262,10 +278,9 @@ export const createMcpServer = (): McpServer => {
 				// If go-ios is not available, silently skip
 			}
 
-			// Get iOS simulators from mobilecli, including offline ones so we can
-			// report how many are installed vs booted. only booted ones are returned.
+			// Get iOS and tvOS simulators from mobilecli, including offline ones so
+			// telemetry can report how many are installed versus booted.
 			const response = mobilecli.getDevices({
-				platform: "ios",
 				type: "simulator",
 				includeOffline: true,
 			});
@@ -531,13 +546,38 @@ export const createMcpServer = (): McpServer => {
 		"Press a button on device",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
+			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only), UP (tvOS only), DOWN (tvOS only), LEFT (tvOS only), RIGHT (tvOS only), SELECT (tvOS only), MENU (tvOS only), PLAY_PAUSE (tvOS only)"),
 		},
 		{ destructiveHint: true },
 		async ({ device, button }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.pressButton(button);
 			return `Pressed the button: ${button}`;
+		}
+	);
+
+	tool(
+		"mobile_focus_by_identifier",
+		"Focus Element By Identity",
+		"Focus an on-screen element by accessibility identifier and/or label using Siri Remote navigation. tvOS (real Apple TV) only. At least one of identifier or label must be provided.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			identifier: z.string().optional().describe("The accessibility identifier of the element to focus."),
+			label: z.string().optional().describe("The accessibility label of the element to focus."),
+		},
+		{ destructiveHint: true },
+		async ({ device, identifier, label }) => {
+			if (!identifier && !label) {
+				throw new ActionableError("At least one of identifier or label must be provided.");
+			}
+
+			const robot = getRobotFromDevice(device);
+			if (!(robot instanceof TvosRobot)) {
+				throw new ActionableError("focus by identity is only supported on tvOS (real Apple TV).");
+			}
+
+			const element = await robot.focus(identifier, label);
+			return `Focused element: ${JSON.stringify(element)}`;
 		}
 	);
 
