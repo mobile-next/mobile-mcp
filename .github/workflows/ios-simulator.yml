@@ -49,12 +49,12 @@ jobs:
           fi
 
           if [[ "$runtime" == *"SimRuntime.iOS-18-"* ]]; then
-            device_pattern='^iPhone 16 \('
+            device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
+              '/^iPhone 16 \(/ { print $2; exit }')"
           else
-            device_pattern='^iPhone 15 \('
+            device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
+              '/^iPhone 15 \(/ { print $2; exit }')"
           fi
-          device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
-            "$device_pattern { print \$2; exit }")"
 
           test -n "$runtime" || { echo "No available iOS runtime found"; exit 1; }
           test -n "$device_type" || { echo "No available iPhone simulator type found"; exit 1; }
