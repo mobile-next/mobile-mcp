@@ -75,11 +75,9 @@ jobs:
       - name: Install the Mobile MCP device agent
         run: |
           set -euo pipefail
-          status="$(./node_modules/.bin/mobilecli agent status \
-            --device "$SIMULATOR_UDID" 2>/dev/null || true)"
-          if ! printf '%s' "$status" | jq -e '.status == "ok"' >/dev/null; then
-            ./node_modules/.bin/mobilecli agent install --device "$SIMULATOR_UDID"
-          fi
+          ./node_modules/.bin/mobilecli agent install \
+            --device "$SIMULATOR_UDID" \
+            --insecure-storage
 
       - name: Run iOS simulator tests
         run: npm run test:ios-simulator
