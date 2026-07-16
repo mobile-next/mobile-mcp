@@ -163,6 +163,7 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
+	/** Resolves emulator serials while leaving physical and iOS IDs unchanged. */
 	const getMobilecliDeviceId = (deviceId: string): string => {
 		if (!isAdbEmulatorId(deviceId)) {
 			return deviceId;

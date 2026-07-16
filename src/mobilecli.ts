@@ -60,14 +60,17 @@ const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 const SCREEN_RECORDING_STARTED = "Screen recording has started";
 
+/** Normalizes a device name for comparison across ADB and mobilecli. */
 function normalizeDeviceName(value: string): string {
 	return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+/** Converts a display name into the AVD identifier format used by mobilecli. */
 function mobilecliAvdId(value: string): string {
 	return value.trim().replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
+/** Returns whether a device ID is an ADB emulator serial. */
 export function isAdbEmulatorId(deviceId: string): boolean {
 	return /^emulator-\d+$/.test(deviceId);
 }
@@ -89,6 +92,10 @@ export class Mobilecli {
 		return execFileSync(path, args, { encoding: "utf8" }).toString().trim();
 	}
 
+	/**
+	 * Starts screen recording and resolves after mobilecli reports readiness.
+	 * Rejects on spawn errors, early exits, or startup timeout.
+	 */
 	public startScreenRecording(args: string[]): Promise<ChildProcess> {
 		const binaryPath = this.getPath();
 		const child = spawn(binaryPath, args, {
@@ -104,6 +111,7 @@ export class Mobilecli {
 				fail(new Error("Timed out waiting for mobilecli to start screen recording"));
 			}, TIMEOUT);
 
+			/** Rejects an unsettled startup and removes its readiness listener. */
 			function fail(startupError: Error): void {
 				if (settled) {
 					return;
@@ -113,6 +121,7 @@ export class Mobilecli {
 				stderr.off("data", onData);
 				reject(startupError);
 			}
+			/** Resolves startup when stderr contains the recording-ready sentinel. */
 			function onData(chunk: Buffer): void {
 				output = (output + chunk.toString()).slice(-MAX_BUFFER_SIZE);
 				if (!settled && output.includes(SCREEN_RECORDING_STARTED)) {
@@ -221,6 +230,7 @@ export class Mobilecli {
 		return JSON.parse(output.toString().trim()) as MobilecliCrashGetResponse;
 	}
 
+	/** Resolves an ADB emulator serial to the corresponding mobilecli AVD ID. */
 	resolveAndroidDeviceId(deviceId: string, deviceName: string): string {
 		if (!isAdbEmulatorId(deviceId)) {
 			return deviceId;
