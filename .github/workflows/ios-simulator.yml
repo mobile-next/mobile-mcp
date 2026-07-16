@@ -41,12 +41,12 @@ jobs:
           xcrun simctl list devicetypes | head -n 20
 
           runtime="$(xcrun simctl list runtimes | awk \
-            '/iOS .* \(available\)/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
+            '/^iOS / && $0 !~ /unavailable/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
           if [ -z "$runtime" ]; then
             echo "No installed iOS runtime found; downloading one"
             xcodebuild -downloadPlatform iOS
             runtime="$(xcrun simctl list runtimes | awk \
-              '/iOS .* \(available\)/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
+              '/^iOS / && $0 !~ /unavailable/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
           fi
 
           device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
