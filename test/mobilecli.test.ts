@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { Mobilecli } from "../src/mobilecli";
+import { isAdbEmulatorId, Mobilecli } from "../src/mobilecli";
 
 type ExecuteCommandCall = {
 	args: string[];
@@ -114,6 +114,97 @@ test.describe("mobilecli", () => {
 
 			expect(calls.length).toBe(1);
 			expect(calls[0].args).toEqual(["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
+		});
+	});
+
+	test.describe("resolveAndroidDeviceId", () => {
+		test("identifies only adb emulator serials", () => {
+			expect(isAdbEmulatorId("emulator-5554")).toBe(true);
+			expect(isAdbEmulatorId("Codex_API_36")).toBe(false);
+			expect(isAdbEmulatorId("R5CT123456")).toBe(false);
+		});
+
+		test("maps an adb emulator id to the mobilecli AVD id", () => {
+			const mockDevicesResponse = JSON.stringify({
+				status: "ok",
+				data: {
+					devices: [{
+						id: "Codex_API_36",
+						name: "Codex API 36",
+						platform: "android",
+						type: "emulator",
+						version: "16",
+						state: "online",
+					}],
+				},
+			});
+			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
+
+			const resolved = mobilecli.resolveAndroidDeviceId("emulator-5554", "Codex API 36");
+
+			expect(resolved).toBe("Codex_API_36");
+			expect(calls).toEqual([{ args: ["devices", "--platform", "android"] }]);
+		});
+
+		test("keeps a physical-device serial without querying mobilecli", () => {
+			const mockDevicesResponse = JSON.stringify({
+				status: "ok",
+				data: {
+					devices: [{
+						id: "R5CT123456",
+						name: "Galaxy S24",
+						platform: "android",
+						type: "real",
+						version: "16",
+						state: "online",
+					}],
+				},
+			});
+			const { mobilecli, calls } = createMockMobilecli(mockDevicesResponse);
+
+			expect(mobilecli.resolveAndroidDeviceId("R5CT123456", "Galaxy S24")).toBe("R5CT123456");
+			expect(calls).toEqual([]);
+		});
+
+		test("falls back to the AVD id when mobilecli discovery has no match", () => {
+			const mockDevicesResponse = JSON.stringify({ status: "ok", data: { devices: [] } });
+			const { mobilecli } = createMockMobilecli(mockDevicesResponse);
+
+			expect(mobilecli.resolveAndroidDeviceId("emulator-5554", "Codex API 36")).toBe("Codex_API_36");
+			expect(mobilecli.resolveAndroidDeviceId("emulator-5554", "")).toBe("emulator-5554");
+		});
+	});
+
+	test.describe("startScreenRecording", () => {
+		test.beforeEach(() => {
+			process.env.MOBILECLI_PATH = process.execPath;
+		});
+
+		test.afterEach(() => {
+			delete process.env.MOBILECLI_PATH;
+		});
+
+		test("rejects when mobilecli exits before reporting that recording started", async () => {
+			const mobilecli = new Mobilecli();
+
+			await expect(mobilecli.startScreenRecording([
+				"-e",
+				"process.stderr.write('device not found\\n'); process.exit(1);",
+			])).rejects.toThrow("device not found");
+		});
+
+		test("resolves only after mobilecli reports that recording started", async () => {
+			const mobilecli = new Mobilecli();
+			const child = await mobilecli.startScreenRecording([
+				"-e",
+				"process.stderr.write('Screen recording has started\\n'); setTimeout(() => {}, 5000);",
+			]);
+
+			try {
+				expect(child.exitCode).toBeNull();
+			} finally {
+				child.kill();
+			}
 		});
 	});
 });

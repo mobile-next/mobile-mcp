@@ -58,6 +58,37 @@ export interface MobilecliDevicesResponse {
 
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
+const SCREEN_RECORDING_STARTED = "Screen recording has started";
+
+/**
+ * Normalizes a device name for comparison across ADB and mobilecli.
+ *
+ * @param value - Device ID or display name.
+ * @returns A lowercase alphanumeric comparison key.
+ */
+function normalizeDeviceName(value: string): string {
+	return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Converts a display name into the AVD identifier format used by mobilecli.
+ *
+ * @param value - Android emulator display name.
+ * @returns A sanitized AVD identifier.
+ */
+function mobilecliAvdId(value: string): string {
+	return value.trim().replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+/**
+ * Determines whether a device ID is an ADB emulator serial.
+ *
+ * @param deviceId - Device identifier to classify.
+ * @returns Whether the identifier matches the emulator port format.
+ */
+export function isAdbEmulatorId(deviceId: string): boolean {
+	return /^emulator-\d+$/.test(deviceId);
+}
 
 export class Mobilecli {
 	private path: string | null = null;
@@ -76,10 +107,69 @@ export class Mobilecli {
 		return execFileSync(path, args, { encoding: "utf8" }).toString().trim();
 	}
 
-	public spawnCommand(args: string[]): ChildProcess {
+	/**
+	 * Starts screen recording and resolves after mobilecli reports readiness.
+	 * Rejects on spawn errors, early exits, or startup timeout.
+	 *
+	 * @param args - Arguments passed to the mobilecli process.
+	 * @returns The running process after recording startup is confirmed.
+	 */
+	public startScreenRecording(args: string[]): Promise<ChildProcess> {
 		const binaryPath = this.getPath();
-		return spawn(binaryPath, args, {
-			stdio: ["ignore", "ignore", "ignore"],
+		const child = spawn(binaryPath, args, {
+			stdio: ["ignore", "ignore", "pipe"],
+		});
+		const stderr = child.stderr!;
+
+		return new Promise((resolve, reject) => {
+			let output = "";
+			let settled = false;
+			const timer = setTimeout(() => {
+				child.kill();
+				fail(new Error("Timed out waiting for mobilecli to start screen recording"));
+			}, TIMEOUT);
+
+			/**
+			 * Rejects an unsettled startup and removes its readiness listener.
+			 *
+			 * @param startupError - Error reported to the caller.
+			 * @returns Nothing.
+			 */
+			function fail(startupError: Error): void {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				clearTimeout(timer);
+				stderr.off("data", onData);
+				reject(startupError);
+			}
+			/**
+			 * Resolves startup when stderr contains the recording-ready sentinel.
+			 *
+			 * @param chunk - Latest stderr data from mobilecli.
+			 * @returns Nothing.
+			 */
+			function onData(chunk: Buffer): void {
+				output = (output + chunk.toString()).slice(-MAX_BUFFER_SIZE);
+				if (!settled && output.includes(SCREEN_RECORDING_STARTED)) {
+					settled = true;
+					clearTimeout(timer);
+					stderr.off("data", onData);
+					stderr.resume();
+					resolve(child);
+				}
+			}
+
+			stderr.on("data", onData);
+			child.once("error", fail);
+			child.once("exit", (code, signal) => {
+				if (settled) {
+					return;
+				}
+				const status = signal ? `signal ${signal}` : `code ${code ?? "unknown"}`;
+				fail(new Error(output.trim() || `mobilecli exited before screen recording started (${status})`));
+			});
 		});
 	}
 
@@ -166,6 +256,41 @@ export class Mobilecli {
 	crashesGet(deviceId: string, id: string): MobilecliCrashGetResponse {
 		const output = this.executeCommandBuffer(["device", "crashes", "get", id, "--device", deviceId]);
 		return JSON.parse(output.toString().trim()) as MobilecliCrashGetResponse;
+	}
+
+	/**
+	 * Resolves an ADB emulator serial to the corresponding mobilecli AVD ID.
+	 *
+	 * @param deviceId - ADB device serial.
+	 * @param deviceName - Android device or AVD display name.
+	 * @returns The identifier accepted by mobilecli.
+	 */
+	resolveAndroidDeviceId(deviceId: string, deviceName: string): string {
+		if (!isAdbEmulatorId(deviceId)) {
+			return deviceId;
+		}
+
+		const response = this.getDevices({ platform: "android" });
+		const devices = response.data?.devices ?? [];
+		const exactMatch = devices.find(device => device.id === deviceId);
+		if (exactMatch) {
+			return exactMatch.id;
+		}
+
+		const normalizedName = normalizeDeviceName(deviceName);
+		if (!normalizedName) {
+			return deviceId;
+		}
+		const nameMatch = devices.find(device =>
+			normalizeDeviceName(device.id) === normalizedName ||
+			normalizeDeviceName(device.name) === normalizedName
+		);
+		if (nameMatch) {
+			return nameMatch.id;
+		}
+
+		const avdId = mobilecliAvdId(deviceName);
+		return avdId || deviceId;
 	}
 
 	agentStatus(deviceId: string): MobilecliAgentStatusResponse {
