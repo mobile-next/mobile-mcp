@@ -163,7 +163,12 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	/** Resolves emulator serials while leaving physical and iOS IDs unchanged. */
+	/**
+	 * Resolves emulator serials while leaving physical and iOS IDs unchanged.
+	 *
+	 * @param deviceId - Device identifier supplied to an MCP tool.
+	 * @returns The identifier accepted by mobilecli.
+	 */
 	const getMobilecliDeviceId = (deviceId: string): string => {
 		if (!isAdbEmulatorId(deviceId)) {
 			return deviceId;

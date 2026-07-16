@@ -30,7 +30,12 @@ interface UiAutomatorXml {
 	};
 }
 
-/** Returns the platform-specific ADB executable filename. */
+/**
+ * Returns the platform-specific ADB executable filename.
+ *
+ * @param platform - Node.js platform identifier.
+ * @returns The ADB filename for the platform.
+ */
 const adbExecutableName = (platform: NodeJS.Platform): string => platform === "win32" ? "adb.exe" : "adb";
 
 const getAdbPath = (): string => {
