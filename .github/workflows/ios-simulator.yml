@@ -1,0 +1,83 @@
+name: iOS Simulator Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Select an available iOS simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          runtime="$(xcrun simctl list runtimes | sed -nE \
+            's/.*(com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+) \(available\).*/\1/p' | head -n 1)"
+          device_type="$(xcrun simctl list devicetypes | sed -nE \
+            's/^iPhone .* \((com\.apple\.CoreSimulator\.SimDeviceType\.[^)]+)\)$/\1/p' | head -n 1)"
+
+          test -n "$runtime" || { echo "No available iOS runtime found"; exit 1; }
+          test -n "$device_type" || { echo "No available iPhone simulator type found"; exit 1; }
+
+          udid="$(xcrun simctl create mobile-mcp-ci "$device_type" "$runtime")"
+          echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
+          echo "Using $device_type on $runtime ($udid)"
+
+      - name: Boot simulator
+        run: |
+          set -euo pipefail
+          xcrun simctl boot "$SIMULATOR_UDID"
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+
+      - name: Verify mobilecli can discover the simulator
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/mobilecli devices --platform ios --type simulator
+          ./node_modules/.bin/mobilecli devices --platform ios --type simulator \
+            | grep -F "$SIMULATOR_UDID"
+
+      - name: Install the Mobile MCP device agent
+        run: |
+          set -euo pipefail
+          status="$(./node_modules/.bin/mobilecli agent status \
+            --device "$SIMULATOR_UDID" 2>/dev/null || true)"
+          if ! printf '%s' "$status" | jq -e '.status == "ok"' >/dev/null; then
+            ./node_modules/.bin/mobilecli agent install --device "$SIMULATOR_UDID"
+          fi
+
+      - name: Run iOS simulator tests
+        run: npm run test:ios-simulator
+
+      - name: Collect simulator diagnostics
+        if: failure()
+        run: |
+          xcrun simctl list devices
+          ./node_modules/.bin/mobilecli devices --platform ios --type simulator || true
+
+      - name: Clean up simulator
+        if: always()
+        run: |
+          xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          xcrun simctl delete "$SIMULATOR_UDID" || true
