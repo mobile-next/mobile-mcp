@@ -41,20 +41,20 @@ jobs:
           xcrun simctl list devicetypes | head -n 20
 
           runtime="$(xcrun simctl list runtimes | awk \
-            '/^iOS / && $0 !~ /unavailable/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
+            '/^iOS 18/ && $0 !~ /unavailable/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
           if [ -z "$runtime" ]; then
-            echo "No installed iOS runtime found; downloading one"
-            xcodebuild -downloadPlatform iOS
+            echo "No iOS 18 runtime found; using the newest installed iOS runtime"
             runtime="$(xcrun simctl list runtimes | awk \
               '/^iOS / && $0 !~ /unavailable/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
           fi
 
-          device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
-            '/^iPhone 15 \(/ { print $2; exit }')"
-          if [ -z "$device_type" ]; then
-            device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
-              '/^[[:space:]]*iPhone .*com\.apple\.CoreSimulator\.SimDeviceType/ { print $2; exit }')"
+          if [[ "$runtime" == *"SimRuntime.iOS-18-"* ]]; then
+            device_pattern='^iPhone 16 \('
+          else
+            device_pattern='^iPhone 15 \('
           fi
+          device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
+            "$device_pattern { print \$2; exit }")"
 
           test -n "$runtime" || { echo "No available iOS runtime found"; exit 1; }
           test -n "$device_type" || { echo "No available iPhone simulator type found"; exit 1; }
