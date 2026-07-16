@@ -19,10 +19,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Use Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -35,10 +35,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          runtime="$(xcrun simctl list runtimes | sed -nE \
-            's/.*(com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+) \(available\).*/\1/p' | head -n 1)"
-          device_type="$(xcrun simctl list devicetypes | sed -nE \
-            's/^iPhone .* \((com\.apple\.CoreSimulator\.SimDeviceType\.[^)]+)\)$/\1/p' | head -n 1)"
+          xcode-select -p
+          xcodebuild -version
+          xcrun simctl list runtimes
+          xcrun simctl list devicetypes | head -n 20
+
+          runtime="$(xcrun simctl list runtimes | awk \
+            '/iOS .* \(available\)/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
+          if [ -z "$runtime" ]; then
+            echo "No installed iOS runtime found; downloading one"
+            xcodebuild -downloadPlatform iOS
+            runtime="$(xcrun simctl list runtimes | awk \
+              '/iOS .* \(available\)/ { match($0, /com\.apple\.CoreSimulator\.SimRuntime\.iOS-[^ ]+/); if (RSTART) { print substr($0, RSTART, RLENGTH); exit } }')"
+          fi
+
+          device_type="$(xcrun simctl list devicetypes | awk -F '[()]' \
+            '/^[[:space:]]*iPhone .*com\.apple\.CoreSimulator\.SimDeviceType/ { print $2; exit }')"
 
           test -n "$runtime" || { echo "No available iOS runtime found"; exit 1; }
           test -n "$device_type" || { echo "No available iPhone simulator type found"; exit 1; }
