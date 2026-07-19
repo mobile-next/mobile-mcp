@@ -14,7 +14,7 @@ import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension } from "./utils";
+import { validateOutputPath, validateFileExtension, validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
@@ -38,12 +38,16 @@ interface ActiveRecording {
 	startedAt: number;
 }
 
+export interface McpServerDependencies {
+	getRobotFromDevice?: (deviceId: string) => Robot;
+}
+
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
 };
 
-export const createMcpServer = (): McpServer => {
+export const createMcpServer = (dependencies: McpServerDependencies = {}): McpServer => {
 
 	const server = new McpServer({
 		name: "mobile-mcp",
@@ -163,7 +167,7 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	const getRobotFromDevice = (deviceId: string): Robot => {
+	const defaultGetRobotFromDevice = (deviceId: string): Robot => {
 
 		// from now on, we must have mobilecli working
 		ensureMobilecliAvailable();
@@ -213,6 +217,7 @@ export const createMcpServer = (): McpServer => {
 
 		throw new ActionableError(`Device "${deviceId}" not found. Use the mobile_list_available_devices tool to see available devices.`);
 	};
+	const getRobotFromDevice = dependencies.getRobotFromDevice || defaultGetRobotFromDevice;
 
 	tool(
 		"mobile_list_available_devices",
@@ -361,11 +366,20 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
+			launchArgs: z.record(z.string(), z.string()).optional().describe("Key/value pairs passed to the app at launch. On iOS these become launch arguments (readable via UserDefaults, like Xcode's \"Arguments Passed On Launch\"); on Android they become string intent extras the app reads from its launch intent."),
 		},
 		{ destructiveHint: true },
-		async ({ device, packageName, locale }) => {
+		async ({ device, packageName, locale, launchArgs }) => {
+			validatePackageName(packageName);
+			if (locale) {
+				validateLocale(locale);
+			}
+			if (launchArgs) {
+				validateLaunchArgs(launchArgs);
+			}
+
 			const robot = getRobotFromDevice(device);
-			await robot.launchApp(packageName, locale);
+			await robot.launchApp(packageName, locale, launchArgs);
 			return `Launched app ${packageName}`;
 		}
 	);
