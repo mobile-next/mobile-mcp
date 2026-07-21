@@ -96,8 +96,11 @@ export interface Robot {
 	 *   stringified. On Android they become typed intent extras selected from the
 	 *   JavaScript value type: booleans → `--ez`, integers → `--ei`, other numbers →
 	 *   `--ef`, strings → `--es`. The app must read them from its launch intent.
+	 * @param url Optional deep link / universal link to navigate the app to after it
+	 *   launches. Delivered via the platform's open-URL mechanism, so any launchArgs
+	 *   apply to the initial launch and the URL is delivered as a subsequent navigation.
 	 */
-	launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void>;
+	launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs, url?: string): Promise<void>;
 
 	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this

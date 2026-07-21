@@ -152,18 +152,24 @@ export class MobileDevice implements Robot {
 		})) as InstalledApp[];
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs, url?: string): Promise<void> {
 		const args = ["apps", "launch", packageName];
 		if (locale) {
 			args.push("--locale", locale);
 		}
 
 		if (launchArgs && Object.keys(launchArgs).length > 0) {
-			await this.simctl.launchApp(packageName, locale, launchArgs);
+			// simctl handles launch arguments (and the deep link, if any) directly.
+			await this.simctl.launchApp(packageName, locale, launchArgs, url);
 			return;
 		}
 
 		this.runCommand(args);
+
+		if (url) {
+			// deliver the deep link after the mobilecli launch.
+			await this.openUrl(url);
+		}
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {

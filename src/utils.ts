@@ -42,6 +42,25 @@ export function validateLaunchArgs(launchArgs: LaunchArgs): void {
 	}
 }
 
+export function validateUrl(url: string): void {
+	// URLs flow into adb/simctl/WDA. Reject whitespace, control characters, and NUL
+	// so the value stays a single safe token across command boundaries (Android
+	// additionally shell-escapes it in openUrl).
+	if (url.length === 0) {
+		throw new ActionableError("Invalid URL: must not be empty");
+	}
+
+	if (/[\u0000-\u001F\u007F\s]/.test(url)) {
+		throw new ActionableError(`Invalid URL: "${url}"`);
+	}
+
+	// require a scheme (e.g. "https:", "myapp:") so deep links and universal links
+	// resolve to an app rather than being treated as a bare path.
+	if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
+		throw new ActionableError(`Invalid URL, missing scheme: "${url}"`);
+	}
+}
+
 function resolveRoot(root: string): string {
 	const resolved = path.resolve(root);
 

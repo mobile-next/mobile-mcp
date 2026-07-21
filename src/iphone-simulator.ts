@@ -6,7 +6,7 @@ import { join, basename, extname } from "node:path";
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, LaunchArgs, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
-import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
+import { validatePackageName, validateLocale, validateLaunchArgs, validateUrl } from "./utils";
 
 export interface Simulator {
 	name: string;
@@ -102,8 +102,11 @@ export class Simctl implements Robot {
 		// alternative: this.simctl("openurl", this.simulatorUuid, url);
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs) {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs, url?: string) {
 		validatePackageName(packageName);
+		if (url) {
+			validateUrl(url);
+		}
 		const args = ["launch", this.simulatorUuid, packageName];
 		if (locale) {
 			validateLocale(locale);
@@ -124,6 +127,11 @@ export class Simctl implements Robot {
 		}
 
 		this.simctl(...args);
+
+		if (url) {
+			// deliver the deep link after launch so any launchArgs apply to the boot.
+			await this.openUrl(url);
+		}
 	}
 
 	public async terminateApp(packageName: string) {

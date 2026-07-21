@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, LaunchArgs, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
-import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
+import { validatePackageName, validateLocale, validateLaunchArgs, validateUrl } from "./utils";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -138,7 +138,7 @@ export class IosRobot implements Robot {
 			});
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs, url?: string): Promise<void> {
 		validatePackageName(packageName);
 
 		if (locale) {
@@ -147,6 +147,10 @@ export class IosRobot implements Robot {
 
 		if (launchArgs && Object.keys(launchArgs).length > 0) {
 			validateLaunchArgs(launchArgs);
+		}
+
+		if (url) {
+			validateUrl(url);
 		}
 
 		await this.assertTunnelRunning();
@@ -168,6 +172,12 @@ export class IosRobot implements Robot {
 		}
 
 		await this.ios(...args);
+
+		if (url) {
+			// go-ios launch cannot open URLs, so deliver the deep link via WebDriverAgent
+			// after the app has launched.
+			await this.openUrl(url);
+		}
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {

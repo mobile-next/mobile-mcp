@@ -14,7 +14,7 @@ import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension, validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
+import { validateOutputPath, validateFileExtension, validatePackageName, validateLocale, validateLaunchArgs, validateUrl } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
@@ -367,9 +367,10 @@ export const createMcpServer = (dependencies: McpServerDependencies = {}): McpSe
 			packageName: z.string().describe("The package name of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
 			launchArgs: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional().describe("Key/value pairs passed to the app at launch. On iOS these become launch arguments (readable via UserDefaults, like Xcode's \"Arguments Passed On Launch\"); values are stringified and coerced by UserDefaults on read. On Android they become typed intent extras selected from the value type: boolean → --ez, integer → --ei, other number → --ef, string → --es; the app reads them from its launch intent."),
+			url: z.string().optional().describe("Optional deep link or universal link to navigate the app to after launch (e.g. \"myapp://product/123\" or \"https://example.com/checkout\"). Delivered via the platform's open-URL mechanism, so any launchArgs apply to the initial launch and the URL is delivered as a subsequent navigation. Custom schemes are permitted here (unlike mobile_open_url)."),
 		},
 		{ destructiveHint: true },
-		async ({ device, packageName, locale, launchArgs }) => {
+		async ({ device, packageName, locale, launchArgs, url }) => {
 			validatePackageName(packageName);
 			if (locale) {
 				validateLocale(locale);
@@ -377,9 +378,12 @@ export const createMcpServer = (dependencies: McpServerDependencies = {}): McpSe
 			if (launchArgs) {
 				validateLaunchArgs(launchArgs);
 			}
+			if (url) {
+				validateUrl(url);
+			}
 
 			const robot = getRobotFromDevice(device);
-			await robot.launchApp(packageName, locale, launchArgs);
+			await robot.launchApp(packageName, locale, launchArgs, url);
 			return `Launched app ${packageName}`;
 		}
 	);

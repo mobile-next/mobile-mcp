@@ -7,7 +7,7 @@ import { AndroidRobot } from "../src/android";
 import { IosRobot } from "../src/ios";
 import { Simctl } from "../src/iphone-simulator";
 import { MobileDevice } from "../src/mobile-device";
-import { validateLaunchArgs } from "../src/utils";
+import { validateLaunchArgs, validateUrl } from "../src/utils";
 import { ActionableError, Robot } from "../src/robot";
 import { createMcpServer } from "../src/server";
 
@@ -53,6 +53,21 @@ test.describe("launch arguments", () => {
 		test("should reject non-finite number values", () => {
 			expect(() => validateLaunchArgs({ key: Number.NaN })).toThrow(ActionableError);
 			expect(() => validateLaunchArgs({ key: Number.POSITIVE_INFINITY })).toThrow(ActionableError);
+		});
+	});
+
+	test.describe("validateUrl", () => {
+		test("should accept https and custom-scheme URLs", () => {
+			expect(() => validateUrl("https://example.com/checkout?a=1&b=2")).not.toThrow();
+			expect(() => validateUrl("myapp://product/123")).not.toThrow();
+			expect(() => validateUrl("tel:+15551234567")).not.toThrow();
+		});
+
+		test("should reject empty, schemeless, and whitespace URLs", () => {
+			expect(() => validateUrl("")).toThrow(ActionableError);
+			expect(() => validateUrl("example.com/no-scheme")).toThrow(ActionableError);
+			expect(() => validateUrl("https://example.com/a b")).toThrow(ActionableError);
+			expect(() => validateUrl("https://example.com/\nx")).toThrow(ActionableError);
 		});
 	});
 
@@ -124,6 +139,33 @@ test.describe("launch arguments", () => {
 				"--ef", "ratio", "1.5",
 				"--es", "apiBaseURL", "'https://staging.example.com'",
 			]);
+		});
+
+		test("should open a deep link after a plain launch when a url is supplied", async () => {
+			const { robot, calls } = createRobot();
+			await robot.launchApp("com.example.app", undefined, undefined, "myapp://product/123");
+
+			expect(calls).toEqual([
+				["shell", "monkey", "-p", "com.example.app", "-c", "android.intent.category.LAUNCHER", "1"],
+				["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "myapp://product/123"],
+			]);
+		});
+
+		test("should apply launch args then open the deep link", async () => {
+			const { robot, calls } = createRobot();
+			await robot.launchApp("com.example.app", undefined, { FeatureXEnabled: true }, "https://example.com/checkout");
+
+			expect(calls).toEqual([
+				["shell", "cmd", "package", "resolve-activity", "--brief", "-c", "android.intent.category.LAUNCHER", "com.example.app"],
+				["shell", "am", "start", "-n", "com.example.app/.MainActivity", "--ez", "FeatureXEnabled", "true"],
+				["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "https://example.com/checkout"],
+			]);
+		});
+
+		test("should validate the url before shelling out", async () => {
+			const { robot, calls } = createRobot();
+			await expect(robot.launchApp("com.example.app", undefined, undefined, "no-scheme")).rejects.toThrow(ActionableError);
+			expect(calls).toEqual([]);
 		});
 
 		test("should quote every extra as one remote-shell argument", async () => {
@@ -318,6 +360,31 @@ test.describe("launch arguments", () => {
 				"-ratio", "1.5",
 			]]);
 		});
+
+		test("should launch then deliver the deep link via openUrl", async () => {
+			const simulator = new Simctl("simulator-id");
+			const calls: string[][] = [];
+			const openedUrls: string[] = [];
+			const internals = simulator as unknown as {
+				simctl: (...args: string[]) => Buffer;
+				openUrl: (url: string) => Promise<void>;
+			};
+			internals.simctl = (...args: string[]) => {
+				calls.push(args);
+				return Buffer.from("");
+			};
+			internals.openUrl = async (url: string) => {
+				openedUrls.push(url);
+			};
+
+			await simulator.launchApp("com.example.app", undefined, { FeatureXEnabled: true }, "myapp://product/123");
+
+			expect(calls).toEqual([[
+				"launch", "simulator-id", "com.example.app",
+				"-FeatureXEnabled", "true",
+			]]);
+			expect(openedUrls).toEqual(["myapp://product/123"]);
+		});
 	});
 
 	test.describe("MobileDevice.launchApp", () => {
@@ -328,10 +395,10 @@ test.describe("launch arguments", () => {
 		} => {
 			const device = new MobileDevice("simulator-id");
 			const mobilecliCalls: string[][] = [];
-			const simctlCalls: Array<[string, string | undefined, Record<string, string> | undefined]> = [];
+			const simctlCalls: Array<[string, string | undefined, Record<string, string> | undefined, string | undefined]> = [];
 			const internals = device as unknown as {
 				mobilecli: { executeCommand: (args: string[]) => string };
-				simctl: { launchApp: (packageName: string, locale?: string, launchArgs?: Record<string, string>) => Promise<void> };
+				simctl: { launchApp: (packageName: string, locale?: string, launchArgs?: Record<string, string>, url?: string) => Promise<void> };
 			};
 			internals.mobilecli = {
 				executeCommand: (args: string[]) => {
@@ -340,8 +407,8 @@ test.describe("launch arguments", () => {
 				},
 			};
 			internals.simctl = {
-				launchApp: async (packageName, locale, launchArgs) => {
-					simctlCalls.push([packageName, locale, launchArgs]);
+				launchApp: async (packageName, locale, launchArgs, url) => {
+					simctlCalls.push([packageName, locale, launchArgs, url]);
 				},
 			};
 			return { device, mobilecliCalls, simctlCalls };
@@ -370,18 +437,38 @@ test.describe("launch arguments", () => {
 			const launchArgs = { feature: "it's enabled" };
 			await device.launchApp("com.example.app", "fr-FR", launchArgs);
 			expect(simctlCalls).toEqual([
-				["com.example.app", "fr-FR", launchArgs],
+				["com.example.app", "fr-FR", launchArgs, undefined],
 			]);
 			expect(mobilecliCalls).toEqual([]);
+		});
+
+		test("should delegate a url alongside launch arguments to Simctl", async () => {
+			const { device, mobilecliCalls, simctlCalls } = createDevice();
+			const launchArgs = { feature: "on" };
+			await device.launchApp("com.example.app", undefined, launchArgs, "myapp://x");
+			expect(simctlCalls).toEqual([
+				["com.example.app", undefined, launchArgs, "myapp://x"],
+			]);
+			expect(mobilecliCalls).toEqual([]);
+		});
+
+		test("should open the deep link after a plain mobilecli launch", async () => {
+			const { device, mobilecliCalls, simctlCalls } = createDevice();
+			await device.launchApp("com.example.app", undefined, undefined, "myapp://product/123");
+			expect(mobilecliCalls).toEqual([
+				["apps", "launch", "com.example.app", "--device", "simulator-id"],
+				["url", "myapp://product/123", "--device", "simulator-id"],
+			]);
+			expect(simctlCalls).toEqual([]);
 		});
 	});
 
 	test("should accept and forward launch arguments through the MCP boundary", async () => {
-		const launchCalls: Array<[string, string | undefined, Record<string, string> | undefined]> = [];
+		const launchCalls: Array<[string, string | undefined, Record<string, string> | undefined, string | undefined]> = [];
 		const resolvedDevices: string[] = [];
 		const robot = {
-			launchApp: async (packageName: string, locale?: string, launchArgs?: Record<string, string>) => {
-				launchCalls.push([packageName, locale, launchArgs]);
+			launchApp: async (packageName: string, locale?: string, launchArgs?: Record<string, string>, url?: string) => {
+				launchCalls.push([packageName, locale, launchArgs, url]);
 			},
 		} as unknown as Robot;
 		const previousTelemetry = process.env.MOBILEMCP_DISABLE_TELEMETRY;
@@ -408,6 +495,7 @@ test.describe("launch arguments", () => {
 						feature: "it's enabled",
 						config: "{\"url\":\"https://example.test?a=1&b=2\"}",
 					},
+					url: "myapp://product/123",
 				},
 			});
 
@@ -419,6 +507,7 @@ test.describe("launch arguments", () => {
 					feature: "it's enabled",
 					config: "{\"url\":\"https://example.test?a=1&b=2\"}",
 				},
+				"myapp://product/123",
 			]]);
 			expect(result.content).toEqual([
 				{ type: "text", text: "Launched app com.example.app" },

@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import * as xml from "fast-xml-parser";
 
 import { ActionableError, Button, InstalledApp, LaunchArgs, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
-import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
+import { validatePackageName, validateLocale, validateLaunchArgs, validateUrl } from "./utils";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -145,7 +145,7 @@ export class AndroidRobot implements Robot {
 			.map(line => line.substring("package:".length));
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs, url?: string): Promise<void> {
 		validatePackageName(packageName);
 
 		if (locale) {
@@ -154,6 +154,10 @@ export class AndroidRobot implements Robot {
 
 		if (launchArgs && Object.keys(launchArgs).length > 0) {
 			validateLaunchArgs(launchArgs);
+		}
+
+		if (url) {
+			validateUrl(url);
 		}
 
 		if (locale) {
@@ -168,13 +172,17 @@ export class AndroidRobot implements Robot {
 			// launch arguments require `am start` with an explicit component, so resolve
 			// the launcher activity and pass the extras with type-specific flags.
 			await this.launchWithExtras(packageName, launchArgs);
-			return;
+		} else {
+			try {
+				this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
+			} catch (error) {
+				throw new ActionableError(`Failed launching app with package name "${packageName}", please make sure it exists`);
+			}
 		}
 
-		try {
-			this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
-		} catch (error) {
-			throw new ActionableError(`Failed launching app with package name "${packageName}", please make sure it exists`);
+		if (url) {
+			// deliver the deep link / universal link after launch via a VIEW intent.
+			await this.openUrl(url);
 		}
 	}
 
