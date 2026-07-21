@@ -12,6 +12,7 @@
   },
   "license": "Apache-2.0",
   "scripts": {
+    "start": "node lib/index.js",
     "build": "tsc && chmod +x lib/index.js",
     "lint": "eslint .",
     "fixlint": "eslint . --fix",
