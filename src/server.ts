@@ -419,6 +419,115 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_list_files",
+		"List Files",
+		"List files on the device at the given path. Use mobile_get_app_container_path to get the container path for a specific app.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().optional().describe("Remote path to list. Omit to list the device root."),
+		},
+		{ readOnlyHint: true },
+		async ({ device, path: remotePath }) => {
+			ensureMobilecliAvailable();
+			const response = mobilecli.fsList(device, remotePath);
+			const entries = response.data.map(entry => {
+				const type = entry.isDir ? "dir " : "file";
+				const size = entry.isDir ? "" : ` (${entry.size} bytes)`;
+				return `${type}  ${entry.name}${size}`;
+			});
+			return entries.join("\n") || "Empty directory";
+		}
+	);
+
+	tool(
+		"mobile_get_app_container_path",
+		"Get App Container Path",
+		"Get the container path of an app on the device. Useful as a base path for mobile_list_files, mobile_pull_file, mobile_push_file, and similar tools.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			bundleId: z.string().describe("The app bundle ID whose container path to retrieve"),
+		},
+		{ readOnlyHint: true },
+		async ({ device, bundleId }) => {
+			ensureMobilecliAvailable();
+			const response = mobilecli.appsPath(device, bundleId);
+			return response.data.path;
+		}
+	);
+
+	tool(
+		"mobile_create_directory",
+		"Create Directory",
+		"Create a directory on the device or in an app's container",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().describe("The remote path of the directory to create"),
+			bundleId: z.string().optional().describe("App bundle ID to create the directory in its container. Omit to operate on the device filesystem."),
+			parents: z.boolean().optional().describe("Create parent directories as needed"),
+		},
+		{ destructiveHint: true },
+		async ({ device, path: remotePath, bundleId, parents }) => {
+			ensureMobilecliAvailable();
+			mobilecli.fsMkdir(device, remotePath, bundleId, parents);
+			return `Created directory ${remotePath}`;
+		}
+	);
+
+	tool(
+		"mobile_remove_file",
+		"Remove File",
+		"Remove a file or directory on the device or in an app's container",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			path: z.string().describe("The remote path to remove"),
+			bundleId: z.string().optional().describe("App bundle ID to remove from its container. Omit to operate on the device filesystem."),
+			recursive: z.boolean().optional().describe("Remove directories and their contents recursively"),
+		},
+		{ destructiveHint: true },
+		async ({ device, path: remotePath, bundleId, recursive }) => {
+			ensureMobilecliAvailable();
+			mobilecli.fsRm(device, remotePath, bundleId, recursive);
+			return `Removed ${remotePath}`;
+		}
+	);
+
+	tool(
+		"mobile_pull_file",
+		"Pull File",
+		"Pull a file from the device or from an app's container to the local machine. The local path must be within the current directory or the temp directory.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			remotePath: z.string().describe("The path on the device to pull from"),
+			localPath: z.string().describe("The destination path on the local machine. Must be within the current working directory or the system temp directory."),
+		},
+		{ readOnlyHint: true },
+		async ({ device, remotePath, localPath }) => {
+			ensureMobilecliAvailable();
+			validateOutputPath(localPath);
+			mobilecli.fsPull(device, remotePath, localPath);
+			return `Pulled ${remotePath} to ${localPath}`;
+		}
+	);
+
+	tool(
+		"mobile_push_file",
+		"Push File",
+		"Push a file from the local machine to the device or into an app's container. The local path must be within the current directory or the temp directory.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			localPath: z.string().describe("The source path on the local machine. Must be within the current working directory or the system temp directory."),
+			remotePath: z.string().describe("The destination path on the device"),
+		},
+		{ destructiveHint: true },
+		async ({ device, localPath, remotePath }) => {
+			ensureMobilecliAvailable();
+			validateOutputPath(localPath);
+			mobilecli.fsPush(device, localPath, remotePath);
+			return `Pushed ${localPath} to ${remotePath}`;
+		}
+	);
+
+	tool(
 		"mobile_get_screen_size",
 		"Get Screen Size",
 		"Get the screen size of the mobile device in pixels",
