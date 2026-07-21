@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, LaunchArgs, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
 import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
 
 export interface AndroidDevice {
@@ -145,7 +145,7 @@ export class AndroidRobot implements Robot {
 			.map(line => line.substring("package:".length));
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void> {
 		validatePackageName(packageName);
 
 		if (locale) {
@@ -166,7 +166,7 @@ export class AndroidRobot implements Robot {
 
 		if (launchArgs && Object.keys(launchArgs).length > 0) {
 			// launch arguments require `am start` with an explicit component, so resolve
-			// the launcher activity and pass the extras as string extras (--es).
+			// the launcher activity and pass the extras with type-specific flags.
 			await this.launchWithExtras(packageName, launchArgs);
 			return;
 		}
@@ -199,11 +199,26 @@ export class AndroidRobot implements Robot {
 		return components[0];
 	}
 
-	private async launchWithExtras(packageName: string, launchArgs: Record<string, string>): Promise<void> {
+	private async launchWithExtras(packageName: string, launchArgs: LaunchArgs): Promise<void> {
 		const component = this.resolveLauncherActivity(packageName);
 		const args = ["shell", "am", "start", "-n", component];
 		for (const [key, value] of Object.entries(launchArgs)) {
-			args.push("--es", key, this.quoteShellArgument(value));
+			if (typeof value === "boolean") {
+				// boolean extra: getIntent().getBooleanExtra(key, ...)
+				args.push("--ez", key, value ? "true" : "false");
+			} else if (typeof value === "number") {
+				if (Number.isInteger(value)) {
+					// int extra: getIntent().getIntExtra(key, ...)
+					args.push("--ei", key, String(value));
+				} else {
+					// float extra: getIntent().getFloatExtra(key, ...)
+					args.push("--ef", key, String(value));
+				}
+			} else {
+				// string extra: getIntent().getStringExtra(key). Arbitrary content, so
+				// quote it as a single remote-shell argument.
+				args.push("--es", key, this.quoteShellArgument(value));
+			}
 		}
 
 		try {

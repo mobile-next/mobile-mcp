@@ -16,6 +16,18 @@ export type SwipeDirection = "up" | "down" | "left" | "right";
 
 export type Button = "HOME" | "BACK" | "VOLUME_UP" | "VOLUME_DOWN" | "ENTER" | "DPAD_CENTER" | "DPAD_UP" | "DPAD_DOWN" | "DPAD_LEFT" | "DPAD_RIGHT";
 
+/**
+ * A single launch-argument value. Strings map to string extras/arguments;
+ * booleans and numbers preserve their type so Android can emit the matching
+ * typed intent extra (`--ez` / `--ei` / `--ef`) instead of a string extra.
+ */
+export type LaunchArgValue = string | number | boolean;
+
+/**
+ * Key/value pairs passed to an app at launch. See {@link Robot.launchApp}.
+ */
+export type LaunchArgs = Record<string, LaunchArgValue>;
+
 export interface ScreenElementRect {
 	x: number;
 	y: number;
@@ -80,11 +92,12 @@ export interface Robot {
 	 * @param locale Optional comma-separated BCP 47 locale tags to launch with.
 	 * @param launchArgs Optional key/value pairs passed to the app at launch. On iOS
 	 *   these become launch arguments (`-key value`), parsed into `UserDefaults` — the
-	 *   same mechanism as Xcode's "Arguments Passed On Launch". On Android they become
-	 *   string intent extras (`am start --es key value`), which the app must read from
-	 *   its launch intent.
+	 *   same mechanism as Xcode's "Arguments Passed On Launch"; every value is
+	 *   stringified. On Android they become typed intent extras selected from the
+	 *   JavaScript value type: booleans → `--ez`, integers → `--ei`, other numbers →
+	 *   `--ef`, strings → `--es`. The app must read them from its launch intent.
 	 */
-	launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void>;
+	launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void>;
 
 	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this

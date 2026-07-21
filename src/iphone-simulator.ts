@@ -5,7 +5,7 @@ import { join, basename, extname } from "node:path";
 
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, LaunchArgs, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
 import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
 
 export interface Simulator {
@@ -102,7 +102,7 @@ export class Simctl implements Robot {
 		// alternative: this.simctl("openurl", this.simulatorUuid, url);
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>) {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs) {
 		validatePackageName(packageName);
 		const args = ["launch", this.simulatorUuid, packageName];
 		if (locale) {
@@ -115,10 +115,11 @@ export class Simctl implements Robot {
 		if (launchArgs && Object.keys(launchArgs).length > 0) {
 			// simctl passes trailing arguments to the app as launch arguments, identical
 			// to Xcode's "Arguments Passed On Launch". `-key value` pairs are parsed into
-			// UserDefaults by the OS, so no app changes are needed to read them.
+			// UserDefaults by the OS, so no app changes are needed to read them. Values
+			// are stringified; UserDefaults coerces types on read (boolForKey/integerForKey).
 			validateLaunchArgs(launchArgs);
 			for (const [key, value] of Object.entries(launchArgs)) {
-				args.push(`-${key}`, value);
+				args.push(`-${key}`, String(value));
 			}
 		}
 

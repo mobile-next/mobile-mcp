@@ -1,6 +1,6 @@
 import { Mobilecli } from "./mobilecli";
 import { Simctl } from "./iphone-simulator";
-import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
+import { Button, InstalledApp, LaunchArgs, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -152,7 +152,7 @@ export class MobileDevice implements Robot {
 		})) as InstalledApp[];
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void> {
 		const args = ["apps", "launch", packageName];
 		if (locale) {
 			args.push("--locale", locale);

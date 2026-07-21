@@ -1,7 +1,7 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { ActionableError } from "./robot";
+import { ActionableError, LaunchArgs } from "./robot";
 
 export function validatePackageName(packageName: string): void {
 	// iOS bundle identifiers (which flow through this same "packageName" parameter
@@ -18,7 +18,7 @@ export function validateLocale(locale: string): void {
 	}
 }
 
-export function validateLaunchArgs(launchArgs: Record<string, string>): void {
+export function validateLaunchArgs(launchArgs: LaunchArgs): void {
 	for (const [key, value] of Object.entries(launchArgs)) {
 		// keys map to iOS launch argument flags and Android extra keys, so keep them
 		// to a conservative identifier-like charset.
@@ -26,10 +26,18 @@ export function validateLaunchArgs(launchArgs: Record<string, string>): void {
 			throw new ActionableError(`Invalid launch argument key: "${key}"`);
 		}
 
-		// Node child processes reject NUL in argv. Platform-specific command
-		// boundaries are responsible for preserving all other string content.
-		if (value.includes("\0")) {
-			throw new ActionableError(`Invalid launch argument value for "${key}": "${value}"`);
+		if (typeof value === "number") {
+			// non-finite numbers stringify to "NaN"/"Infinity", which no platform can
+			// meaningfully deliver as a typed extra or launch argument.
+			if (!Number.isFinite(value)) {
+				throw new ActionableError(`Invalid launch argument value for "${key}": "${value}"`);
+			}
+		} else if (typeof value === "string") {
+			// Node child processes reject NUL in argv. Platform-specific command
+			// boundaries are responsible for preserving all other string content.
+			if (value.includes("\0")) {
+				throw new ActionableError(`Invalid launch argument value for "${key}": "${value}"`);
+			}
 		}
 	}
 }

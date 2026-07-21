@@ -2,7 +2,7 @@ import { Socket } from "node:net";
 import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
+import { ActionableError, Button, InstalledApp, LaunchArgs, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
 import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
 
 const WDA_PORT = 8100;
@@ -138,7 +138,7 @@ export class IosRobot implements Robot {
 			});
 	}
 
-	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: LaunchArgs): Promise<void> {
 		validatePackageName(packageName);
 
 		if (locale) {

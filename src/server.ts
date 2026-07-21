@@ -366,7 +366,7 @@ export const createMcpServer = (dependencies: McpServerDependencies = {}): McpSe
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
-			launchArgs: z.record(z.string(), z.string()).optional().describe("Key/value pairs passed to the app at launch. On iOS these become launch arguments (readable via UserDefaults, like Xcode's \"Arguments Passed On Launch\"); on Android they become string intent extras the app reads from its launch intent."),
+			launchArgs: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional().describe("Key/value pairs passed to the app at launch. On iOS these become launch arguments (readable via UserDefaults, like Xcode's \"Arguments Passed On Launch\"); values are stringified and coerced by UserDefaults on read. On Android they become typed intent extras selected from the value type: boolean → --ez, integer → --ei, other number → --ef, string → --es; the app reads them from its launch intent."),
 		},
 		{ destructiveHint: true },
 		async ({ device, packageName, locale, launchArgs }) => {

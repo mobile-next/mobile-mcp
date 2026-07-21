@@ -45,6 +45,15 @@ test.describe("launch arguments", () => {
 		test("should reject NUL values that child processes cannot accept", () => {
 			expect(() => validateLaunchArgs({ key: "before\0after" })).toThrow(ActionableError);
 		});
+
+		test("should accept boolean and finite number values", () => {
+			expect(() => validateLaunchArgs({ enabled: true, disabled: false, count: 3, ratio: 1.5, zero: 0, negative: -7 })).not.toThrow();
+		});
+
+		test("should reject non-finite number values", () => {
+			expect(() => validateLaunchArgs({ key: Number.NaN })).toThrow(ActionableError);
+			expect(() => validateLaunchArgs({ key: Number.POSITIVE_INFINITY })).toThrow(ActionableError);
+		});
 	});
 
 	test.describe("AndroidRobot.launchApp", () => {
@@ -94,6 +103,26 @@ test.describe("launch arguments", () => {
 					"--es", "FeatureXEnabled", "'true'",
 					"--es", "server", "'staging'",
 				],
+			]);
+		});
+
+		test("should select typed extra flags from the value type", async () => {
+			const { robot, calls } = createRobot();
+			await robot.launchApp("com.example.app", undefined, {
+				FeatureXEnabled: true,
+				FeatureYDisabled: false,
+				retryCount: 3,
+				ratio: 1.5,
+				apiBaseURL: "https://staging.example.com",
+			});
+
+			expect(calls[1]).toEqual([
+				"shell", "am", "start", "-n", "com.example.app/.MainActivity",
+				"--ez", "FeatureXEnabled", "true",
+				"--ez", "FeatureYDisabled", "false",
+				"--ei", "retryCount", "3",
+				"--ef", "ratio", "1.5",
+				"--es", "apiBaseURL", "'https://staging.example.com'",
 			]);
 		});
 
@@ -260,6 +289,33 @@ test.describe("launch arguments", () => {
 				"-AppleLocale", "fr-FR",
 				"-feature", "it's enabled",
 				"-config", "{\"url\":\"https://example.test?a=1&b=2\"}",
+			]]);
+		});
+
+		test("should stringify typed launch values for UserDefaults coercion", async () => {
+			const simulator = new Simctl("simulator-id");
+			const calls: string[][] = [];
+			const internals = simulator as unknown as {
+				simctl: (...args: string[]) => Buffer;
+			};
+			internals.simctl = (...args: string[]) => {
+				calls.push(args);
+				return Buffer.from("");
+			};
+
+			await simulator.launchApp("com.example.app", undefined, {
+				FeatureXEnabled: true,
+				FeatureYDisabled: false,
+				retryCount: 3,
+				ratio: 1.5,
+			});
+
+			expect(calls).toEqual([[
+				"launch", "simulator-id", "com.example.app",
+				"-FeatureXEnabled", "true",
+				"-FeatureYDisabled", "false",
+				"-retryCount", "3",
+				"-ratio", "1.5",
 			]]);
 		});
 	});
