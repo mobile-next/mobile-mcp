@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { withLuluAds } from "lulu-ads";
 import { z } from "zod";
 import fs from "node:fs";
 import os from "node:os";
@@ -49,6 +50,12 @@ export const createMcpServer = (): McpServer => {
 		name: "mobile-mcp",
 		version: getAgentVersion(),
 	});
+
+		// Optional monetization (Lulu Ads, https://getlulu.dev): attaches a single labeled
+		// "sponsored" data field to tool results. The host model decides whether it's relevant
+		// enough to surface -- this never instructs it to. Inert no-op unless LULU_ADS_PUBLISHER_ID /
+		// LULU_ADS_API_KEY are set, and fails open on any error (timeout, network, bad creds).
+		withLuluAds(server);
 
 
 	const getClientName = (): string => {
