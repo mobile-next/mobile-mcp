@@ -26,10 +26,99 @@ interface InfoCommandOutput {
 	TimeZone: string;
 }
 
+interface CoreDeviceListOutput {
+	result?: {
+		devices?: CoreDeviceEntry[];
+	};
+}
+
+interface CoreDeviceDetailsOutput {
+	result?: {
+		connectionProperties?: {
+			transportType?: string;
+		};
+		deviceProperties?: {
+			name?: string;
+			osVersionNumber?: string;
+		};
+		hardwareProperties?: {
+			productType?: string;
+			udid?: string;
+		};
+	};
+}
+
+interface CoreDeviceAppsOutput {
+	result?: {
+		apps?: Array<{
+			bundleIdentifier?: string;
+			name?: string;
+			version?: string;
+		}>;
+	};
+}
+
+interface CoreDeviceEntry {
+	connectionProperties?: {
+		pairingState?: string;
+		transportType?: string;
+		tunnelState?: string;
+	};
+	deviceProperties?: {
+		bootState?: string;
+		name?: string;
+		osVersionNumber?: string;
+	};
+	hardwareProperties?: {
+		productType?: string;
+		reality?: string;
+		udid?: string;
+	};
+}
+
 export interface IosDevice {
 	deviceId: string;
 	deviceName: string;
 }
+
+export type IosPlatform = "ios" | "tvos";
+export type IosDeviceWithDetails = IosDevice & { version: string; platform: IosPlatform };
+
+/**
+ * Real Apple TV units are enumerated over the same go-ios connection as iPhones and
+ * iPads, so they are distinguished by their product type (e.g. "AppleTV14,1") rather
+ * than a separate device class.
+ */
+export const platformFromProductType = (productType: string): IosPlatform =>
+	productType.startsWith("AppleTV") ? "tvos" : "ios";
+
+export const coreDeviceDevicesFromJson = (output: string): IosDeviceWithDetails[] => {
+	const json = JSON.parse(output) as CoreDeviceListOutput;
+	const entries = json.result?.devices ?? [];
+
+	return entries
+		.filter(entry => entry.hardwareProperties?.reality === "physical")
+		.filter(entry => entry.connectionProperties?.pairingState === "paired")
+		.filter(entry => {
+			const bootState = entry.deviceProperties?.bootState ?? "";
+			const tunnelState = entry.connectionProperties?.tunnelState ?? "";
+			const transportType = entry.connectionProperties?.transportType ?? "";
+			return bootState === "booted" || tunnelState === "connected" || transportType === "usb" || transportType === "localNetwork";
+		})
+		.map(entry => {
+			const deviceId = entry.hardwareProperties?.udid?.trim() ?? "";
+			const deviceName = entry.deviceProperties?.name?.trim() ?? "";
+			const version = entry.deviceProperties?.osVersionNumber?.trim() ?? "";
+			const productType = entry.hardwareProperties?.productType?.trim() ?? "";
+			return {
+				deviceId,
+				deviceName,
+				version,
+				platform: platformFromProductType(productType),
+			};
+		})
+		.filter(device => device.deviceId.length > 0);
+};
 
 const getGoIosPath = (): string => {
 	if (process.env.GO_IOS_PATH) {
@@ -96,10 +185,34 @@ export class IosRobot implements Robot {
 		return execFileSync(getGoIosPath(), ["--udid", this.deviceId, ...args], {}).toString();
 	}
 
+	private devicectl(...args: string[]): string {
+		return execFileSync("xcrun", ["devicectl", ...args, "--json-output", "-"], {
+			stdio: ["pipe", "pipe", "ignore"],
+		}).toString();
+	}
+
+	private getCoreDeviceInfo(): InfoCommandOutput {
+		const output = this.devicectl("device", "info", "details", "--device", this.deviceId);
+		const json = JSON.parse(output) as CoreDeviceDetailsOutput;
+		return {
+			DeviceClass: "iPhone",
+			DeviceName: json.result?.deviceProperties?.name ?? this.deviceId,
+			ProductName: json.result?.hardwareProperties?.productType ?? "",
+			ProductType: json.result?.hardwareProperties?.productType ?? "",
+			ProductVersion: json.result?.deviceProperties?.osVersionNumber ?? "",
+			PhoneNumber: "",
+			TimeZone: "",
+		};
+	}
+
 	public async getIosVersion(): Promise<string> {
-		const output = await this.ios("info");
-		const json = JSON.parse(output);
-		return json.ProductVersion;
+		try {
+			const output = await this.ios("info");
+			const json = JSON.parse(output);
+			return json.ProductVersion;
+		} catch {
+			return this.getCoreDeviceInfo().ProductVersion;
+		}
 	}
 
 	private async isTunnelRequired(): Promise<boolean> {
@@ -124,32 +237,47 @@ export class IosRobot implements Robot {
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
-		await this.assertTunnelRunning();
+		try {
+			await this.assertTunnelRunning();
 
-		const output = await this.ios("apps", "--all", "--list");
-		return output
-			.split("\n")
-			.map(line => {
-				const [packageName, appName] = line.split(" ");
-				return {
-					packageName,
-					appName,
-				};
-			});
+			const output = await this.ios("apps", "--all", "--list");
+			return output
+				.split("\n")
+				.map(line => {
+					const [packageName, appName] = line.split(" ");
+					return {
+						packageName,
+						appName,
+					};
+				});
+		} catch {
+			const output = this.devicectl("device", "info", "apps", "--device", this.deviceId);
+			const json = JSON.parse(output) as CoreDeviceAppsOutput;
+			return (json.result?.apps ?? [])
+				.filter(app => (app.bundleIdentifier ?? "").length > 0)
+				.map(app => ({
+					packageName: app.bundleIdentifier ?? "",
+					appName: app.name ?? "",
+				}));
+		}
 	}
 
 	public async launchApp(packageName: string, locale?: string): Promise<void> {
 		validatePackageName(packageName);
-		await this.assertTunnelRunning();
-		const args = ["launch", packageName];
-		if (locale) {
-			validateLocale(locale);
-			const locales = locale.split(",").map(l => l.trim());
-			args.push("-AppleLanguages", `(${locales.join(", ")})`);
-			args.push("-AppleLocale", locales[0]);
-		}
+		try {
+			await this.assertTunnelRunning();
+			const args = ["launch", packageName];
+			if (locale) {
+				validateLocale(locale);
+				const locales = locale.split(",").map(l => l.trim());
+				args.push("-AppleLanguages", `(${locales.join(", ")})`);
+				args.push("-AppleLocale", locales[0]);
+			}
 
-		await this.ios(...args);
+			await this.ios(...args);
+		} catch {
+			this.devicectl("device", "process", "launch", "--device", this.deviceId, packageName);
+		}
 	}
 
 	public async terminateApp(packageName: string): Promise<void> {
@@ -244,6 +372,44 @@ export class IosRobot implements Robot {
 
 export class IosManager {
 
+	private listCoreDeviceDevicesWithDetails(): IosDeviceWithDetails[] {
+		try {
+			const output = execFileSync("xcrun", ["devicectl", "list", "devices", "--json-output", "-"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
+			return coreDeviceDevicesFromJson(output);
+		} catch (error) {
+			return [];
+		}
+	}
+
+	private listGoIosDevicesWithDetails(): IosDeviceWithDetails[] {
+		if (!this.isGoIosInstalled()) {
+			return [];
+		}
+
+		const output = execFileSync(getGoIosPath(), ["list"]).toString();
+		const json: ListCommandOutput = JSON.parse(output);
+		return json.deviceList.map(device => {
+			const info = this.getDeviceInfo(device);
+			return {
+				deviceId: device,
+				deviceName: info.DeviceName,
+				version: info.ProductVersion,
+				platform: platformFromProductType(info.ProductType),
+			};
+		});
+	}
+
+	private mergeUniqueDevices(devices: IosDeviceWithDetails[]): IosDeviceWithDetails[] {
+		const seen = new Set<string>();
+		return devices.filter(device => {
+			if (seen.has(device.deviceId)) {
+				return false;
+			}
+			seen.add(device.deviceId);
+			return true;
+		});
+	}
+
 	public isGoIosInstalled(): boolean {
 		try {
 			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
@@ -255,50 +421,40 @@ export class IosManager {
 	}
 
 	public getDeviceName(deviceId: string): string {
-		const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
-		const json: InfoCommandOutput = JSON.parse(output);
-		return json.DeviceName;
+		return this.getDeviceInfo(deviceId).DeviceName;
 	}
 
 	public getDeviceInfo(deviceId: string): InfoCommandOutput {
-		const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
-		const json: InfoCommandOutput = JSON.parse(output);
-		return json;
-	}
-
-	public listDevices(): IosDevice[] {
-		if (!this.isGoIosInstalled()) {
-			console.error("go-ios is not installed, no physical iOS devices can be detected");
-			return [];
-		}
-
-		const output = execFileSync(getGoIosPath(), ["list"]).toString();
-		const json: ListCommandOutput = JSON.parse(output);
-		const devices = json.deviceList.map(device => ({
-			deviceId: device,
-			deviceName: this.getDeviceName(device),
-		}));
-
-		return devices;
-	}
-
-	public listDevicesWithDetails(): Array<IosDevice & { version: string }> {
-		if (!this.isGoIosInstalled()) {
-			console.error("go-ios is not installed, no physical iOS devices can be detected");
-			return [];
-		}
-
-		const output = execFileSync(getGoIosPath(), ["list"]).toString();
-		const json: ListCommandOutput = JSON.parse(output);
-		const devices = json.deviceList.map(device => {
-			const info = this.getDeviceInfo(device);
+		try {
+			const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
+			const json: InfoCommandOutput = JSON.parse(output);
+			return json;
+		} catch {
+			const output = execFileSync("xcrun", ["devicectl", "device", "info", "details", "--device", deviceId, "--json-output", "-"], {
+				stdio: ["pipe", "pipe", "ignore"],
+			}).toString();
+			const json = JSON.parse(output) as CoreDeviceDetailsOutput;
 			return {
-				deviceId: device,
-				deviceName: info.DeviceName,
-				version: info.ProductVersion,
+				DeviceClass: "iPhone",
+				DeviceName: json.result?.deviceProperties?.name ?? deviceId,
+				ProductName: json.result?.hardwareProperties?.productType ?? "",
+				ProductType: json.result?.hardwareProperties?.productType ?? "",
+				ProductVersion: json.result?.deviceProperties?.osVersionNumber ?? "",
+				PhoneNumber: "",
+				TimeZone: "",
 			};
-		});
+		}
+	}
 
-		return devices;
+	public listDevices(): IosDeviceWithDetails[] {
+		return this.listDevicesWithDetails();
+	}
+
+	public listDevicesWithDetails(): IosDeviceWithDetails[] {
+		const devices = [
+			...this.listGoIosDevicesWithDetails(),
+			...this.listCoreDeviceDevicesWithDetails(),
+		];
+		return this.mergeUniqueDevices(devices);
 	}
 }
