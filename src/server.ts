@@ -120,6 +120,7 @@ export const createMcpServer = (): McpServer => {
 				Version: getAgentVersion(),
 				NodeVersion: process.version,
 				CI: process.env.CI || "0",
+				RobotMode: process.env.MOBILEMCP_LEGACY_ROBOT === "1" ? "legacy" : "mobilecli",
 			};
 
 			const clientName = getClientName();
@@ -168,35 +169,39 @@ export const createMcpServer = (): McpServer => {
 		// from now on, we must have mobilecli working
 		ensureMobilecliAvailable();
 
-		// Check if it's an iOS device
-		const iosManager = new IosManager();
-		const iosDevices = iosManager.listDevices();
-		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
-		if (iosDevice) {
-			posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
-			return new IosRobot(deviceId);
+		const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
+		if (legacyRobot) {
+			// Check if it's an iOS device
+			const iosManager = new IosManager();
+			const iosDevices = iosManager.listDevices();
+			const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
+			if (iosDevice) {
+				posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
+				return new IosRobot(deviceId);
+			}
+
+			// Check if it's an Android device
+			const androidManager = new AndroidDeviceManager();
+			const androidDevices = androidManager.getConnectedDevices();
+			const androidDevice = androidDevices.find(d => d.deviceId === deviceId);
+			if (androidDevice) {
+				posthog("get_robot", { "DevicePlatform": "android", "DeviceType": androidDevice.deviceType }).then();
+				return new AndroidRobot(deviceId);
+			}
 		}
 
-		// Check if it's an Android device
-		const androidManager = new AndroidDeviceManager();
-		const androidDevices = androidManager.getConnectedDevices();
-		const androidDevice = androidDevices.find(d => d.deviceId === deviceId);
-		if (androidDevice) {
-			posthog("get_robot", { "DevicePlatform": "android" }).then();
-			return new AndroidRobot(deviceId);
-		}
-
-		// Check if it's a simulator (will later replace all other device types as well)
-		const response = mobilecli.getDevices({
+		const response = mobilecli.getDevices(legacyRobot ? {
 			platform: "ios",
 			type: "simulator",
+			includeOffline: false,
+		} : {
 			includeOffline: false,
 		});
 
 		if (response.status === "ok" && response.data && response.data.devices) {
 			for (const device of response.data.devices) {
 				if (device.id === deviceId) {
-					if (!agentVerifiedSimulators.has(deviceId)) {
+					if (device.platform === "ios" && device.type === "simulator" && !agentVerifiedSimulators.has(deviceId)) {
 						const agentStatus = mobilecli.agentStatus(deviceId);
 						if (agentStatus.status === "fail") {
 							mobilecli.agentInstall(deviceId);
@@ -205,7 +210,7 @@ export const createMcpServer = (): McpServer => {
 						agentVerifiedSimulators.add(deviceId);
 					}
 
-					posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "simulator" }).then();
+					posthog("get_robot", { "DevicePlatform": device.platform, "DeviceType": device.type }).then();
 					return new MobileDevice(deviceId);
 				}
 			}
@@ -225,66 +230,75 @@ export const createMcpServer = (): McpServer => {
 			// from today onward, we must have mobilecli working
 			ensureMobilecliAvailable();
 
-			const iosManager = new IosManager();
-			const androidManager = new AndroidDeviceManager();
 			const devices: MobilecliDevice[] = [];
+			const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
 
-			// Get Android devices with details
-			const androidDevices = androidManager.getConnectedDevicesWithDetails();
-			telemetry.AndroidCount = androidDevices.length;
-			for (const device of androidDevices) {
-				devices.push({
-					id: device.deviceId,
-					name: device.name,
-					platform: "android",
-					type: "emulator",
-					version: device.version,
-					state: "online",
-				});
-			}
+			if (legacyRobot) {
+				const iosManager = new IosManager();
+				const androidManager = new AndroidDeviceManager();
 
-			// Get iOS physical devices with details
-			telemetry.IosRealCount = 0;
-			try {
-				const iosDevices = iosManager.listDevicesWithDetails();
-				telemetry.IosRealCount = iosDevices.length;
-				for (const device of iosDevices) {
+				// Get Android devices with details
+				const androidDevices = androidManager.getConnectedDevicesWithDetails();
+				telemetry.AndroidCount = androidDevices.length;
+				for (const device of androidDevices) {
 					devices.push({
 						id: device.deviceId,
-						name: device.deviceName,
-						platform: "ios",
-						type: "real",
+						name: device.name,
+						platform: "android",
+						type: "emulator",
 						version: device.version,
 						state: "online",
 					});
 				}
-			} catch (error: any) {
-				// If go-ios is not available, silently skip
-			}
 
-			// Get iOS simulators from mobilecli, including offline ones so we can
-			// report how many are installed vs booted. only booted ones are returned.
-			const response = mobilecli.getDevices({
-				platform: "ios",
-				type: "simulator",
-				includeOffline: true,
-			});
-			telemetry.IosSimInstalledCount = 0;
-			telemetry.IosSimCount = 0;
-			if (response.status === "ok" && response.data && response.data.devices) {
-				const simulators = response.data.devices;
-				const booted = simulators.filter(device => device.state === "online");
-				telemetry.IosSimInstalledCount = simulators.length;
-				telemetry.IosSimCount = booted.length;
-				for (const device of booted) {
-					devices.push({
-						id: device.id,
-						name: device.name,
-						platform: device.platform,
-						type: device.type,
-						version: device.version,
-						state: "online",
-					});
+				// Get iOS physical devices with details
+				telemetry.IosRealCount = 0;
+				try {
+					const iosDevices = iosManager.listDevicesWithDetails();
+					telemetry.IosRealCount = iosDevices.length;
+					for (const device of iosDevices) {
+						devices.push({
+							id: device.deviceId,
+							name: device.deviceName,
+							platform: "ios",
+							type: "real",
+							version: device.version,
+							state: "online",
+						});
+					}
+				} catch (error: any) {
+					// If go-ios is not available, silently skip
+				}
+
+				// Get iOS simulators from mobilecli, including offline ones so we can
+				// report how many are installed vs booted. only booted ones are returned.
+				const response = mobilecli.getDevices({
+					platform: "ios",
+					type: "simulator",
+					includeOffline: true,
+				});
+				telemetry.IosSimInstalledCount = 0;
+				telemetry.IosSimCount = 0;
+				if (response.status === "ok" && response.data && response.data.devices) {
+					const simulators = response.data.devices;
+					const booted = simulators.filter(device => device.state === "online");
+					telemetry.IosSimInstalledCount = simulators.length;
+					telemetry.IosSimCount = booted.length;
+					devices.push(...booted);
+				}
+			} else {
+				const response = mobilecli.getDevices({ includeOffline: true });
+				telemetry.AndroidCount = 0;
+				telemetry.IosRealCount = 0;
+				telemetry.IosSimInstalledCount = 0;
+				telemetry.IosSimCount = 0;
+				if (response.status === "ok" && response.data && response.data.devices) {
+					const availableDevices = response.data.devices.filter(device => device.state === "online");
+					telemetry.AndroidCount = availableDevices.filter(device => device.platform === "android").length;
+					telemetry.IosRealCount = availableDevices.filter(device => device.platform === "ios" && device.type === "real").length;
+					telemetry.IosSimInstalledCount = response.data.devices.filter(device => device.platform === "ios" && device.type === "simulator").length;
+					telemetry.IosSimCount = availableDevices.filter(device => device.platform === "ios" && device.type === "simulator").length;
+					devices.push(...availableDevices);
 				}
 			}
 
