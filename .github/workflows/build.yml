@@ -90,7 +90,11 @@ jobs:
         claude mcp add mobile-mcp --scope local -- node "$(pwd)/lib/index.js"
 
     - name: Run Android emulator test prompt
-      run: claude --dangerously-skip-permissions -p < test/prompt-android-emulator.md
+      run: |
+        set -o pipefail
+        claude --dangerously-skip-permissions -p < test/prompt-android-emulator.md | node test/validate-response.js
 
     - name: Run iOS simulator test prompt
-      run: claude --dangerously-skip-permissions -p < test/prompt-ios-simulator.md
+      run: |
+        set -o pipefail
+        claude --dangerously-skip-permissions -p < test/prompt-ios-simulator.md | node test/validate-response.js
