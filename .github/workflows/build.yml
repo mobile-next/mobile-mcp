@@ -67,3 +67,30 @@ jobs:
         sed -i "s/{{VERSION}}/$VERSION/g" server.json
         mcp-publisher publish
         mcp-publisher logout
+
+  e2e_test:
+    runs-on: self-hosted
+    needs: build
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
+
+    - name: Install dependencies
+      run: npm ci --ignore-scripts
+
+    - name: Build
+      run: npm run build
+
+    - name: Configure mobile-mcp MCP server
+      run: |
+        claude mcp remove mobile-mcp --scope local || true
+        claude mcp add mobile-mcp --scope local -- node "$(pwd)/lib/index.js"
+
+    - name: Run Android emulator test prompt
+      run: claude -p < test/prompt-android-emulator.md
+
+    - name: Run iOS simulator test prompt
+      run: claude -p < test/prompt-ios-simulator.md
