@@ -339,6 +339,8 @@ export const createMcpServer = (): McpServer => {
 				const promptTimeout = setTimeout(() => {
 					if (!settled) {
 						settled = true;
+						forget();
+						child.kill();
 						reject(new ActionableError(`Timed out waiting for the login prompt from mobilecli. Output so far: ${output.trim() || "(none)"}`));
 					}
 				}, LOGIN_PROMPT_TIMEOUT_MS);
@@ -412,11 +414,11 @@ export const createMcpServer = (): McpServer => {
 		"Release the device with mobile_release_remote_device once the whole task is finished - releasing wipes the device's state, so do not release and reallocate between steps of the same task just to be tidy.",
 		{
 			platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
-			name: z.array(z.string()).optional().describe("Filter by device name/model. Supports a trailing * for prefix match (e.g. \"iPhone*\"), or an exact name (e.g. \"iPhone 16\"). Multiple values are ANDed together."),
+			name: z.string().optional().describe("Filter by device name/model. Supports a trailing * for prefix match (e.g. \"iPhone*\"), or an exact name (e.g. \"iPhone 16\")."),
 			version: z.array(z.string()).optional().describe("Filter by OS version. Supports comparison prefixes >=, >, <=, < (e.g. \">=18\"), or an exact version (e.g. \"18.6.2\"). Multiple values are ANDed together."),
 			type: z.enum(["real"]).optional().describe("Device type filter. Currently only \"real\" (physical devices) is supported by the fleet."),
 			wait: z.boolean().optional().describe("If true, block until the device has finished allocating and is ready to use, up to timeoutSeconds. If false/omitted, this returns as soon as the reservation is made, but the device may not be immediately ready."),
-			timeoutSeconds: z.coerce.number().optional().describe("Seconds to wait for allocation when wait is true. Defaults to 900 (15 minutes). Only relevant when wait is true."),
+			timeoutSeconds: z.coerce.number().int().positive().optional().describe("Seconds to wait for allocation when wait is true. Defaults to 900 (15 minutes). Only relevant when wait is true."),
 		},
 		{ destructiveHint: true },
 		async ({ platform, name, version, type, wait, timeoutSeconds }) => {

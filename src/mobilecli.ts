@@ -36,7 +36,7 @@ export interface MobilecliDevicesOptions {
 
 export interface MobilecliRemoteAllocateOptions {
 	platform: "ios" | "android";
-	name?: string[];
+	name?: string;
 	version?: string[];
 	type?: "real";
 	wait?: boolean;
@@ -175,8 +175,8 @@ export class Mobilecli {
 	remoteAllocate(options: MobilecliRemoteAllocateOptions): string {
 		const args = ["remote", "allocate", "--platform", options.platform];
 
-		for (const name of options.name ?? []) {
-			args.push("--name", name);
+		if (options.name) {
+			args.push("--name", options.name);
 		}
 
 		for (const version of options.version ?? []) {
