@@ -34,6 +34,15 @@ export interface MobilecliDevicesOptions {
 	type?: "real" | "emulator" | "simulator";
 }
 
+export interface MobilecliRemoteAllocateOptions {
+	platform: "ios" | "android";
+	name?: string[];
+	version?: string[];
+	type?: "real";
+	wait?: boolean;
+	timeoutSeconds?: number;
+}
+
 export interface MobilecliDeviceProvider {
 	type: string; // e.g. "mobilefleet" for remote devices
 	allocationId?: string;
@@ -58,6 +67,7 @@ export interface MobilecliDevicesResponse {
 
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
+const DEFAULT_ALLOCATE_TIMEOUT_SECONDS = 900; // matches mobilecli's own "remote allocate --wait" default
 
 export class Mobilecli {
 	private path: string | null = null;
@@ -71,9 +81,14 @@ export class Mobilecli {
 		return this.path;
 	}
 
-	public executeCommand(args: string[]): string {
+	public executeCommand(args: string[], timeoutMs?: number): string {
 		const path = this.getPath();
-		return execFileSync(path, args, { encoding: "utf8" }).toString().trim();
+		const options: { encoding: "utf8"; timeout?: number } = { encoding: "utf8" };
+		if (timeoutMs !== undefined) {
+			options.timeout = timeoutMs;
+		}
+
+		return execFileSync(path, args, options).toString().trim();
 	}
 
 	public spawnCommand(args: string[]): ChildProcess {
@@ -146,12 +161,46 @@ export class Mobilecli {
 		}
 	}
 
+	spawnRemoteLogin(): ChildProcess {
+		const binaryPath = this.getPath();
+		return spawn(binaryPath, ["auth", "login", "--provider", "mobilenext"], {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+	}
+
 	remoteListDevices(): string {
 		return this.executeCommand(["remote", "list-devices"]);
 	}
 
-	remoteAllocate(platform: "ios" | "android"): string {
-		return this.executeCommand(["remote", "allocate", "--platform", platform]);
+	remoteAllocate(options: MobilecliRemoteAllocateOptions): string {
+		const args = ["remote", "allocate", "--platform", options.platform];
+
+		for (const name of options.name ?? []) {
+			args.push("--name", name);
+		}
+
+		for (const version of options.version ?? []) {
+			args.push("--version", version);
+		}
+
+		if (options.type) {
+			args.push("--type", options.type);
+		}
+
+		if (options.wait) {
+			args.push("--wait");
+		}
+
+		if (options.timeoutSeconds !== undefined) {
+			args.push("--timeout", String(options.timeoutSeconds));
+		}
+
+		// only "--wait" makes this call block for as long as mobilecli's own allocation timeout
+		const execTimeoutMs = options.wait
+			? (options.timeoutSeconds ?? DEFAULT_ALLOCATE_TIMEOUT_SECONDS) * 1000 + 5000
+			: undefined;
+
+		return this.executeCommand(args, execTimeoutMs);
 	}
 
 	remoteRelease(deviceId: string): string {
