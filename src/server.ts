@@ -12,7 +12,7 @@ import { ActionableError, Robot } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
-import { Mobilecli } from "./mobilecli";
+import { isAdbEmulatorId, Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension } from "./utils";
 
@@ -162,6 +162,24 @@ export const createMcpServer = (): McpServer => {
 		} catch (error: any) {
 			throw new ActionableError(`mobilecli is not available or not working properly. Please review the documentation at https://github.com/mobile-next/mobile-mcp/wiki for installation instructions`);
 		}
+	};
+
+	/**
+	 * Resolves emulator serials while leaving physical and iOS IDs unchanged.
+	 *
+	 * @param deviceId - Device identifier supplied to an MCP tool.
+	 * @returns The identifier accepted by mobilecli.
+	 */
+	const getMobilecliDeviceId = (deviceId: string): string => {
+		if (!isAdbEmulatorId(deviceId)) {
+			return deviceId;
+		}
+		const androidDevice = new AndroidDeviceManager()
+			.getConnectedDevicesWithDetails()
+			.find(device => device.deviceId === deviceId);
+		return androidDevice
+			? mobilecli.resolveAndroidDeviceId(deviceId, androidDevice.name)
+			: deviceId;
 	};
 
 	const getRobotFromDevice = (deviceId: string): Robot => {
@@ -766,12 +784,13 @@ export const createMcpServer = (): McpServer => {
 
 			const outputPath = output || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
 
-			const args = ["screenrecord", "--device", device, "--output", outputPath, "--silent"];
+			const mobilecliDevice = getMobilecliDeviceId(device);
+			const args = ["screenrecord", "--device", mobilecliDevice, "--output", outputPath];
 			if (timeLimit !== undefined) {
 				args.push("--time-limit", String(timeLimit));
 			}
 
-			const child = mobilecli.spawnCommand(args);
+			const child = await mobilecli.startScreenRecording(args);
 
 			const cleanup = () => {
 				activeRecordings.delete(device);
@@ -844,7 +863,7 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: true },
 		async ({ device }) => {
 			ensureMobilecliAvailable();
-			const response = mobilecli.crashesList(device);
+			const response = mobilecli.crashesList(getMobilecliDeviceId(device));
 			return JSON.stringify(response.data);
 		}
 	);
@@ -860,7 +879,7 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: true },
 		async ({ device, id }) => {
 			ensureMobilecliAvailable();
-			const response = mobilecli.crashesGet(device, id);
+			const response = mobilecli.crashesGet(getMobilecliDeviceId(device), id);
 			return response.data.content;
 		}
 	);

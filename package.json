@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "fixlint": "eslint . --fix",
     "test": "c8 playwright test",
+    "test:ios-simulator": "c8 playwright test test/iphone-simulator.ts",
     "watch": "tsc --watch",
     "clean": "rm -rf lib",
     "prepare": "husky"
