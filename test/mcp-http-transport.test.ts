@@ -672,17 +672,43 @@ test.describe("mcp http transport", () => {
 	});
 
 	test.describe("authorization", () => {
-		test("should accept only the configured bearer token", async () => {
-			const previous = process.env.MOBILEMCP_AUTH;
-			process.env.MOBILEMCP_AUTH = "s3cret-token";
 
-			const { app, close } = createHttpApp();
-			const server = await new Promise<http.Server>(resolve => {
-				const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
-			});
+		/**
+		 * Runs the body with an authenticated server, restoring the environment
+		 * whether or not the app, the listener, or the body itself got that far.
+		 */
+		const withAuthToken = async (token: string, run: (port: number) => Promise<void>): Promise<void> => {
+			const previous = process.env.MOBILEMCP_AUTH;
+			let close: (() => Promise<void>) | undefined;
+			let server: http.Server | undefined;
 
 			try {
-				const port = (server.address() as AddressInfo).port;
+				process.env.MOBILEMCP_AUTH = token;
+
+				const created = createHttpApp();
+				close = created.close;
+				server = await new Promise<http.Server>(resolve => {
+					const listening = created.app.listen(0, "127.0.0.1", () => resolve(listening));
+				});
+
+				await run((server.address() as AddressInfo).port);
+			} finally {
+				if (server !== undefined && close !== undefined) {
+					await closeHttpServer(server, close);
+				} else {
+					await close?.();
+				}
+
+				if (previous === undefined) {
+					delete process.env.MOBILEMCP_AUTH;
+				} else {
+					process.env.MOBILEMCP_AUTH = previous;
+				}
+			}
+		};
+
+		test("should accept only the configured bearer token", async () => {
+			await withAuthToken("s3cret-token", async port => {
 				const get = (headers: Record<string, string>) => fetch(`http://127.0.0.1:${port}/mcp`, {
 					headers: { accept: "text/event-stream", ...headers },
 					redirect: "manual",
@@ -699,27 +725,11 @@ test.describe("mcp http transport", () => {
 				expect(correct.status).toBe(301);
 
 				await Promise.all([missing, wrong, wrongScheme, correct].map(response => response.body?.cancel()));
-			} finally {
-				await closeHttpServer(server, close);
-				if (previous === undefined) {
-					delete process.env.MOBILEMCP_AUTH;
-				} else {
-					process.env.MOBILEMCP_AUTH = previous;
-				}
-			}
+			});
 		});
 
 		test("should guard the sse path and posts too", async () => {
-			const previous = process.env.MOBILEMCP_AUTH;
-			process.env.MOBILEMCP_AUTH = "s3cret-token";
-
-			const { app, close } = createHttpApp();
-			const server = await new Promise<http.Server>(resolve => {
-				const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
-			});
-
-			try {
-				const port = (server.address() as AddressInfo).port;
+			await withAuthToken("s3cret-token", async port => {
 				const sse = await fetch(`http://127.0.0.1:${port}/sse`, { headers: { accept: "text/event-stream" } });
 				const post = await fetch(`http://127.0.0.1:${port}/mcp`, {
 					method: "POST",
@@ -730,14 +740,17 @@ test.describe("mcp http transport", () => {
 				expect(sse.status).toBe(401);
 				expect(post.status).toBe(401);
 				await Promise.all([sse, post].map(response => response.body?.cancel()));
-			} finally {
-				await closeHttpServer(server, close);
-				if (previous === undefined) {
-					delete process.env.MOBILEMCP_AUTH;
-				} else {
-					process.env.MOBILEMCP_AUTH = previous;
-				}
-			}
+			});
+		});
+
+		test("should restore the environment when setup fails", async () => {
+			const previous = process.env.MOBILEMCP_AUTH;
+
+			await expect(withAuthToken("s3cret-token", async () => {
+				throw new Error("body failed");
+			})).rejects.toThrow("body failed");
+
+			expect(process.env.MOBILEMCP_AUTH).toBe(previous);
 		});
 	});
 

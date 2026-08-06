@@ -25,10 +25,18 @@ export const SHUTDOWN_TIMEOUT_MS = 5_000;
 const digest = (value: string): Buffer => createHash("sha256").update(value).digest();
 
 /** The shape body-parser gives its failures. */
-interface HttpError extends Error {
-	type?: string;
-	status?: number;
+interface BodyParserError extends Error {
+	type: string;
 }
+
+/** Narrows a thrown value to a body-parser failure, which names itself in `type`. */
+const isBodyParserError = (err: unknown): err is BodyParserError => {
+	return err instanceof Error && "type" in err && typeof err.type === "string";
+};
+
+const describeError = (err: unknown): string => {
+	return err instanceof Error ? err.message : String(err);
+};
 
 const payloadTooLarge = () => ({
 	jsonrpc: "2.0",
@@ -145,20 +153,19 @@ export const createHttpApp = (): HttpApp => {
 
 	// Mounted for the whole app, not just one endpoint, so a rejection from any
 	// route reaches it. Express 5 forwards a returned rejected promise here.
-	app.use((err: express.Errback | HttpError, req: express.Request, res: express.Response, next: express.NextFunction) => {
+	app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
 		if (res.headersSent) {
 			next(err);
 			return;
 		}
 
-		const type = (err as HttpError)?.type;
-		if (type === "entity.too.large") {
-			res.status(413).json(payloadTooLarge());
-			return;
-		}
+		if (isBodyParserError(err)) {
+			if (err.type === "entity.too.large") {
+				res.status(413).json(payloadTooLarge());
+				return;
+			}
 
-		// every other body-parser failure is a malformed request body
-		if (typeof type === "string") {
+			// every other body-parser failure is a malformed request body
 			res.status(400).json({
 				jsonrpc: "2.0",
 				error: { code: -32700, message: "Parse error" },
@@ -167,7 +174,7 @@ export const createHttpApp = (): HttpApp => {
 			return;
 		}
 
-		error(`mcp http request failed: ${(err as Error)?.message}`);
+		error(`mcp http request failed: ${describeError(err)}`);
 		res.status(500).json({
 			jsonrpc: "2.0",
 			error: { code: -32603, message: "Internal error" },
@@ -224,8 +231,8 @@ export const createShutdownHandler = (server: Server, close: () => Promise<void>
 		}
 
 		started = true;
-		closeHttpServer(server, close).then(onSettled, err => {
-			error(`mcp http shutdown failed: ${(err as Error)?.message}`);
+		closeHttpServer(server, close).then(onSettled, (err: unknown) => {
+			error(`mcp http shutdown failed: ${describeError(err)}`);
 			onSettled();
 		});
 	};
