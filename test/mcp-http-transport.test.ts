@@ -21,7 +21,9 @@ const MAXIMUM_MESSAGE_SIZE = 4 * 1024 * 1024;
 
 interface RunningServer {
 	url: string;
+	sseUrl: string;
 	port: number;
+	server: http.Server;
 	stop: () => Promise<void>;
 }
 
@@ -35,9 +37,27 @@ const startServer = async (): Promise<RunningServer> => {
 
 	return {
 		url: `http://127.0.0.1:${port}/mcp`,
+		sseUrl: `http://127.0.0.1:${port}/sse`,
 		port,
+		server,
 		stop: () => closeHttpServer(server, close),
 	};
+};
+
+/** Polls until the client's transport works again, as a reconnect is asynchronous. */
+const waitUntilUsable = async (client: Client, timeoutMs: number): Promise<boolean> => {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < timeoutMs) {
+		try {
+			if ((await client.listTools()).tools.length > 0) {
+				return true;
+			}
+		} catch (err: any) {
+			await new Promise(resolve => setTimeout(resolve, 250));
+		}
+	}
+
+	return false;
 };
 
 const modernEnvelope = (clientName: string = "mobile-mcp-tests") => ({
@@ -222,12 +242,12 @@ test.describe("mcp http transport", () => {
 	});
 
 	test.describe("legacy http+sse transport", () => {
-		test("should serve the deprecated sse transport on GET /mcp", async () => {
+		test("should serve the deprecated sse transport on its own path", async () => {
 			const server = await startServer();
 			const client = new Client({ name: "sse-regression", version: "1.0.0" });
 
 			try {
-				await client.connect(new SSEClientTransport(new URL(server.url)));
+				await client.connect(new SSEClientTransport(new URL(server.sseUrl)));
 
 				expect(client.getServerVersion()?.name).toBe("mobile-mcp");
 
@@ -241,18 +261,119 @@ test.describe("mcp http transport", () => {
 			}
 		});
 
-		test("should refuse a second concurrent sse stream", async () => {
+		test("should redirect a bare GET /mcp to the sse path permanently", async () => {
+			const server = await startServer();
+			try {
+				const response = await fetch(server.url, {
+					headers: { accept: "text/event-stream" },
+					redirect: "manual",
+				});
+
+				expect(response.status).toBe(301);
+				expect(response.headers.get("location")).toBe("/sse");
+				await response.body?.cancel();
+			} finally {
+				await server.stop();
+			}
+		});
+
+		test("should serve a client configured at /mcp through the redirect", async () => {
 			const server = await startServer();
 			const client = new Client({ name: "sse-regression", version: "1.0.0" });
 
 			try {
 				await client.connect(new SSEClientTransport(new URL(server.url)));
 
-				const second = await fetch(server.url, { headers: { accept: "text/event-stream" } });
-				expect(second.status).toBe(409);
-				await second.body?.cancel();
+				expect(client.getServerVersion()?.name).toBe("mobile-mcp");
+				const tools = await client.listTools();
+				expect(tools.tools.length).toBeGreaterThan(0);
+
+				// tool calls travel on the advertised POST endpoint
+				const result = await client.callTool({ name: "mobile_list_available_devices", arguments: {} }) as any;
+				expect(result.content[0].type).toBe("text");
 			} finally {
 				await client.close();
+				await server.stop();
+			}
+		});
+
+		test("should reconnect automatically after its stream is dropped", async () => {
+			const server = await startServer();
+			const client = new Client({ name: "sse-regression", version: "1.0.0" });
+
+			try {
+				await client.connect(new SSEClientTransport(new URL(server.sseUrl)));
+				expect((await client.listTools()).tools.length).toBeGreaterThan(0);
+
+				// forcibly drop the sse response, as a proxy or a network blip would
+				server.server.closeAllConnections();
+
+				// the client re-establishes the stream on its own, receives a fresh
+				// endpoint event, and is usable again without reconnecting by hand
+				expect(await waitUntilUsable(client, 30_000)).toBe(true);
+			} finally {
+				await client.close();
+				await server.stop();
+			}
+		});
+
+		test("should serve concurrent sse streams", async () => {
+			const server = await startServer();
+			const first = new Client({ name: "sse-first", version: "1.0.0" });
+			const second = new Client({ name: "sse-second", version: "1.0.0" });
+
+			try {
+				await first.connect(new SSEClientTransport(new URL(server.sseUrl)));
+				await second.connect(new SSEClientTransport(new URL(server.sseUrl)));
+
+				// no single slot means no client can lock another one out
+				expect((await first.listTools()).tools.length).toBeGreaterThan(0);
+				expect((await second.listTools()).tools.length).toBeGreaterThan(0);
+			} finally {
+				await second.close();
+				await first.close();
+				await server.stop();
+			}
+		});
+
+		test("should serve a GET carrying our stream marker wherever it arrives", async () => {
+			const server = await startServer();
+			try {
+				// a spec-compliant EventSource resumes with the id the stream stamped,
+				// even while reporting a protocol version
+				const response = await fetch(server.url, {
+					headers: {
+						"accept": "text/event-stream",
+						"mcp-protocol-version": LEGACY_PROTOCOL_VERSION,
+						"last-event-id": "mobile-mcp-sse-any-previous-session",
+					},
+					redirect: "manual",
+				});
+
+				expect(response.status).toBe(200);
+				expect(response.headers.get("content-type")).toContain("text/event-stream");
+				await response.body?.cancel();
+			} finally {
+				await server.stop();
+			}
+		});
+
+		test("should refuse streams beyond the concurrency limit", async () => {
+			const server = await startServer();
+			const streams: Response[] = [];
+
+			try {
+				for (let index = 0; index < 8; index++) {
+					const stream = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
+					expect(stream.status).toBe(200);
+					streams.push(stream);
+				}
+
+				const beyondLimit = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
+				expect(beyondLimit.status).toBe(429);
+				await beyondLimit.body?.cancel();
+			} finally {
+				await Promise.all(streams.map(stream => stream.body?.cancel()));
 				await server.stop();
 			}
 		});
@@ -262,7 +383,7 @@ test.describe("mcp http transport", () => {
 			const client = new Client({ name: "sse-regression", version: "1.0.0" });
 
 			try {
-				await client.connect(new SSEClientTransport(new URL(server.url)));
+				await client.connect(new SSEClientTransport(new URL(server.sseUrl)));
 
 				const response = await fetch(server.url, {
 					method: "POST",
@@ -289,7 +410,7 @@ test.describe("mcp http transport", () => {
 			const client = new Client({ name: "sse-regression", version: "1.0.0" });
 
 			try {
-				await client.connect(new SSEClientTransport(new URL(server.url)));
+				await client.connect(new SSEClientTransport(new URL(server.sseUrl)));
 
 				const response = await fetch(`${server.url}?sessionId=not-the-open-session`, {
 					method: "POST",
@@ -309,7 +430,7 @@ test.describe("mcp http transport", () => {
 		test("should accept a post carrying the advertised sse session id", async () => {
 			const server = await startServer();
 			try {
-				const stream = await fetch(server.url, { headers: { accept: "text/event-stream" } });
+				const stream = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
 				const reader = stream.body!.getReader();
 				const announcement = new TextDecoder().decode((await reader.read()).value);
 				const sessionId = new URL(announcement.split("data: ")[1].trim(), server.url).searchParams.get("sessionId");
@@ -341,19 +462,19 @@ test.describe("mcp http transport", () => {
 	});
 
 	test.describe("streamable http and legacy sse coexistence", () => {
-		test("should not let a streamable http client occupy the legacy sse slot", async () => {
+		test("should not let a streamable http client occupy an sse stream", async () => {
 			const server = await startServer();
 			const streamableClient = new Client({ name: "streamable-regression", version: "1.0.0" });
 			const sseClient = new Client({ name: "sse-regression", version: "1.0.0" });
 
 			try {
 				// a v1 streamable http client opens its optional listening GET right
-				// after connecting; that GET must not take the single sse slot
+				// after connecting; that GET must never become an http+sse stream
 				await streamableClient.connect(new StreamableHTTPClientTransport(new URL(server.url)));
 				expect(streamableClient.getServerVersion()?.name).toBe("mobile-mcp");
 
-				// the genuine 2024-11-05 client can still open the stream
-				await sseClient.connect(new SSEClientTransport(new URL(server.url)));
+				// the genuine 2024-11-05 client still gets its stream
+				await sseClient.connect(new SSEClientTransport(new URL(server.sseUrl)));
 				expect(sseClient.getServerVersion()?.name).toBe("mobile-mcp");
 
 				// and both keep working side by side
@@ -373,9 +494,11 @@ test.describe("mcp http transport", () => {
 			try {
 				const withProtocolVersion = await fetch(server.url, {
 					headers: { "accept": "text/event-stream", "mcp-protocol-version": LEGACY_PROTOCOL_VERSION },
+					redirect: "manual",
 				});
 				const withSessionId = await fetch(server.url, {
 					headers: { "accept": "text/event-stream", "mcp-session-id": "some-session" },
+					redirect: "manual",
 				});
 
 				expect(withProtocolVersion.status).toBe(405);
@@ -383,8 +506,8 @@ test.describe("mcp http transport", () => {
 				await withProtocolVersion.body?.cancel();
 				await withSessionId.body?.cancel();
 
-				// and the legacy slot is still free afterwards
-				const stream = await fetch(server.url, { headers: { accept: "text/event-stream" } });
+				// and the sse path is untouched by them
+				const stream = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
 				expect(stream.status).toBe(200);
 				expect(stream.headers.get("content-type")).toContain("text/event-stream");
 				await stream.body?.cancel();
@@ -403,7 +526,7 @@ test.describe("mcp http transport", () => {
 
 			const port = (server.address() as AddressInfo).port;
 			const client = new Client({ name: "shutdown-regression", version: "1.0.0" });
-			await client.connect(new SSEClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
+			await client.connect(new SSEClientTransport(new URL(`http://127.0.0.1:${port}/sse`)));
 
 			// an open sse stream would otherwise hold the listener open forever
 			await closeHttpServer(server, close);

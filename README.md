@@ -384,22 +384,29 @@ Then configure your MCP client to connect to `http://<host>:3000/mcp`.
 
 #### Protocol compatibility
 
-The single `/mcp` endpoint serves three eras at once:
+Two endpoints are served:
 
-| Client | Wire | How it is routed |
+| Client | Wire | Endpoint |
 |---|---|---|
 | MCP `2026-07-28` | Streamable HTTP, stateless | `POST /mcp` with a `_meta` protocol envelope. No `initialize` handshake and no `Mcp-Session-Id`; the server is discovered with `server/discover`. |
 | MCP `2025-*` | Streamable HTTP | `POST /mcp` without an envelope, answered per request by the SDK's stateless legacy path. |
-| MCP `2024-11-05` | HTTP+SSE (deprecated) | `GET /mcp` opens the stream, which advertises `POST /mcp?sessionId=...` for messages. |
+| MCP `2024-11-05` | HTTP+SSE (deprecated) | **`GET /sse`** opens the stream, which advertises `POST /mcp?sessionId=...` for messages. |
 
-Requests are separated by what they carry, so the two `GET` clients and the two `POST` clients never take each other's path:
+The deprecated transport has its own path because a shared `GET` cannot be classified: once a client has completed `initialize` it reports a protocol version on every request, so a reconnecting `EventSource` is byte for byte the optional listening `GET` a Streamable HTTP client opens. Routing on the endpoint instead of on headers removes the guesswork:
 
-- A `GET /mcp` carrying `MCP-Protocol-Version` or `Mcp-Session-Id` is the optional listening stream a Streamable HTTP client opens after connecting; it is answered with `405`, which those clients treat as "no stream offered". Only a bare `GET /mcp` opens the HTTP+SSE stream.
-- A `POST /mcp` goes to the HTTP+SSE stream only when it carries the `sessionId` the open stream advertised. An unknown `sessionId` is refused with `404`; a `POST` with no `sessionId` goes to Streamable HTTP.
+- **`GET /sse`** always opens an HTTP+SSE stream. Streams are concurrent (up to 8), so no client can deny another one.
+- **`GET /mcp`** carrying `MCP-Protocol-Version` or `Mcp-Session-Id` is a Streamable HTTP listening stream and is answered `405`, which those clients treat as "no stream offered".
+- **`GET /mcp`** carrying a `Last-Event-ID` this server issued is a stream resumption and is served as one, wherever it arrives.
+- Any other **`GET /mcp`** is redirected (`301`) to `/sse`.
+- **`POST /mcp?sessionId=...`** is delivered to the stream that advertised that id; an unknown id is refused with `404`. A `POST` with no `sessionId` goes to Streamable HTTP.
 
-Two known differences from earlier releases:
+Authorization and the cross-origin block apply to every one of these, including the redirect.
 
-- The HTTP+SSE stream still accepts one client at a time and answers a second concurrent bare `GET /mcp` with `409`, as before. Clients using the SDK's own `SSEClientTransport` always send the advertised `sessionId` on their POSTs, so they are unaffected by the routing rule above.
+> **Point 2024-11-05 clients at `/sse`.** A client still configured against `/mcp` connects through the redirect, but cannot re-establish its stream after a network drop: MCP SDK v1's `SSEClientTransport` hands `EventSource` a `fetch` that replaces the request headers wholesale, discarding the `Last-Event-ID` that would identify the reconnect, and the redirect is not retained across reconnects (per the EventSource specification only the connection URL of the *current* connection is updated). Its reconnect is then indistinguishable from a Streamable HTTP listening `GET` and is answered `405`. Clients configured against `/sse` reconnect there indefinitely.
+
+Other differences from earlier releases:
+
+- The HTTP+SSE stream used to be single-client and answered a second connection with `409`; it now serves up to 8 concurrent streams and answers `429` beyond that.
 - Request bodies are capped at 4 MB, the same limit the MCP SDK v1 transports enforced. A larger body is refused with `413` before it is read.
 
 #### Authorization
