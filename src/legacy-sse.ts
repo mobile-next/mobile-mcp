@@ -24,8 +24,8 @@ import { error } from "./logger";
  * and nothing routed to this endpoint can now deny another client a stream.
  */
 export interface LegacySseEndpoint {
-	/** Whether this GET resumes a stream this endpoint issued (spec-compliant `Last-Event-ID`). */
-	isStreamResumption: (req: Request) => boolean;
+	/** Whether this GET belongs to the HTTP+SSE transport rather than to Streamable HTTP. */
+	isStreamRequest: (req: Request) => boolean;
 	/** Whether this POST addresses an HTTP+SSE stream rather than the Streamable HTTP path. */
 	isMessageRequest: (req: Request) => boolean;
 	/** Opens an SSE stream. */
@@ -40,32 +40,78 @@ export interface LegacySseEndpoint {
 
 /**
  * Prefix of the last event id stamped on every stream. A spec-compliant
- * `EventSource` echoes it in `Last-Event-ID` when it reconnects — including
- * through a redirect — which identifies the request as this transport's beyond
- * doubt. No Streamable HTTP stream is ever stamped with it, so it cannot
- * collide.
+ * `EventSource` echoes it in `Last-Event-ID` when it re-establishes a stream —
+ * including through a redirect — which identifies the request as this
+ * transport's beyond doubt. No Streamable HTTP stream is ever stamped with it,
+ * so it cannot collide.
  *
- * SDK v1's own `SSEClientTransport` does not benefit: it hands `EventSource` a
+ * SDK v1's own `SSEClientTransport` does not send it: it hands `EventSource` a
  * custom `fetch` that replaces the request headers wholesale, dropping the
- * `Last-Event-ID` the package had put there. Those clients must be pointed at
- * the dedicated path, where no classification is needed at all.
+ * `Last-Event-ID` the package had put there. Those clients are recognised by
+ * their cache signature instead.
  */
 const STREAM_EVENT_ID_PREFIX = "mobile-mcp-sse-";
 
-/** Concurrent streams this endpoint will hold open. */
-const MAXIMUM_OPEN_STREAMS = 8;
+/**
+ * Headers a Streamable HTTP client attaches to the listening GET it opens once
+ * connected. They are only consulted once the HTTP+SSE signals below have been
+ * ruled out — a re-establishing `EventSource` reports a protocol version too.
+ */
+const STREAMABLE_HTTP_GET_HEADERS = ["mcp-session-id", "mcp-protocol-version"];
 
 const headerValue = (req: Request, name: string): string | undefined => {
 	const header = req.headers[name];
 	return Array.isArray(header) ? header[0] : header;
 };
 
+const hasDirective = (value: string | undefined, directives: string[]): boolean => {
+	if (value === undefined) {
+		return false;
+	}
+
+	return value.split(",").some(directive => directives.includes(directive.trim().toLowerCase().split("=")[0]));
+};
+
+/**
+ * Whether a GET carries the cache signature every `EventSource` request has and
+ * no Streamable HTTP request has.
+ *
+ * It is structural rather than incidental: the `eventsource` package issues its
+ * request with fetch cache mode `no-store` (SDK v1's `SSEClientTransport`
+ * replaces only the headers of that request init, so the mode survives), and
+ * the Fetch standard requires a `no-store` request to be given `pragma:
+ * no-cache` and `cache-control: no-cache` in the HTTP-network-or-cache step.
+ * `StreamableHTTPClientTransport` issues its listening GET with the default
+ * cache mode, so it is given neither.
+ *
+ * Either header alone is accepted: an intermediary that drops one must not cost
+ * a client its stream. Matching too eagerly only hands a Streamable HTTP client
+ * a stream it ignores — one of several, and it holds nothing else — while
+ * matching too strictly answers a reconnect with `405` and ends the connection
+ * for good.
+ */
+const hasEventSourceCacheSignature = (req: Request): boolean => {
+	return hasDirective(headerValue(req, "cache-control"), ["no-cache", "no-store"])
+		|| hasDirective(headerValue(req, "pragma"), ["no-cache"]);
+};
+
+/** Concurrent streams this endpoint will hold open. */
+const MAXIMUM_OPEN_STREAMS = 8;
+
 export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => {
 
 	const transports = new Map<string, SSEServerTransport>();
 
-	const isStreamResumption = (req: Request): boolean => {
-		return headerValue(req, "last-event-id")?.startsWith(STREAM_EVENT_ID_PREFIX) === true;
+	const isStreamRequest = (req: Request): boolean => {
+		if (headerValue(req, "last-event-id")?.startsWith(STREAM_EVENT_ID_PREFIX)) {
+			return true;
+		}
+
+		if (hasEventSourceCacheSignature(req)) {
+			return true;
+		}
+
+		return !STREAMABLE_HTTP_GET_HEADERS.some(header => req.headers[header] !== undefined);
 	};
 
 	const isMessageRequest = (req: Request): boolean => {
@@ -91,9 +137,9 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 			const server = createMcpServer({ era: "legacy" });
 			await server.connect(transport as unknown as Transport);
 
-			// Stamp the stream so a reconnect can identify itself. The event type is
-			// one no MCP client acts on, so it is ignored on arrival and only its id
-			// is remembered.
+			// Stamp the stream so a re-establishing client can identify itself. The
+			// event type is one no MCP client acts on, so it is ignored on arrival
+			// and only its id is remembered.
 			res.write(`id: ${STREAM_EVENT_ID_PREFIX}${transport.sessionId}\nevent: mobile-mcp-stream\ndata: {}\n\n`);
 		} catch (err: any) {
 			transports.delete(transport.sessionId);
@@ -125,7 +171,7 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 	};
 
 	return {
-		isStreamResumption,
+		isStreamRequest,
 		isMessageRequest,
 		openStream,
 		handleMessage,
