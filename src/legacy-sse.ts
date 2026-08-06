@@ -7,47 +7,65 @@ import { error } from "./logger";
 
 /**
  * The deprecated HTTP+SSE transport (protocol revision 2024-11-05): the client
- * opens a stream with `GET /mcp` and posts messages back to the endpoint the
- * stream advertises, `POST /mcp?sessionId=...`.
+ * opens a stream with `GET`, and posts messages back to the endpoint the stream
+ * advertises, `POST /mcp?sessionId=...`.
  *
  * MCP SDK v2 dropped this transport, so it is served here by the v1 transport
  * implementation, deliberately isolated in this module. Everything else —
  * modern 2026-07-28 traffic and 2025-era Streamable HTTP — is served by the v2
- * entry in `index.ts`, and both share the same tool surface because
- * `createMcpServer` builds it once.
+ * entry, and both share the same tool surface because `createMcpServer` builds
+ * it once.
+ *
+ * The transport owns a dedicated path (`/sse`) rather than sharing `GET /mcp`,
+ * because a shared GET cannot be classified: once a client has learned a
+ * protocol version, an `EventSource` reconnect is byte for byte the listening
+ * GET a Streamable HTTP client opens. Streams are also concurrent here — the
+ * pre-migration single-stream server could be locked out by one misrouted GET,
+ * and nothing routed to this endpoint can now deny another client a stream.
  */
 export interface LegacySseEndpoint {
-	/**
-	 * Whether this GET is a 2024-11-05 stream open rather than the optional
-	 * listening stream a Streamable HTTP client opens after `initialize`.
-	 */
-	isStreamRequest: (req: Request) => boolean;
+	/** Whether this GET resumes a stream this endpoint issued (spec-compliant `Last-Event-ID`). */
+	isStreamResumption: (req: Request) => boolean;
 	/** Whether this POST addresses an HTTP+SSE stream rather than the Streamable HTTP path. */
 	isMessageRequest: (req: Request) => boolean;
-	/** Opens the SSE stream (`GET /mcp`). */
+	/** Opens an SSE stream. */
 	openStream: (req: Request, res: Response) => Promise<void>;
-	/** Delivers a posted message to the open SSE stream (`POST /mcp?sessionId=...`). */
+	/** Delivers a posted message to its stream (`POST /mcp?sessionId=...`). */
 	handleMessage: (req: Request, res: Response) => Promise<void>;
-	/** Tears down the open stream, if any. */
+	/** The number of open streams. */
+	readonly openStreamCount: number;
+	/** Tears down every open stream. */
 	close: () => Promise<void>;
 }
 
 /**
- * Headers a Streamable HTTP client attaches to its optional listening `GET`
- * once a connection is established. The 2024-11-05 client sends neither on the
- * request that opens its stream — it has nothing to report yet — so their
- * presence is what separates the two GETs on a shared endpoint.
+ * Prefix of the last event id stamped on every stream. A spec-compliant
+ * `EventSource` echoes it in `Last-Event-ID` when it reconnects — including
+ * through a redirect — which identifies the request as this transport's beyond
+ * doubt. No Streamable HTTP stream is ever stamped with it, so it cannot
+ * collide.
+ *
+ * SDK v1's own `SSEClientTransport` does not benefit: it hands `EventSource` a
+ * custom `fetch` that replaces the request headers wholesale, dropping the
+ * `Last-Event-ID` the package had put there. Those clients must be pointed at
+ * the dedicated path, where no classification is needed at all.
  */
-const STREAMABLE_HTTP_GET_HEADERS = ["mcp-session-id", "mcp-protocol-version"];
+const STREAM_EVENT_ID_PREFIX = "mobile-mcp-sse-";
+
+/** Concurrent streams this endpoint will hold open. */
+const MAXIMUM_OPEN_STREAMS = 8;
+
+const headerValue = (req: Request, name: string): string | undefined => {
+	const header = req.headers[name];
+	return Array.isArray(header) ? header[0] : header;
+};
 
 export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => {
 
-	// The v1 transport is a single-stream transport, exactly as it was before
-	// the v2 migration: one connected client at a time, 409 for the next one.
-	let transport: SSEServerTransport | null = null;
+	const transports = new Map<string, SSEServerTransport>();
 
-	const isStreamRequest = (req: Request): boolean => {
-		return !STREAMABLE_HTTP_GET_HEADERS.some(header => req.headers[header] !== undefined);
+	const isStreamResumption = (req: Request): boolean => {
+		return headerValue(req, "last-event-id")?.startsWith(STREAM_EVENT_ID_PREFIX) === true;
 	};
 
 	const isMessageRequest = (req: Request): boolean => {
@@ -55,30 +73,30 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 	};
 
 	const openStream = async (req: Request, res: Response): Promise<void> => {
-		if (transport) {
-			res.status(409).json({ error: "Another client is already connected. Disconnect the existing client first." });
+		if (transports.size >= MAXIMUM_OPEN_STREAMS) {
+			res.status(429).json({ error: `Too many open sse streams (limit ${MAXIMUM_OPEN_STREAMS})` });
 			return;
 		}
 
-		const sseTransport = new SSEServerTransport(endpoint, res);
-		transport = sseTransport;
+		const transport = new SSEServerTransport(endpoint, res);
+		transports.set(transport.sessionId, transport);
 
-		sseTransport.onclose = () => {
-			if (transport === sseTransport) {
-				transport = null;
-			}
+		transport.onclose = () => {
+			transports.delete(transport.sessionId);
 		};
 
 		try {
 			// The v1 transport predates the v2 Transport type but implements the
 			// same start/send/close/onmessage contract the v2 server drives.
 			const server = createMcpServer({ era: "legacy" });
-			await server.connect(sseTransport as unknown as Transport);
-		} catch (err: any) {
-			if (transport === sseTransport) {
-				transport = null;
-			}
+			await server.connect(transport as unknown as Transport);
 
+			// Stamp the stream so a reconnect can identify itself. The event type is
+			// one no MCP client acts on, so it is ignored on arrival and only its id
+			// is remembered.
+			res.write(`id: ${STREAM_EVENT_ID_PREFIX}${transport.sessionId}\nevent: mobile-mcp-stream\ndata: {}\n\n`);
+		} catch (err: any) {
+			transports.delete(transport.sessionId);
 			error(`legacy sse connect failed: ${err.message}`);
 			if (!res.headersSent) {
 				res.status(500).json({ error: "Failed to open the sse stream" });
@@ -87,13 +105,10 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 	};
 
 	const handleMessage = async (req: Request, res: Response): Promise<void> => {
+		// Only the session an open stream advertised may post to it.
+		const sessionId = req.query.sessionId;
+		const transport = typeof sessionId === "string" ? transports.get(sessionId) : undefined;
 		if (!transport) {
-			res.status(404).json({ error: "No sse stream is open" });
-			return;
-		}
-
-		// Only the session the open stream advertised may post to it.
-		if (req.query.sessionId !== transport.sessionId) {
 			res.status(404).json({ error: "Unknown sse session id" });
 			return;
 		}
@@ -104,10 +119,19 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 	};
 
 	const close = async (): Promise<void> => {
-		const open = transport;
-		transport = null;
-		await open?.close();
+		const open = [...transports.values()];
+		transports.clear();
+		await Promise.all(open.map(transport => transport.close()));
 	};
 
-	return { isStreamRequest, isMessageRequest, openStream, handleMessage, close };
+	return {
+		isStreamResumption,
+		isMessageRequest,
+		openStream,
+		handleMessage,
+		close,
+		get openStreamCount() {
+			return transports.size;
+		},
+	};
 };

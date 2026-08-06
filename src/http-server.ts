@@ -8,6 +8,7 @@ import { createLegacySseEndpoint } from "./legacy-sse";
 import { error } from "./logger";
 
 export const MCP_ENDPOINT = "/mcp";
+export const SSE_ENDPOINT = "/sse";
 
 /**
  * The cap MCP SDK v1 enforced on posted message bodies. The v2 node adapter
@@ -22,6 +23,13 @@ const payloadTooLarge = () => ({
 	error: { code: -32000, message: `Payload Too Large: request body exceeds ${MAXIMUM_MESSAGE_SIZE}` },
 	id: null,
 });
+
+/**
+ * Headers a Streamable HTTP client attaches to the optional listening GET it
+ * opens once connected. They are only consulted after the HTTP+SSE resumption
+ * marker has been ruled out.
+ */
+const STREAMABLE_HTTP_GET_HEADERS = ["mcp-session-id", "mcp-protocol-version"];
 
 export interface HttpApp {
 	app: express.Express;
@@ -95,22 +103,34 @@ export const createHttpApp = (): HttpApp => {
 		onerror: err => error(`mcp http handler error: ${err.message}`),
 	});
 
-	// The deprecated HTTP+SSE transport (2024-11-05) is still served on the same
-	// endpoint by the v1 transport, so clients that open a stream with GET keep
-	// working. See src/legacy-sse.ts.
+	// The deprecated HTTP+SSE transport (2024-11-05) owns its own path, so a
+	// reconnecting EventSource never has to be told apart from a Streamable HTTP
+	// listening GET on shared ground. See src/legacy-sse.ts.
 	const legacySse = createLegacySseEndpoint(MCP_ENDPOINT);
 
+	app.get(SSE_ENDPOINT, (req, res) => {
+		legacySse.openStream(req, res);
+	});
+
 	app.get(MCP_ENDPOINT, (req, res) => {
+		// A spec-compliant EventSource resuming one of our streams says so with
+		// Last-Event-ID, and is served wherever it asks.
+		if (legacySse.isStreamResumption(req)) {
+			legacySse.openStream(req, res);
+			return;
+		}
+
 		// A Streamable HTTP client opens an optional listening stream with GET
-		// after connecting. Routing it here would burn the single legacy slot and
-		// lock out genuine 2024-11-05 clients, so it goes to the modern handler
-		// and gets the 405 it expects.
-		if (!legacySse.isStreamRequest(req)) {
+		// after connecting. It must reach the modern handler and get the 405 it
+		// expects, never an HTTP+SSE stream.
+		if (STREAMABLE_HTTP_GET_HEADERS.some(header => req.headers[header] !== undefined)) {
 			streamableHttp(req, res, req.body);
 			return;
 		}
 
-		legacySse.openStream(req, res);
+		// Anything else on this GET is an HTTP+SSE client opening a stream — it
+		// has nothing to report yet. Send it to the path that owns the transport.
+		res.redirect(301, SSE_ENDPOINT);
 	});
 
 	app.post(MCP_ENDPOINT, (req, res) => {
