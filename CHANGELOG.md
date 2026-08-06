@@ -1,3 +1,7 @@
+## [1.0.1](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.1) (2026-08-06)
+
+* Feat(cloud): Improve remote device MCP tools and add Mobile Next Cloud logi ([#398](https://github.com/mobile-next/mobile-mcp/pull/398))
+
 ## [1.0.0](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.0) (2026-08-02)
 
 **BREAKING CHANGE**
