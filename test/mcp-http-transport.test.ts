@@ -336,11 +336,87 @@ test.describe("mcp http transport", () => {
 			}
 		});
 
-		test("should serve a GET carrying our stream marker wherever it arrives", async () => {
+		test("should reconnect a client configured at /mcp after its stream is dropped", async () => {
+			const server = await startServer();
+			const client = new Client({ name: "sse-regression", version: "1.0.0" });
+
+			try {
+				// the endpoint clients were configured with before /sse existed
+				await client.connect(new SSEClientTransport(new URL(server.url)));
+				expect((await client.listTools()).tools.length).toBeGreaterThan(0);
+
+				// forcibly drop the sse response, as a proxy or a network blip would
+				server.server.closeAllConnections();
+
+				// the client re-establishes on its own, even though its reconnect now
+				// reports a protocol version and reaches /mcp rather than /sse
+				expect(await waitUntilUsable(client, 30_000)).toBe(true);
+
+				const result = await client.callTool({ name: "mobile_list_available_devices", arguments: {} }) as any;
+				expect(result.content[0].type).toBe("text");
+			} finally {
+				await client.close();
+				await server.stop();
+			}
+		});
+
+		test("should classify a GET by the cache signature every EventSource sends", async () => {
 			const server = await startServer();
 			try {
-				// a spec-compliant EventSource resumes with the id the stream stamped,
-				// even while reporting a protocol version
+				const get = (headers: Record<string, string>) => fetch(server.url, {
+					headers: { "accept": "text/event-stream", "mcp-protocol-version": LEGACY_PROTOCOL_VERSION, ...headers },
+					redirect: "manual",
+				});
+
+				// what the shipped EventSource sends, and what survives an
+				// intermediary that drops one of the two headers
+				const both = await get({ "cache-control": "no-cache", "pragma": "no-cache" });
+				const cacheControlOnly = await get({ "cache-control": "no-cache" });
+				const pragmaOnly = await get({ pragma: "no-cache" });
+				const noStore = await get({ "cache-control": "no-store" });
+				const listOfDirectives = await get({ "cache-control": "max-age=0, no-cache" });
+
+				// a Streamable HTTP listening GET carries none of them
+				const neither = await get({});
+
+				expect(both.status).toBe(301);
+				expect(cacheControlOnly.status).toBe(301);
+				expect(pragmaOnly.status).toBe(301);
+				expect(noStore.status).toBe(301);
+				expect(listOfDirectives.status).toBe(301);
+				expect(neither.status).toBe(405);
+
+				await Promise.all([both, cacheControlOnly, pragmaOnly, noStore, listOfDirectives, neither]
+					.map(response => response.body?.cancel()));
+			} finally {
+				await server.stop();
+			}
+		});
+
+		test("should not treat an unrelated cache directive as an sse stream", async () => {
+			const server = await startServer();
+			try {
+				const response = await fetch(server.url, {
+					headers: {
+						"accept": "text/event-stream",
+						"mcp-protocol-version": LEGACY_PROTOCOL_VERSION,
+						"cache-control": "max-age=600",
+					},
+					redirect: "manual",
+				});
+
+				expect(response.status).toBe(405);
+				await response.body?.cancel();
+			} finally {
+				await server.stop();
+			}
+		});
+
+		test("should classify a GET carrying our stream marker as sse", async () => {
+			const server = await startServer();
+			try {
+				// a spec-compliant EventSource re-establishes with the id the stream
+				// stamped, even while reporting a protocol version
 				const response = await fetch(server.url, {
 					headers: {
 						"accept": "text/event-stream",
@@ -350,8 +426,8 @@ test.describe("mcp http transport", () => {
 					redirect: "manual",
 				});
 
-				expect(response.status).toBe(200);
-				expect(response.headers.get("content-type")).toContain("text/event-stream");
+				expect(response.status).toBe(301);
+				expect(response.headers.get("location")).toBe("/sse");
 				await response.body?.cancel();
 			} finally {
 				await server.stop();
@@ -482,6 +558,16 @@ test.describe("mcp http transport", () => {
 				const sseTools = await sseClient.listTools();
 				expect(streamableTools.tools.length).toBeGreaterThan(0);
 				expect(sseTools.tools.length).toBe(streamableTools.tools.length);
+
+				// the streamable client holds no stream: all remaining slots are free
+				const streams: Response[] = [];
+				for (let index = 0; index < 7; index++) {
+					const stream = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
+					expect(stream.status).toBe(200);
+					streams.push(stream);
+				}
+
+				await Promise.all(streams.map(stream => stream.body?.cancel()));
 			} finally {
 				await sseClient.close();
 				await streamableClient.close();

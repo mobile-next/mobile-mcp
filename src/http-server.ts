@@ -24,13 +24,6 @@ const payloadTooLarge = () => ({
 	id: null,
 });
 
-/**
- * Headers a Streamable HTTP client attaches to the optional listening GET it
- * opens once connected. They are only consulted after the HTTP+SSE resumption
- * marker has been ruled out.
- */
-const STREAMABLE_HTTP_GET_HEADERS = ["mcp-session-id", "mcp-protocol-version"];
-
 export interface HttpApp {
 	app: express.Express;
 	close: () => Promise<void>;
@@ -113,23 +106,18 @@ export const createHttpApp = (): HttpApp => {
 	});
 
 	app.get(MCP_ENDPOINT, (req, res) => {
-		// A spec-compliant EventSource resuming one of our streams says so with
-		// Last-Event-ID, and is served wherever it asks.
-		if (legacySse.isStreamResumption(req)) {
-			legacySse.openStream(req, res);
-			return;
-		}
-
 		// A Streamable HTTP client opens an optional listening stream with GET
 		// after connecting. It must reach the modern handler and get the 405 it
 		// expects, never an HTTP+SSE stream.
-		if (STREAMABLE_HTTP_GET_HEADERS.some(header => req.headers[header] !== undefined)) {
+		if (!legacySse.isStreamRequest(req)) {
 			streamableHttp(req, res, req.body);
 			return;
 		}
 
-		// Anything else on this GET is an HTTP+SSE client opening a stream — it
-		// has nothing to report yet. Send it to the path that owns the transport.
+		// Everything else on this GET belongs to the HTTP+SSE transport — a client
+		// opening a stream, or re-establishing one — and is sent to the path that
+		// owns it. The redirect is followed on every attempt, so a client still
+		// configured against /mcp keeps working.
 		res.redirect(301, SSE_ENDPOINT);
 	});
 

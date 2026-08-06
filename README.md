@@ -392,17 +392,21 @@ Two endpoints are served:
 | MCP `2025-*` | Streamable HTTP | `POST /mcp` without an envelope, answered per request by the SDK's stateless legacy path. |
 | MCP `2024-11-05` | HTTP+SSE (deprecated) | **`GET /sse`** opens the stream, which advertises `POST /mcp?sessionId=...` for messages. |
 
-The deprecated transport has its own path because a shared `GET` cannot be classified: once a client has completed `initialize` it reports a protocol version on every request, so a reconnecting `EventSource` is byte for byte the optional listening `GET` a Streamable HTTP client opens. Routing on the endpoint instead of on headers removes the guesswork:
+The deprecated transport has its own path because a shared `GET` cannot be classified by MCP headers alone: once a client has completed `initialize` it reports a protocol version on every request, so a re-establishing `EventSource` looks like the optional listening `GET` a Streamable HTTP client opens. `GET /mcp` is still classified, so clients configured against it before `/sse` existed keep working:
 
-- **`GET /sse`** always opens an HTTP+SSE stream. Streams are concurrent (up to 8), so no client can deny another one.
-- **`GET /mcp`** carrying `MCP-Protocol-Version` or `Mcp-Session-Id` is a Streamable HTTP listening stream and is answered `405`, which those clients treat as "no stream offered".
-- **`GET /mcp`** carrying a `Last-Event-ID` this server issued is a stream resumption and is served as one, wherever it arrives.
-- Any other **`GET /mcp`** is redirected (`301`) to `/sse`.
+- **`GET /sse`** always opens an HTTP+SSE stream — no classification, and the recommended endpoint for 2024-11-05 clients. Streams are concurrent (up to 8), so no client can deny another one.
+- **`GET /mcp`** is treated as HTTP+SSE when it carries a `Last-Event-ID` this server issued, or the cache signature every `EventSource` request has (`cache-control: no-cache`/`no-store` or `pragma: no-cache`). It is answered `301` to `/sse`, which the client follows on every attempt including reconnects.
+- **`GET /mcp`** carrying `MCP-Protocol-Version` or `Mcp-Session-Id` and none of those signals is a Streamable HTTP listening stream, and is answered `405` — which those clients treat as "no stream offered".
+- Any other **`GET /mcp`** is redirected to `/sse`.
 - **`POST /mcp?sessionId=...`** is delivered to the stream that advertised that id; an unknown id is refused with `404`. A `POST` with no `sessionId` goes to Streamable HTTP.
 
 Authorization and the cross-origin block apply to every one of these, including the redirect.
 
-> **Point 2024-11-05 clients at `/sse`.** A client still configured against `/mcp` connects through the redirect, but cannot re-establish its stream after a network drop: MCP SDK v1's `SSEClientTransport` hands `EventSource` a `fetch` that replaces the request headers wholesale, discarding the `Last-Event-ID` that would identify the reconnect, and the redirect is not retained across reconnects (per the EventSource specification only the connection URL of the *current* connection is updated). Its reconnect is then indistinguishable from a Streamable HTTP listening `GET` and is answered `405`. Clients configured against `/sse` reconnect there indefinitely.
+The cache signature is structural rather than incidental: the `eventsource` package issues its request with fetch cache mode `no-store`, and the Fetch standard requires such a request to be sent with `pragma: no-cache` and `cache-control: no-cache`. `StreamableHTTPClientTransport` issues its listening `GET` with the default cache mode and is sent neither. Either header on its own is accepted, so an intermediary that drops one does not cost a client its stream; a cache directive that is not `no-cache`/`no-store` (`max-age=600`, say) is not a match.
+
+> **Prefer `/sse` for 2024-11-05 clients.** It needs no classification at all, so it is the robust endpoint. `/mcp` is supported for existing configurations on the strength of the signature above, which holds for the shipped MCP SDK v1 client stack but is a heuristic: a future client that opens its listening stream with `no-cache`, or an intermediary that adds the header, would be handed a stream it does not want (it is ignored, and streams are concurrent, so nothing is locked out).
+
+Note that a re-established stream is a **new session**, not a resumption: the client receives a fresh `endpoint` event with a new `sessionId` and no missed events are replayed. `Last-Event-ID` is used only to recognise the client, never to resume a position.
 
 Other differences from earlier releases:
 
