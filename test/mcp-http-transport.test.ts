@@ -4,13 +4,14 @@ import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import {
 	CLIENT_CAPABILITIES_META_KEY,
 	CLIENT_INFO_META_KEY,
 	PROTOCOL_VERSION_META_KEY,
 } from "@modelcontextprotocol/server";
 
-import { createHttpApp, closeHttpServer } from "../src/http-server";
+import { createHttpApp, closeHttpServer, createShutdownHandler, listenHttpServer } from "../src/http-server";
 import { Mobilecli } from "../src/mobilecli";
 
 process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
@@ -105,6 +106,12 @@ test.describe("mcp http transport", () => {
 				let bytesWritten = 0;
 
 				const status = await new Promise<number>((resolve, reject) => {
+					const timer = setTimeout(() => reject(new Error("no response to the oversized request")), 10_000);
+					const settle = (outcome: () => void) => {
+						clearTimeout(timer);
+						outcome();
+					};
+
 					request = http.request({
 						host: "127.0.0.1",
 						port: server.port,
@@ -118,22 +125,20 @@ test.describe("mcp http transport", () => {
 
 					request.on("response", response => {
 						response.resume();
-						resolve(response.statusCode ?? 0);
+						settle(() => resolve(response.statusCode ?? 0));
 					});
 
 					// the socket is torn down once the request is refused, which must
 					// not fail the test
 					request.on("error", error => {
 						if (bytesWritten === 0) {
-							reject(error);
+							settle(() => reject(error));
 						}
 					});
 
 					const chunk = "x".repeat(1024);
 					request.write(chunk);
 					bytesWritten += chunk.length;
-
-					setTimeout(() => reject(new Error("no response to the oversized request")), 10_000);
 				});
 
 				// the declared length is refused up front, so the body is never read:
@@ -236,6 +241,40 @@ test.describe("mcp http transport", () => {
 				const body = await response.json() as any;
 				expect(body.error.code).toBe(-32700);
 			} finally {
+				await server.stop();
+			}
+		});
+
+		test("should forward a rejecting route handler as an internal error", async () => {
+			const server = await startServer();
+			const originalHandlePostMessage = SSEServerTransport.prototype.handlePostMessage;
+
+			try {
+				const stream = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
+				const reader = stream.body!.getReader();
+				const announcement = new TextDecoder().decode((await reader.read()).value);
+				const sessionId = new URL(announcement.split("data: ")[1].trim(), server.url).searchParams.get("sessionId");
+
+				// the legacy message route awaits the transport; a rejection there
+				// used to be dropped on the floor, leaving the request hanging
+				SSEServerTransport.prototype.handlePostMessage = async function handlePostMessage() {
+					throw new Error("transport exploded");
+				};
+
+				const response = await fetch(`${server.url}?sessionId=${sessionId}`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+				});
+
+				expect(response.status).toBe(500);
+				const body = await response.json() as any;
+				expect(body.error.code).toBe(-32603);
+				expect(body.error.message).toBe("Internal error");
+
+				await reader.cancel();
+			} finally {
+				SSEServerTransport.prototype.handlePostMessage = originalHandlePostMessage;
 				await server.stop();
 			}
 		});
@@ -356,6 +395,35 @@ test.describe("mcp http transport", () => {
 				expect(result.content[0].type).toBe("text");
 			} finally {
 				await client.close();
+				await server.stop();
+			}
+		});
+
+		test("should close a stream whose connect fails after the response was announced", async () => {
+			const server = await startServer();
+			const originalStart = SSEServerTransport.prototype.start;
+
+			// fail once the head and the endpoint event are already on the wire, so
+			// the failure cannot be reported as a status code
+			SSEServerTransport.prototype.start = async function start() {
+				await originalStart.call(this);
+				throw new Error("connect failed after headers");
+			};
+
+			try {
+				const response = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
+				expect(response.status).toBe(200);
+
+				// the response is ended rather than left open forever
+				await response.text();
+
+				// and the slot it held was released
+				SSEServerTransport.prototype.start = originalStart;
+				const healthy = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
+				expect(healthy.status).toBe(200);
+				await healthy.body?.cancel();
+			} finally {
+				SSEServerTransport.prototype.start = originalStart;
 				await server.stop();
 			}
 		});
@@ -603,6 +671,76 @@ test.describe("mcp http transport", () => {
 		});
 	});
 
+	test.describe("authorization", () => {
+		test("should accept only the configured bearer token", async () => {
+			const previous = process.env.MOBILEMCP_AUTH;
+			process.env.MOBILEMCP_AUTH = "s3cret-token";
+
+			const { app, close } = createHttpApp();
+			const server = await new Promise<http.Server>(resolve => {
+				const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
+			});
+
+			try {
+				const port = (server.address() as AddressInfo).port;
+				const get = (headers: Record<string, string>) => fetch(`http://127.0.0.1:${port}/mcp`, {
+					headers: { accept: "text/event-stream", ...headers },
+					redirect: "manual",
+				});
+
+				const missing = await get({});
+				const wrong = await get({ authorization: "Bearer wrong-token" });
+				const wrongScheme = await get({ authorization: "s3cret-token" });
+				const correct = await get({ authorization: "Bearer s3cret-token" });
+
+				expect(missing.status).toBe(401);
+				expect(wrong.status).toBe(401);
+				expect(wrongScheme.status).toBe(401);
+				expect(correct.status).toBe(301);
+
+				await Promise.all([missing, wrong, wrongScheme, correct].map(response => response.body?.cancel()));
+			} finally {
+				await closeHttpServer(server, close);
+				if (previous === undefined) {
+					delete process.env.MOBILEMCP_AUTH;
+				} else {
+					process.env.MOBILEMCP_AUTH = previous;
+				}
+			}
+		});
+
+		test("should guard the sse path and posts too", async () => {
+			const previous = process.env.MOBILEMCP_AUTH;
+			process.env.MOBILEMCP_AUTH = "s3cret-token";
+
+			const { app, close } = createHttpApp();
+			const server = await new Promise<http.Server>(resolve => {
+				const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
+			});
+
+			try {
+				const port = (server.address() as AddressInfo).port;
+				const sse = await fetch(`http://127.0.0.1:${port}/sse`, { headers: { accept: "text/event-stream" } });
+				const post = await fetch(`http://127.0.0.1:${port}/mcp`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+				});
+
+				expect(sse.status).toBe(401);
+				expect(post.status).toBe(401);
+				await Promise.all([sse, post].map(response => response.body?.cancel()));
+			} finally {
+				await closeHttpServer(server, close);
+				if (previous === undefined) {
+					delete process.env.MOBILEMCP_AUTH;
+				} else {
+					process.env.MOBILEMCP_AUTH = previous;
+				}
+			}
+		});
+	});
+
 	test.describe("shutdown", () => {
 		test("should release the handler and an open sse stream", async () => {
 			const { app, close } = createHttpApp();
@@ -612,15 +750,85 @@ test.describe("mcp http transport", () => {
 
 			const port = (server.address() as AddressInfo).port;
 			const client = new Client({ name: "shutdown-regression", version: "1.0.0" });
-			await client.connect(new SSEClientTransport(new URL(`http://127.0.0.1:${port}/sse`)));
 
-			// an open sse stream would otherwise hold the listener open forever
-			await closeHttpServer(server, close);
+			try {
+				await client.connect(new SSEClientTransport(new URL(`http://127.0.0.1:${port}/sse`)));
 
-			expect(server.listening).toBe(false);
-			await expect(fetch(`http://127.0.0.1:${port}/mcp`, { headers: { accept: "text/event-stream" } })).rejects.toThrow();
+				// an open sse stream would otherwise hold the listener open forever
+				await closeHttpServer(server, close);
 
-			await client.close();
+				expect(server.listening).toBe(false);
+				await expect(fetch(`http://127.0.0.1:${port}/mcp`, { headers: { accept: "text/event-stream" } })).rejects.toThrow();
+			} finally {
+				await client.close();
+				await closeHttpServer(server, close);
+			}
+		});
+
+		test("should run the shutdown sequence once however many signals arrive", async () => {
+			const { app } = createHttpApp();
+			const server = await new Promise<http.Server>(resolve => {
+				const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
+			});
+
+			try {
+				let closeCalls = 0;
+				let settledCalls = 0;
+				const shutdown = createShutdownHandler(server, async () => {
+					closeCalls++;
+				}, () => {
+					settledCalls++;
+				});
+
+				shutdown();
+				shutdown();
+				shutdown();
+
+				await expect.poll(() => settledCalls, { timeout: 5000 }).toBe(1);
+				expect(closeCalls).toBe(1);
+			} finally {
+				server.closeAllConnections();
+				await new Promise<void>(resolve => server.close(() => resolve()));
+			}
+		});
+
+		test("should give up waiting on a resource that never closes", async () => {
+			const { app } = createHttpApp();
+			const server = await new Promise<http.Server>(resolve => {
+				const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
+			});
+
+			try {
+				const startedAt = Date.now();
+				await closeHttpServer(server, () => new Promise<void>(() => {}), 250);
+
+				expect(Date.now() - startedAt).toBeLessThan(5_000);
+			} finally {
+				server.closeAllConnections();
+				await new Promise<void>(resolve => server.close(() => resolve()));
+			}
+		});
+
+		test("should report a bind failure instead of throwing it", async () => {
+			const first = createHttpApp();
+			const firstServer = await new Promise<http.Server>(resolve => {
+				const listening = first.app.listen(0, "127.0.0.1", () => resolve(listening));
+			});
+
+			const port = (firstServer.address() as AddressInfo).port;
+			const second = createHttpApp();
+			let secondServer: http.Server | undefined;
+
+			try {
+				const bindError = await new Promise<NodeJS.ErrnoException>(resolve => {
+					secondServer = listenHttpServer(second.app, "127.0.0.1", port, () => {}, resolve);
+				});
+
+				expect(bindError.code).toBe("EADDRINUSE");
+			} finally {
+				secondServer?.close();
+				await closeHttpServer(firstServer, first.close);
+			}
 		});
 	});
 
@@ -656,8 +864,9 @@ test.describe("mcp http transport", () => {
 			}) as typeof fetch;
 			delete process.env.MOBILEMCP_DISABLE_TELEMETRY;
 
-			const server = await startServer();
+			let server: RunningServer | undefined;
 			try {
+				server = await startServer();
 				await fetch(server.url, {
 					method: "POST",
 					headers: {
@@ -687,7 +896,7 @@ test.describe("mcp http transport", () => {
 				expect(robotEvent.properties.ProtocolVersion).toBe(MODERN_PROTOCOL_VERSION);
 				expect(robotEvent.properties.ProtocolEra).toBe("modern");
 			} finally {
-				await server.stop();
+				await server?.stop();
 				process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
 				globalThis.fetch = originalFetch;
 				Mobilecli.prototype.getVersion = originalGetVersion;
