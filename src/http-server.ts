@@ -1,6 +1,7 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import express from "express";
+import type { Server } from "node:http";
 
 import { createMcpServer } from "./server";
 import { createLegacySseEndpoint } from "./legacy-sse";
@@ -100,11 +101,20 @@ export const createHttpApp = (): HttpApp => {
 	const legacySse = createLegacySseEndpoint(MCP_ENDPOINT);
 
 	app.get(MCP_ENDPOINT, (req, res) => {
+		// A Streamable HTTP client opens an optional listening stream with GET
+		// after connecting. Routing it here would burn the single legacy slot and
+		// lock out genuine 2024-11-05 clients, so it goes to the modern handler
+		// and gets the 405 it expects.
+		if (!legacySse.isStreamRequest(req)) {
+			streamableHttp(req, res, req.body);
+			return;
+		}
+
 		legacySse.openStream(req, res);
 	});
 
 	app.post(MCP_ENDPOINT, (req, res) => {
-		if (legacySse.isSseMessage(req)) {
+		if (legacySse.isMessageRequest(req)) {
 			legacySse.handleMessage(req, res);
 			return;
 		}
@@ -140,4 +150,15 @@ export const createHttpApp = (): HttpApp => {
 	};
 
 	return { app, close };
+};
+
+/**
+ * Shuts an mcp http server down: the mcp resources first — the modern handler's
+ * in-flight exchanges and the open sse stream, which would otherwise hold the
+ * listener open indefinitely — then the listener itself.
+ */
+export const closeHttpServer = async (server: Server, close: () => Promise<void>): Promise<void> => {
+	await close();
+	server.closeAllConnections();
+	await new Promise<void>(resolve => server.close(() => resolve()));
 };
