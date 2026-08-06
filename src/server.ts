@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { ChildProcess } from "node:child_process";
 
 import { error, trace } from "./logger";
@@ -73,6 +74,16 @@ interface RequestClient {
 	protocolVersion?: string;
 	era?: string;
 }
+
+/**
+ * The client of the request currently being served. Telemetry raised deeper in
+ * a tool invocation (`get_robot`, for instance) has no access to the handler
+ * context, so the resolved identity travels with the async context instead of
+ * through every intermediate signature. A store per invocation keeps
+ * attribution correct when a single server instance serves concurrent
+ * requests, which is what a legacy stdio connection does.
+ */
+const requestClientStorage = new AsyncLocalStorage<RequestClient>();
 
 const readEnvelope = (ctx?: ServerContext): Record<string, unknown> | undefined => {
 	return ctx?.mcpReq?.envelope as Record<string, unknown> | undefined;
@@ -148,39 +159,43 @@ export const createMcpServer = (context?: McpRequestContext): McpServer => {
 			annotations,
 		}, (async (args: any, extra: any) => {
 			const client = getRequestClient(extra);
-			try {
-				trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
-				const start = +new Date();
-				const telemetry: Record<string, string | number> = {};
-				const response = await cb(args, telemetry);
-				const duration = +new Date() - start;
-				trace(`=> ${response}`);
-				posthog("tool_invoked", { "ToolName": name, "Duration": duration, ...telemetry }, client).then();
-				return {
-					content: [{ type: "text", text: response }],
-				};
-			} catch (error: any) {
-				posthog("tool_failed", { "ToolName": name }, client).then();
-				if (error instanceof ActionableError) {
+			return requestClientStorage.run(client, async () => {
+				try {
+					trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
+					const start = +new Date();
+					const telemetry: Record<string, string | number> = {};
+					const response = await cb(args, telemetry);
+					const duration = +new Date() - start;
+					trace(`=> ${response}`);
+					posthog("tool_invoked", { "ToolName": name, "Duration": duration, ...telemetry }).then();
 					return {
-						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
+						content: [{ type: "text", text: response }],
 					};
-				} else {
-					// a real exception
-					trace(`Tool '${description}' failed: ${error.message} stack: ${error.stack}`);
-					return {
-						content: [{ type: "text", text: `Error: ${error.message}` }],
-						isError: true,
-					};
+				} catch (error: any) {
+					posthog("tool_failed", { "ToolName": name }).then();
+					if (error instanceof ActionableError) {
+						return {
+							content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
+						};
+					} else {
+						// a real exception
+						trace(`Tool '${description}' failed: ${error.message} stack: ${error.stack}`);
+						return {
+							content: [{ type: "text", text: `Error: ${error.message}` }],
+							isError: true,
+						};
+					}
 				}
-			}
+			});
 		}) as any);
 	};
 
-	const posthog = async (event: string, properties: Record<string, string | number>, client?: RequestClient) => {
+	const posthog = async (event: string, properties: Record<string, string | number>, explicitClient?: RequestClient) => {
 		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
 			return;
 		}
+
+		const client = explicitClient || requestClientStorage.getStore();
 
 		try {
 			const url = "https://us.i.posthog.com/i/v0/e/";
@@ -831,7 +846,7 @@ export const createMcpServer = (context?: McpRequestContext): McpServer => {
 				readOnlyHint: true,
 			},
 		},
-		async ({ device }, extra) => {
+		async ({ device }, extra) => requestClientStorage.run(getRequestClient(extra), async () => {
 			try {
 				const robot = getRobotFromDevice(device);
 				const screenSize = await robot.getScreenSize();
@@ -868,7 +883,7 @@ export const createMcpServer = (context?: McpRequestContext): McpServer => {
 					"ScreenshotMimeType": mimeType,
 					"ScreenshotWidth": pngSize.width,
 					"ScreenshotHeight": pngSize.height,
-				}, getRequestClient(extra)).then();
+				}).then();
 
 				return {
 					content: [{ type: "image", data: screenshot64, mimeType }]
@@ -880,7 +895,7 @@ export const createMcpServer = (context?: McpRequestContext): McpServer => {
 					isError: true,
 				};
 			}
-		}
+		})
 	);
 
 	tool(
