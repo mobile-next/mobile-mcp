@@ -1,4 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, CLIENT_INFO_META_KEY, PROTOCOL_VERSION_META_KEY } from "@modelcontextprotocol/server";
+import type { CacheHint, McpRequestContext, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import fs from "node:fs";
 import os from "node:os";
@@ -44,22 +45,92 @@ export const getAgentVersion = (): string => {
 	return json.version;
 };
 
-export const createMcpServer = (): McpServer => {
+/**
+ * Cache hints for the 2026-07-28 cacheable results. The tool surface is fixed
+ * for the lifetime of the process, so it is safe for shared caches; every
+ * other cacheable result keeps the conservative `{ ttlMs: 0, cacheScope:
+ * "private" }` default the SDK emits.
+ */
+const CACHE_HINTS: Record<string, CacheHint> = {
+	"server/discover": { ttlMs: 300_000, cacheScope: "public" },
+	"tools/list": { ttlMs: 300_000, cacheScope: "public" },
+};
+
+/**
+ * Application state that must outlive a single MCP request. Modern
+ * (2026-07-28) requests are stateless and self-contained, so a fresh server
+ * instance serves every request: the instance that answers
+ * `mobile_stop_screen_recording` is never the one that started the recording.
+ */
+const mobilecli = new Mobilecli();
+const activeRecordings = new Map<string, ActiveRecording>();
+const agentVerifiedSimulators = new Set<string>();
+const activeLoginProcesses: ChildProcess[] = [];
+
+/** Client identity resolved for a single request, never for a connection. */
+interface RequestClient {
+	name?: string;
+	protocolVersion?: string;
+	era?: string;
+}
+
+const readEnvelope = (ctx?: ServerContext): Record<string, unknown> | undefined => {
+	return ctx?.mcpReq?.envelope as Record<string, unknown> | undefined;
+};
+
+/**
+ * The client name carried by a modern request's `_meta` envelope. The
+ * 2026-07-28 revision has no `initialize`, so client identity is per-request
+ * metadata rather than connection state.
+ */
+export const clientNameFromRequestMeta = (envelope: Record<string, unknown> | undefined): string | undefined => {
+	const clientInfo = envelope?.[CLIENT_INFO_META_KEY];
+	if (clientInfo !== null && typeof clientInfo === "object") {
+		const name = (clientInfo as { name?: unknown }).name;
+		if (typeof name === "string" && name.length > 0) {
+			return name;
+		}
+	}
+
+	return undefined;
+};
+
+/** The protocol revision a modern request declares in its `_meta` envelope. */
+export const protocolVersionFromRequestMeta = (envelope: Record<string, unknown> | undefined): string | undefined => {
+	const version = envelope?.[PROTOCOL_VERSION_META_KEY];
+	return typeof version === "string" && version.length > 0 ? version : undefined;
+};
+
+let launchReported = false;
+
+export const createMcpServer = (context?: McpRequestContext): McpServer => {
 
 	const server = new McpServer({
 		name: "mobile-mcp",
 		version: getAgentVersion(),
+	}, {
+		cacheHints: CACHE_HINTS,
 	});
 
-
-	const getClientName = (): string => {
+	/**
+	 * Legacy (2025-era) connections still learn the client from the
+	 * `initialize` handshake; modern requests never do.
+	 */
+	const getLegacyClientName = (): string | undefined => {
 		try {
-			const clientInfo = server.server.getClientVersion();
-			const clientName = clientInfo?.name || "unknown";
-			return clientName;
+			return server.server.getClientVersion()?.name || undefined;
 		} catch (error: any) {
-			return "unknown";
+			return undefined;
 		}
+	};
+
+	const getRequestClient = (ctx?: ServerContext): RequestClient => {
+		const envelope = readEnvelope(ctx);
+		return {
+			name: clientNameFromRequestMeta(envelope) || getLegacyClientName(),
+			protocolVersion: protocolVersionFromRequestMeta(envelope),
+			era: context?.era,
+		};
 	};
 
 	type ZodSchemaShape = Record<string, z.ZodType>;
@@ -75,7 +146,8 @@ export const createMcpServer = (): McpServer => {
 			description,
 			inputSchema: paramsSchema,
 			annotations,
-		}, (async (args: any, _extra: any) => {
+		}, (async (args: any, extra: any) => {
+			const client = getRequestClient(extra);
 			try {
 				trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
 				const start = +new Date();
@@ -83,12 +155,12 @@ export const createMcpServer = (): McpServer => {
 				const response = await cb(args, telemetry);
 				const duration = +new Date() - start;
 				trace(`=> ${response}`);
-				posthog("tool_invoked", { "ToolName": name, "Duration": duration, ...telemetry }).then();
+				posthog("tool_invoked", { "ToolName": name, "Duration": duration, ...telemetry }, client).then();
 				return {
 					content: [{ type: "text", text: response }],
 				};
 			} catch (error: any) {
-				posthog("tool_failed", { "ToolName": name }).then();
+				posthog("tool_failed", { "ToolName": name }, client).then();
 				if (error instanceof ActionableError) {
 					return {
 						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
@@ -105,7 +177,7 @@ export const createMcpServer = (): McpServer => {
 		}) as any);
 	};
 
-	const posthog = async (event: string, properties: Record<string, string | number>) => {
+	const posthog = async (event: string, properties: Record<string, string | number>, client?: RequestClient) => {
 		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
 			return;
 		}
@@ -124,9 +196,16 @@ export const createMcpServer = (): McpServer => {
 				RobotMode: process.env.MOBILEMCP_LEGACY_ROBOT === "1" ? "legacy" : "mobilecli",
 			};
 
-			const clientName = getClientName();
-			if (clientName !== "unknown") {
-				systemProps.AgentName = clientName;
+			if (client?.name) {
+				systemProps.AgentName = client.name;
+			}
+
+			if (client?.protocolVersion) {
+				systemProps.ProtocolVersion = client.protocolVersion;
+			}
+
+			if (client?.era) {
+				systemProps.ProtocolEra = client.era;
 			}
 
 			await fetch(url, {
@@ -149,11 +228,11 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	const mobilecli = new Mobilecli();
-	const activeRecordings = new Map<string, ActiveRecording>();
-	const agentVerifiedSimulators = new Set<string>();
-	const activeLoginProcesses: ChildProcess[] = [];
-	posthog("launch", {}).then();
+	// one launch event per process, the factory is now called per request
+	if (!launchReported) {
+		launchReported = true;
+		posthog("launch", {}).then();
+	}
 
 	const ensureMobilecliAvailable = (): void => {
 		try {
@@ -752,7 +831,7 @@ export const createMcpServer = (): McpServer => {
 				readOnlyHint: true,
 			},
 		},
-		async ({ device }) => {
+		async ({ device }, extra) => {
 			try {
 				const robot = getRobotFromDevice(device);
 				const screenSize = await robot.getScreenSize();
@@ -789,7 +868,7 @@ export const createMcpServer = (): McpServer => {
 					"ScreenshotMimeType": mimeType,
 					"ScreenshotWidth": pngSize.width,
 					"ScreenshotHeight": pngSize.height,
-				}).then();
+				}, getRequestClient(extra)).then();
 
 				return {
 					content: [{ type: "image", data: screenshot64, mimeType }]

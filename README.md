@@ -366,9 +366,9 @@ Once the server is configured, ask your agent to list devices:
 
 You should get back your running simulators, emulators, and connected devices. If you do, Mobile MCP is wired up correctly. If the list is empty, make sure a simulator or emulator is running (see [Prerequisites](#prerequisites)) — for more help, check the [wiki](https://github.com/mobile-next/mobile-mcp/wiki).
 
-### SSE Server Mode
+### HTTP Server Mode
 
-By default, Mobile MCP runs over stdio. To start an SSE server instead, use the `--listen` flag:
+By default, Mobile MCP runs over stdio. To start an HTTP server instead, use the `--listen` flag:
 
 ```bash
 npx @mobilenext/mobile-mcp@latest --listen 3000
@@ -382,9 +382,11 @@ npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 
 Then configure your MCP client to connect to `http://<host>:3000/mcp`.
 
+Both transports speak MCP protocol revision `2026-07-28` and the 2025-era revisions. Modern clients send stateless, self-contained requests — no `initialize` handshake and no `Mcp-Session-Id` — and discover the server with `server/discover`; 2025-era clients keep working unchanged on the same endpoint.
+
 #### Authorization
 
-To require Bearer token authorization on the SSE server, set the `MOBILEMCP_AUTH` environment variable:
+To require Bearer token authorization on the HTTP server, set the `MOBILEMCP_AUTH` environment variable:
 
 ```bash
 MOBILEMCP_AUTH=my-secret-token npx @mobilenext/mobile-mcp@latest --listen 3000
@@ -464,7 +466,7 @@ Gmail to contacts "team@example.com".
 
 | Variable | Description | Example |
 |---|---|---|
-| `MOBILEMCP_AUTH` | Require a Bearer token on the SSE server — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
+| `MOBILEMCP_AUTH` | Require a Bearer token on the HTTP server — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
