@@ -392,9 +392,14 @@ The single `/mcp` endpoint serves three eras at once:
 | MCP `2025-*` | Streamable HTTP | `POST /mcp` without an envelope, answered per request by the SDK's stateless legacy path. |
 | MCP `2024-11-05` | HTTP+SSE (deprecated) | `GET /mcp` opens the stream, which advertises `POST /mcp?sessionId=...` for messages. |
 
+Requests are separated by what they carry, so the two `GET` clients and the two `POST` clients never take each other's path:
+
+- A `GET /mcp` carrying `MCP-Protocol-Version` or `Mcp-Session-Id` is the optional listening stream a Streamable HTTP client opens after connecting; it is answered with `405`, which those clients treat as "no stream offered". Only a bare `GET /mcp` opens the HTTP+SSE stream.
+- A `POST /mcp` goes to the HTTP+SSE stream only when it carries the `sessionId` the open stream advertised. An unknown `sessionId` is refused with `404`; a `POST` with no `sessionId` goes to Streamable HTTP.
+
 Two known differences from earlier releases:
 
-- The HTTP+SSE stream still accepts one client at a time and answers a second concurrent `GET /mcp` with `409`, as before. A `POST /mcp` is routed to that stream only when it carries the `sessionId` query parameter the stream advertised — every other `POST` goes to Streamable HTTP. Clients using the SDK's own `SSEClientTransport` always send it.
+- The HTTP+SSE stream still accepts one client at a time and answers a second concurrent bare `GET /mcp` with `409`, as before. Clients using the SDK's own `SSEClientTransport` always send the advertised `sessionId` on their POSTs, so they are unaffected by the routing rule above.
 - Request bodies are capped at 4 MB, the same limit the MCP SDK v1 transports enforced. A larger body is refused with `413` before it is read.
 
 #### Authorization

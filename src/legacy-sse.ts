@@ -17,8 +17,13 @@ import { error } from "./logger";
  * `createMcpServer` builds it once.
  */
 export interface LegacySseEndpoint {
-	/** Whether this POST belongs to an open HTTP+SSE stream rather than the Streamable HTTP path. */
-	isSseMessage: (req: Request) => boolean;
+	/**
+	 * Whether this GET is a 2024-11-05 stream open rather than the optional
+	 * listening stream a Streamable HTTP client opens after `initialize`.
+	 */
+	isStreamRequest: (req: Request) => boolean;
+	/** Whether this POST addresses an HTTP+SSE stream rather than the Streamable HTTP path. */
+	isMessageRequest: (req: Request) => boolean;
 	/** Opens the SSE stream (`GET /mcp`). */
 	openStream: (req: Request, res: Response) => Promise<void>;
 	/** Delivers a posted message to the open SSE stream (`POST /mcp?sessionId=...`). */
@@ -27,14 +32,26 @@ export interface LegacySseEndpoint {
 	close: () => Promise<void>;
 }
 
+/**
+ * Headers a Streamable HTTP client attaches to its optional listening `GET`
+ * once a connection is established. The 2024-11-05 client sends neither on the
+ * request that opens its stream — it has nothing to report yet — so their
+ * presence is what separates the two GETs on a shared endpoint.
+ */
+const STREAMABLE_HTTP_GET_HEADERS = ["mcp-session-id", "mcp-protocol-version"];
+
 export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => {
 
 	// The v1 transport is a single-stream transport, exactly as it was before
 	// the v2 migration: one connected client at a time, 409 for the next one.
 	let transport: SSEServerTransport | null = null;
 
-	const isSseMessage = (req: Request): boolean => {
-		return transport !== null && typeof req.query.sessionId === "string";
+	const isStreamRequest = (req: Request): boolean => {
+		return !STREAMABLE_HTTP_GET_HEADERS.some(header => req.headers[header] !== undefined);
+	};
+
+	const isMessageRequest = (req: Request): boolean => {
+		return typeof req.query.sessionId === "string";
 	};
 
 	const openStream = async (req: Request, res: Response): Promise<void> => {
@@ -75,6 +92,12 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 			return;
 		}
 
+		// Only the session the open stream advertised may post to it.
+		if (req.query.sessionId !== transport.sessionId) {
+			res.status(404).json({ error: "Unknown sse session id" });
+			return;
+		}
+
 		// req.body was already parsed under the endpoint's size limit, so the
 		// transport never reads the request stream itself.
 		await transport.handlePostMessage(req, res, req.body);
@@ -86,5 +109,5 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 		await open?.close();
 	};
 
-	return { isSseMessage, openStream, handleMessage, close };
+	return { isStreamRequest, isMessageRequest, openStream, handleMessage, close };
 };
