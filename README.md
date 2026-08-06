@@ -366,9 +366,9 @@ Once the server is configured, ask your agent to list devices:
 
 You should get back your running simulators, emulators, and connected devices. If you do, Mobile MCP is wired up correctly. If the list is empty, make sure a simulator or emulator is running (see [Prerequisites](#prerequisites)) — for more help, check the [wiki](https://github.com/mobile-next/mobile-mcp/wiki).
 
-### SSE Server Mode
+### HTTP Server Mode
 
-By default, Mobile MCP runs over stdio. To start an SSE server instead, use the `--listen` flag:
+By default, Mobile MCP runs over stdio. To start an HTTP server instead, use the `--listen` flag:
 
 ```bash
 npx @mobilenext/mobile-mcp@latest --listen 3000
@@ -382,9 +382,40 @@ npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 
 Then configure your MCP client to connect to `http://<host>:3000/mcp`.
 
+#### Protocol compatibility
+
+Two endpoints are served:
+
+| Client | Wire | Endpoint |
+|---|---|---|
+| MCP `2026-07-28` | Streamable HTTP, stateless | `POST /mcp` with a `_meta` protocol envelope. No `initialize` handshake and no `Mcp-Session-Id`; the server is discovered with `server/discover`. |
+| MCP `2025-*` | Streamable HTTP | `POST /mcp` without an envelope, answered per request by the SDK's stateless legacy path. |
+| MCP `2024-11-05` | HTTP+SSE (deprecated) | **`GET /sse`** opens the stream, which advertises `POST /mcp?sessionId=...` for messages. |
+
+The deprecated transport has its own path because a shared `GET` cannot be classified by MCP headers alone: once a client has completed `initialize` it reports a protocol version on every request, so a re-establishing `EventSource` looks like the optional listening `GET` a Streamable HTTP client opens. `GET /mcp` is still classified, so clients configured against it before `/sse` existed keep working:
+
+- **`GET /sse`** always opens an HTTP+SSE stream — no classification, and the recommended endpoint for 2024-11-05 clients. Streams are concurrent (up to 8), so no client can deny another one.
+- **`GET /mcp`** is treated as HTTP+SSE when it carries a `Last-Event-ID` this server issued, or the cache signature every `EventSource` request has (`cache-control: no-cache`/`no-store` or `pragma: no-cache`). It is answered `301` to `/sse`, which the client follows on every attempt including reconnects.
+- **`GET /mcp`** carrying `MCP-Protocol-Version` or `Mcp-Session-Id` and none of those signals is a Streamable HTTP listening stream, and is answered `405` — which those clients treat as "no stream offered".
+- Any other **`GET /mcp`** is redirected to `/sse`.
+- **`POST /mcp?sessionId=...`** is delivered to the stream that advertised that id; an unknown id is refused with `404`. A `POST` with no `sessionId` goes to Streamable HTTP.
+
+Authorization and the cross-origin block apply to every one of these, including the redirect.
+
+The cache signature is structural rather than incidental: the `eventsource` package issues its request with fetch cache mode `no-store`, and the Fetch standard requires such a request to be sent with `pragma: no-cache` and `cache-control: no-cache`. `StreamableHTTPClientTransport` issues its listening `GET` with the default cache mode and is sent neither. Either header on its own is accepted, so an intermediary that drops one does not cost a client its stream; a cache directive that is not `no-cache`/`no-store` (`max-age=600`, say) is not a match.
+
+> **Prefer `/sse` for 2024-11-05 clients.** It needs no classification at all, so it is the robust endpoint. `/mcp` is supported for existing configurations on the strength of the signature above, which holds for the shipped MCP SDK v1 client stack but is a heuristic: a future client that opens its listening stream with `no-cache`, or an intermediary that adds the header, would be handed a stream it does not want (it is ignored, and streams are concurrent, so nothing is locked out).
+
+Note that a re-established stream is a **new session**, not a resumption: the client receives a fresh `endpoint` event with a new `sessionId` and no missed events are replayed. `Last-Event-ID` is used only to recognise the client, never to resume a position.
+
+Other differences from earlier releases:
+
+- The HTTP+SSE stream used to be single-client and answered a second connection with `409`; it now serves up to 8 concurrent streams and answers `429` beyond that.
+- Request bodies are capped at 4 MB, the same limit the MCP SDK v1 transports enforced. A larger body is refused with `413` before it is read.
+
 #### Authorization
 
-To require Bearer token authorization on the SSE server, set the `MOBILEMCP_AUTH` environment variable:
+To require Bearer token authorization on the HTTP server, set the `MOBILEMCP_AUTH` environment variable:
 
 ```bash
 MOBILEMCP_AUTH=my-secret-token npx @mobilenext/mobile-mcp@latest --listen 3000
@@ -464,7 +495,7 @@ Gmail to contacts "team@example.com".
 
 | Variable | Description | Example |
 |---|---|---|
-| `MOBILEMCP_AUTH` | Require a Bearer token on the SSE server — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
+| `MOBILEMCP_AUTH` | Require a Bearer token on the HTTP server — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |

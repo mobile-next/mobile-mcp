@@ -1,80 +1,37 @@
 #!/usr/bin/env node
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createMcpServer, getAgentVersion } from "./server";
+import { createHttpApp, createShutdownHandler, listenHttpServer, MCP_ENDPOINT } from "./http-server";
 import { error } from "./logger";
-import express from "express";
 import { program } from "commander";
 
-const startSseServer = async (host: string, port: number) => {
-	const app = express();
-	const server = createMcpServer();
+const startHttpServer = async (host: string, port: number) => {
+	const { app, close } = createHttpApp();
 
-	const authToken = process.env.MOBILEMCP_AUTH;
-	if (!authToken) {
-		error("WARNING: MOBILEMCP_AUTH is not set. The SSE server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
-	}
-
-	if (authToken) {
-		app.use((req, res, next) => {
-			if (req.headers.authorization !== `Bearer ${authToken}`) {
-				res.status(401).json({ error: "Unauthorized" });
-				return;
-			}
-
-			next();
-		});
-	}
-
-	// Block cross-origin requests — MCP clients are not browsers
-	app.use((req, res, next) => {
-		if (req.headers.origin) {
-			res.status(403).json({ error: "Cross-origin requests are not allowed" });
-			return;
-		}
-
-		if (req.method === "OPTIONS") {
-			res.status(403).end();
-			return;
-		}
-
-		next();
+	const server = listenHttpServer(app, host, port, () => {
+		error(`mobile-mcp ${getAgentVersion()} http server listening on http://${host}:${port}${MCP_ENDPOINT}`);
+	}, err => {
+		error(`mobile-mcp http server cannot listen on ${host}:${port}: ${err.message}`);
+		process.exit(1);
 	});
 
-	let transport: SSEServerTransport | null = null;
+	// Release the mcp resources — in-flight modern exchanges and the open sse
+	// streams — before the process goes away, as the stdio entry does. Runs once,
+	// however many signals arrive, and does not wait forever.
+	const shutdown = createShutdownHandler(server, close, () => process.exit(0));
 
-	app.post("/mcp", (req, res) => {
-		if (transport) {
-			transport.handlePostMessage(req, res);
-		}
-	});
-
-	app.get("/mcp", (req, res) => {
-		if (transport) {
-			res.status(409).json({ error: "Another client is already connected. Disconnect the existing client first." });
-			return;
-		}
-
-		transport = new SSEServerTransport("/mcp", res);
-
-		transport.onclose = () => {
-			transport = null;
-		};
-
-		server.connect(transport);
-	});
-
-	app.listen(port, host, () => {
-		error(`mobile-mcp ${getAgentVersion()} sse server listening on http://${host}:${port}/mcp`);
-	});
+	process.on("SIGINT", shutdown);
+	process.on("SIGTERM", shutdown);
 };
 
 const startStdioServer = async () => {
 	try {
-		const transport = new StdioServerTransport();
-
-		const server = createMcpServer();
-		await server.connect(transport);
+		// serveStdio owns the era decision for the connection: a modern opening is
+		// served without an initialize handshake, while a 2025-era initialize pins
+		// a legacy instance from the same factory.
+		serveStdio(createMcpServer, {
+			onerror: err => error(`mcp stdio error: ${err.message}`),
+		});
 
 		// Exit cleanly on termination signals so node flushes pending work
 		// (including NODE_V8_COVERAGE output). Node's default SIGINT/SIGTERM
@@ -98,7 +55,7 @@ const startStdioServer = async () => {
 const main = async () => {
 	program
 		.version(getAgentVersion())
-		.option("--listen <listen>", "Start SSE server on [host:]port")
+		.option("--listen <listen>", "Start http server on [host:]port")
 		.option("--stdio", "Start stdio server (default)")
 		.parse(process.argv);
 
@@ -123,7 +80,7 @@ const main = async () => {
 			process.exit(1);
 		}
 
-		await startSseServer(host, port);
+		await startHttpServer(host, port);
 	} else {
 		await startStdioServer();
 	}
