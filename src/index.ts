@@ -1,18 +1,18 @@
 #!/usr/bin/env node
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createMcpHandler } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
+import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpServer, getAgentVersion } from "./server";
 import { error } from "./logger";
 import express from "express";
 import { program } from "commander";
 
-const startSseServer = async (host: string, port: number) => {
+const startHttpServer = async (host: string, port: number) => {
 	const app = express();
-	const server = createMcpServer();
 
 	const authToken = process.env.MOBILEMCP_AUTH;
 	if (!authToken) {
-		error("WARNING: MOBILEMCP_AUTH is not set. The SSE server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
+		error("WARNING: MOBILEMCP_AUTH is not set. The http server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
 	}
 
 	if (authToken) {
@@ -41,40 +41,31 @@ const startSseServer = async (host: string, port: number) => {
 		next();
 	});
 
-	let transport: SSEServerTransport | null = null;
-
-	app.post("/mcp", (req, res) => {
-		if (transport) {
-			transport.handlePostMessage(req, res);
-		}
+	// Modern (2026-07-28) requests are stateless and self-contained, so a fresh
+	// server instance serves every request. `legacy: "stateless"` keeps 2025-era
+	// clients working on the same endpoint, with no session singleton.
+	const handler = createMcpHandler(createMcpServer, {
+		legacy: "stateless",
+		onerror: err => error(`mcp http error: ${err.message}`),
 	});
 
-	app.get("/mcp", (req, res) => {
-		if (transport) {
-			res.status(409).json({ error: "Another client is already connected. Disconnect the existing client first." });
-			return;
-		}
-
-		transport = new SSEServerTransport("/mcp", res);
-
-		transport.onclose = () => {
-			transport = null;
-		};
-
-		server.connect(transport);
-	});
+	app.all("/mcp", toNodeHandler(handler, {
+		onerror: err => error(`mcp http handler error: ${err.message}`),
+	}));
 
 	app.listen(port, host, () => {
-		error(`mobile-mcp ${getAgentVersion()} sse server listening on http://${host}:${port}/mcp`);
+		error(`mobile-mcp ${getAgentVersion()} http server listening on http://${host}:${port}/mcp`);
 	});
 };
 
 const startStdioServer = async () => {
 	try {
-		const transport = new StdioServerTransport();
-
-		const server = createMcpServer();
-		await server.connect(transport);
+		// serveStdio owns the era decision for the connection: a modern opening is
+		// served without an initialize handshake, while a 2025-era initialize pins
+		// a legacy instance from the same factory.
+		serveStdio(createMcpServer, {
+			onerror: err => error(`mcp stdio error: ${err.message}`),
+		});
 
 		// Exit cleanly on termination signals so node flushes pending work
 		// (including NODE_V8_COVERAGE output). Node's default SIGINT/SIGTERM
@@ -98,7 +89,7 @@ const startStdioServer = async () => {
 const main = async () => {
 	program
 		.version(getAgentVersion())
-		.option("--listen <listen>", "Start SSE server on [host:]port")
+		.option("--listen <listen>", "Start http server on [host:]port")
 		.option("--stdio", "Start stdio server (default)")
 		.parse(process.argv);
 
@@ -123,7 +114,7 @@ const main = async () => {
 			process.exit(1);
 		}
 
-		await startSseServer(host, port);
+		await startHttpServer(host, port);
 	} else {
 		await startStdioServer();
 	}
