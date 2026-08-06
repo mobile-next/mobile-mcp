@@ -382,7 +382,20 @@ npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 
 Then configure your MCP client to connect to `http://<host>:3000/mcp`.
 
-Both transports speak MCP protocol revision `2026-07-28` and the 2025-era revisions. Modern clients send stateless, self-contained requests — no `initialize` handshake and no `Mcp-Session-Id` — and discover the server with `server/discover`; 2025-era clients keep working unchanged on the same endpoint.
+#### Protocol compatibility
+
+The single `/mcp` endpoint serves three eras at once:
+
+| Client | Wire | How it is routed |
+|---|---|---|
+| MCP `2026-07-28` | Streamable HTTP, stateless | `POST /mcp` with a `_meta` protocol envelope. No `initialize` handshake and no `Mcp-Session-Id`; the server is discovered with `server/discover`. |
+| MCP `2025-*` | Streamable HTTP | `POST /mcp` without an envelope, answered per request by the SDK's stateless legacy path. |
+| MCP `2024-11-05` | HTTP+SSE (deprecated) | `GET /mcp` opens the stream, which advertises `POST /mcp?sessionId=...` for messages. |
+
+Two known differences from earlier releases:
+
+- The HTTP+SSE stream still accepts one client at a time and answers a second concurrent `GET /mcp` with `409`, as before. A `POST /mcp` is routed to that stream only when it carries the `sessionId` query parameter the stream advertised — every other `POST` goes to Streamable HTTP. Clients using the SDK's own `SSEClientTransport` always send it.
+- Request bodies are capped at 4 MB, the same limit the MCP SDK v1 transports enforced. A larger body is refused with `413` before it is read.
 
 #### Authorization
 
