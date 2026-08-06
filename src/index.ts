@@ -1,16 +1,25 @@
 #!/usr/bin/env node
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createMcpServer, getAgentVersion } from "./server";
-import { createHttpApp, MCP_ENDPOINT } from "./http-server";
+import { createHttpApp, closeHttpServer, MCP_ENDPOINT } from "./http-server";
 import { error } from "./logger";
 import { program } from "commander";
 
 const startHttpServer = async (host: string, port: number) => {
-	const { app } = createHttpApp();
+	const { app, close } = createHttpApp();
 
-	app.listen(port, host, () => {
+	const server = app.listen(port, host, () => {
 		error(`mobile-mcp ${getAgentVersion()} http server listening on http://${host}:${port}${MCP_ENDPOINT}`);
 	});
+
+	// Release the mcp resources — in-flight modern exchanges and the open sse
+	// stream — before the process goes away, as the stdio entry does.
+	const shutdown = () => {
+		closeHttpServer(server, close).finally(() => process.exit(0));
+	};
+
+	process.on("SIGINT", shutdown);
+	process.on("SIGTERM", shutdown);
 };
 
 const startStdioServer = async () => {

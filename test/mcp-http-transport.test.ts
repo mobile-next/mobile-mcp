@@ -3,13 +3,14 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
 	CLIENT_CAPABILITIES_META_KEY,
 	CLIENT_INFO_META_KEY,
 	PROTOCOL_VERSION_META_KEY,
 } from "@modelcontextprotocol/server";
 
-import { createHttpApp } from "../src/http-server";
+import { createHttpApp, closeHttpServer } from "../src/http-server";
 import { Mobilecli } from "../src/mobilecli";
 
 process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
@@ -35,10 +36,7 @@ const startServer = async (): Promise<RunningServer> => {
 	return {
 		url: `http://127.0.0.1:${port}/mcp`,
 		port,
-		stop: async () => {
-			await close();
-			await new Promise<void>(resolve => server.close(() => resolve()));
-		},
+		stop: () => closeHttpServer(server, close),
 	};
 };
 
@@ -284,6 +282,136 @@ test.describe("mcp http transport", () => {
 				await client.close();
 				await server.stop();
 			}
+		});
+
+		test("should reject a post carrying an unknown sse session id", async () => {
+			const server = await startServer();
+			const client = new Client({ name: "sse-regression", version: "1.0.0" });
+
+			try {
+				await client.connect(new SSEClientTransport(new URL(server.url)));
+
+				const response = await fetch(`${server.url}?sessionId=not-the-open-session`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+				});
+
+				expect(response.status).toBe(404);
+				const body = await response.json() as any;
+				expect(body.error).toBe("Unknown sse session id");
+			} finally {
+				await client.close();
+				await server.stop();
+			}
+		});
+
+		test("should accept a post carrying the advertised sse session id", async () => {
+			const server = await startServer();
+			try {
+				const stream = await fetch(server.url, { headers: { accept: "text/event-stream" } });
+				const reader = stream.body!.getReader();
+				const announcement = new TextDecoder().decode((await reader.read()).value);
+				const sessionId = new URL(announcement.split("data: ")[1].trim(), server.url).searchParams.get("sessionId");
+
+				expect(sessionId).toBeTruthy();
+
+				const response = await fetch(`${server.url}?sessionId=${sessionId}`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({
+						jsonrpc: "2.0",
+						id: 1,
+						method: "initialize",
+						params: {
+							protocolVersion: "2024-11-05",
+							capabilities: {},
+							clientInfo: { name: "raw-sse-client", version: "1.0.0" },
+						},
+					}),
+				});
+
+				expect(response.status).toBe(202);
+
+				await reader.cancel();
+			} finally {
+				await server.stop();
+			}
+		});
+	});
+
+	test.describe("streamable http and legacy sse coexistence", () => {
+		test("should not let a streamable http client occupy the legacy sse slot", async () => {
+			const server = await startServer();
+			const streamableClient = new Client({ name: "streamable-regression", version: "1.0.0" });
+			const sseClient = new Client({ name: "sse-regression", version: "1.0.0" });
+
+			try {
+				// a v1 streamable http client opens its optional listening GET right
+				// after connecting; that GET must not take the single sse slot
+				await streamableClient.connect(new StreamableHTTPClientTransport(new URL(server.url)));
+				expect(streamableClient.getServerVersion()?.name).toBe("mobile-mcp");
+
+				// the genuine 2024-11-05 client can still open the stream
+				await sseClient.connect(new SSEClientTransport(new URL(server.url)));
+				expect(sseClient.getServerVersion()?.name).toBe("mobile-mcp");
+
+				// and both keep working side by side
+				const streamableTools = await streamableClient.listTools();
+				const sseTools = await sseClient.listTools();
+				expect(streamableTools.tools.length).toBeGreaterThan(0);
+				expect(sseTools.tools.length).toBe(streamableTools.tools.length);
+			} finally {
+				await sseClient.close();
+				await streamableClient.close();
+				await server.stop();
+			}
+		});
+
+		test("should answer a streamable http listening stream with 405", async () => {
+			const server = await startServer();
+			try {
+				const withProtocolVersion = await fetch(server.url, {
+					headers: { "accept": "text/event-stream", "mcp-protocol-version": LEGACY_PROTOCOL_VERSION },
+				});
+				const withSessionId = await fetch(server.url, {
+					headers: { "accept": "text/event-stream", "mcp-session-id": "some-session" },
+				});
+
+				expect(withProtocolVersion.status).toBe(405);
+				expect(withSessionId.status).toBe(405);
+				await withProtocolVersion.body?.cancel();
+				await withSessionId.body?.cancel();
+
+				// and the legacy slot is still free afterwards
+				const stream = await fetch(server.url, { headers: { accept: "text/event-stream" } });
+				expect(stream.status).toBe(200);
+				expect(stream.headers.get("content-type")).toContain("text/event-stream");
+				await stream.body?.cancel();
+			} finally {
+				await server.stop();
+			}
+		});
+	});
+
+	test.describe("shutdown", () => {
+		test("should release the handler and an open sse stream", async () => {
+			const { app, close } = createHttpApp();
+			const server = await new Promise<http.Server>(resolve => {
+				const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
+			});
+
+			const port = (server.address() as AddressInfo).port;
+			const client = new Client({ name: "shutdown-regression", version: "1.0.0" });
+			await client.connect(new SSEClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
+
+			// an open sse stream would otherwise hold the listener open forever
+			await closeHttpServer(server, close);
+
+			expect(server.listening).toBe(false);
+			await expect(fetch(`http://127.0.0.1:${port}/mcp`, { headers: { accept: "text/event-stream" } })).rejects.toThrow();
+
+			await client.close();
 		});
 	});
 
