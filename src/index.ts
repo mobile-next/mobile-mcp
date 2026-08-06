@@ -1,60 +1,15 @@
 #!/usr/bin/env node
-import { createMcpHandler } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
-import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpServer, getAgentVersion } from "./server";
+import { createHttpApp, MCP_ENDPOINT } from "./http-server";
 import { error } from "./logger";
-import express from "express";
 import { program } from "commander";
 
 const startHttpServer = async (host: string, port: number) => {
-	const app = express();
-
-	const authToken = process.env.MOBILEMCP_AUTH;
-	if (!authToken) {
-		error("WARNING: MOBILEMCP_AUTH is not set. The http server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
-	}
-
-	if (authToken) {
-		app.use((req, res, next) => {
-			if (req.headers.authorization !== `Bearer ${authToken}`) {
-				res.status(401).json({ error: "Unauthorized" });
-				return;
-			}
-
-			next();
-		});
-	}
-
-	// Block cross-origin requests — MCP clients are not browsers
-	app.use((req, res, next) => {
-		if (req.headers.origin) {
-			res.status(403).json({ error: "Cross-origin requests are not allowed" });
-			return;
-		}
-
-		if (req.method === "OPTIONS") {
-			res.status(403).end();
-			return;
-		}
-
-		next();
-	});
-
-	// Modern (2026-07-28) requests are stateless and self-contained, so a fresh
-	// server instance serves every request. `legacy: "stateless"` keeps 2025-era
-	// clients working on the same endpoint, with no session singleton.
-	const handler = createMcpHandler(createMcpServer, {
-		legacy: "stateless",
-		onerror: err => error(`mcp http error: ${err.message}`),
-	});
-
-	app.all("/mcp", toNodeHandler(handler, {
-		onerror: err => error(`mcp http handler error: ${err.message}`),
-	}));
+	const { app } = createHttpApp();
 
 	app.listen(port, host, () => {
-		error(`mobile-mcp ${getAgentVersion()} http server listening on http://${host}:${port}/mcp`);
+		error(`mobile-mcp ${getAgentVersion()} http server listening on http://${host}:${port}${MCP_ENDPOINT}`);
 	});
 };
 
