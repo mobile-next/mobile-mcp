@@ -2,6 +2,7 @@ import { createMcpHandler } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import express from "express";
 import type { Server } from "node:http";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import { createMcpServer } from "./server";
 import { createLegacySseEndpoint } from "./legacy-sse";
@@ -17,6 +18,17 @@ export const SSE_ENDPOINT = "/sse";
  */
 export const MAXIMUM_MESSAGE_SIZE = "4mb";
 export const MAXIMUM_MESSAGE_SIZE_BYTES = 4 * 1024 * 1024;
+
+/** Time the shutdown sequence is given before the process stops waiting for it. */
+export const SHUTDOWN_TIMEOUT_MS = 5_000;
+
+const digest = (value: string): Buffer => createHash("sha256").update(value).digest();
+
+/** The shape body-parser gives its failures. */
+interface HttpError extends Error {
+	type?: string;
+	status?: number;
+}
 
 const payloadTooLarge = () => ({
 	jsonrpc: "2.0",
@@ -38,8 +50,11 @@ export const createHttpApp = (): HttpApp => {
 	}
 
 	if (authToken) {
+		const expected = digest(`Bearer ${authToken}`);
 		app.use((req, res, next) => {
-			if (req.headers.authorization !== `Bearer ${authToken}`) {
+			// Compared as fixed-length digests so the check takes the same time
+			// whatever the supplied credential is, and leaks no length either.
+			if (!timingSafeEqual(digest(req.headers.authorization ?? ""), expected)) {
 				res.status(401).json({ error: "Unauthorized" });
 				return;
 			}
@@ -101,17 +116,14 @@ export const createHttpApp = (): HttpApp => {
 	// listening GET on shared ground. See src/legacy-sse.ts.
 	const legacySse = createLegacySseEndpoint(MCP_ENDPOINT);
 
-	app.get(SSE_ENDPOINT, (req, res) => {
-		legacySse.openStream(req, res);
-	});
+	app.get(SSE_ENDPOINT, (req, res) => legacySse.openStream(req, res));
 
 	app.get(MCP_ENDPOINT, (req, res) => {
 		// A Streamable HTTP client opens an optional listening stream with GET
 		// after connecting. It must reach the modern handler and get the 405 it
 		// expects, never an HTTP+SSE stream.
 		if (!legacySse.isStreamRequest(req)) {
-			streamableHttp(req, res, req.body);
-			return;
+			return streamableHttp(req, res, req.body);
 		}
 
 		// Everything else on this GET belongs to the HTTP+SSE transport — a client
@@ -123,31 +135,42 @@ export const createHttpApp = (): HttpApp => {
 
 	app.post(MCP_ENDPOINT, (req, res) => {
 		if (legacySse.isMessageRequest(req)) {
-			legacySse.handleMessage(req, res);
-			return;
+			return legacySse.handleMessage(req, res);
 		}
 
-		streamableHttp(req, res, req.body);
+		return streamableHttp(req, res, req.body);
 	});
 
-	app.all(MCP_ENDPOINT, (req, res) => {
-		streamableHttp(req, res, req.body);
-	});
+	app.all(MCP_ENDPOINT, (req, res) => streamableHttp(req, res, req.body));
 
-	app.use(MCP_ENDPOINT, (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+	// Mounted for the whole app, not just one endpoint, so a rejection from any
+	// route reaches it. Express 5 forwards a returned rejected promise here.
+	app.use((err: express.Errback | HttpError, req: express.Request, res: express.Response, next: express.NextFunction) => {
 		if (res.headersSent) {
 			next(err);
 			return;
 		}
 
-		if (err?.type === "entity.too.large") {
+		const type = (err as HttpError)?.type;
+		if (type === "entity.too.large") {
 			res.status(413).json(payloadTooLarge());
 			return;
 		}
 
-		res.status(400).json({
+		// every other body-parser failure is a malformed request body
+		if (typeof type === "string") {
+			res.status(400).json({
+				jsonrpc: "2.0",
+				error: { code: -32700, message: "Parse error" },
+				id: null,
+			});
+			return;
+		}
+
+		error(`mcp http request failed: ${(err as Error)?.message}`);
+		res.status(500).json({
 			jsonrpc: "2.0",
-			error: { code: -32700, message: "Parse error" },
+			error: { code: -32603, message: "Internal error" },
 			id: null,
 		});
 	});
@@ -162,11 +185,58 @@ export const createHttpApp = (): HttpApp => {
 
 /**
  * Shuts an mcp http server down: the mcp resources first — the modern handler's
- * in-flight exchanges and the open sse stream, which would otherwise hold the
+ * in-flight exchanges and the open sse streams, which would otherwise hold the
  * listener open indefinitely — then the listener itself.
+ *
+ * Bounded, so a resource that refuses to settle cannot hold a terminating
+ * process open forever.
  */
-export const closeHttpServer = async (server: Server, close: () => Promise<void>): Promise<void> => {
-	await close();
-	server.closeAllConnections();
-	await new Promise<void>(resolve => server.close(() => resolve()));
+export const closeHttpServer = async (server: Server, close: () => Promise<void>, timeoutMs: number = SHUTDOWN_TIMEOUT_MS): Promise<void> => {
+	let timer: NodeJS.Timeout | undefined;
+	const bound = new Promise<void>(resolve => {
+		timer = setTimeout(resolve, timeoutMs);
+		timer.unref();
+	});
+
+	const sequence = async () => {
+		await close();
+		server.closeAllConnections();
+		await new Promise<void>(resolve => server.close(() => resolve()));
+	};
+
+	try {
+		await Promise.race([sequence(), bound]);
+	} finally {
+		clearTimeout(timer);
+	}
+};
+
+/**
+ * A shutdown callback that runs the sequence once, however many signals arrive,
+ * and reports when it is done (or when it gave up waiting).
+ */
+export const createShutdownHandler = (server: Server, close: () => Promise<void>, onSettled: () => void): (() => void) => {
+	let started = false;
+
+	return () => {
+		if (started) {
+			return;
+		}
+
+		started = true;
+		closeHttpServer(server, close).then(onSettled, err => {
+			error(`mcp http shutdown failed: ${(err as Error)?.message}`);
+			onSettled();
+		});
+	};
+};
+
+/**
+ * Binds the listener, reporting a bind failure (a port already in use, an
+ * address that cannot be bound) instead of leaving it as an unhandled error.
+ */
+export const listenHttpServer = (app: express.Express, host: string, port: number, onListening: () => void, onError: (err: NodeJS.ErrnoException) => void): Server => {
+	const server = app.listen(port, host, onListening);
+	server.on("error", onError);
+	return server;
 };

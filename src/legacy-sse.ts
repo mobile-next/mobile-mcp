@@ -144,8 +144,23 @@ export const createLegacySseEndpoint = (endpoint: string): LegacySseEndpoint => 
 		} catch (err: any) {
 			transports.delete(transport.sessionId);
 			error(`legacy sse connect failed: ${err.message}`);
+
 			if (!res.headersSent) {
 				res.status(500).json({ error: "Failed to open the sse stream" });
+				return;
+			}
+
+			// The stream was already announced, so the failure cannot be reported
+			// in a status code — close it instead, rather than leaving the client
+			// holding a response that will never carry anything.
+			try {
+				await transport.close();
+			} catch (closeErr: any) {
+				error(`legacy sse teardown failed: ${closeErr.message}`);
+			}
+
+			if (!res.writableEnded) {
+				res.end();
 			}
 		}
 	};
