@@ -43,6 +43,7 @@ interface UIElementResponse {
 		height: number;
 	};
 	focused?: boolean;
+	children?: UIElementResponse[];
 }
 
 interface DumpUIResponse {
@@ -196,9 +197,23 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "longpress", `${x},${y}`, "--duration", `${duration}`]);
 	}
 
+	private collectElements(elements: UIElementResponse[]): UIElementResponse[] {
+		const collected: UIElementResponse[] = [];
+		for (const element of elements) {
+			collected.push(element);
+			if (element.children) {
+				collected.push(...this.collectElements(element.children));
+			}
+		}
+
+		return collected;
+	}
+
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
-		return response.data.elements.map(element => ({
+
+		// "dump ui" returns a tree; flatten it so nested elements are not lost
+		return this.collectElements(response.data.elements).map(element => ({
 			type: element.type,
 			label: element.label,
 			text: element.text,
