@@ -75,8 +75,16 @@ export interface Robot {
 
 	/**
 	 * Launch an app.
+	 *
+	 * @param packageName The package name (Android) or bundle id (iOS) of the app.
+	 * @param locale Optional comma-separated BCP 47 locale tags to launch with.
+	 * @param launchArgs Optional key/value pairs passed to the app at launch. On iOS
+	 *   these become launch arguments (`-key value`), parsed into `UserDefaults` — the
+	 *   same mechanism as Xcode's "Arguments Passed On Launch". On Android they become
+	 *   string intent extras (`am start --es key value`), which the app must read from
+	 *   its launch intent.
 	 */
-	launchApp(packageName: string, locale?: string): Promise<void>;
+	launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void>;
 
 	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this

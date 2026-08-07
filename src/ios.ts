@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
-import { validatePackageName, validateLocale } from "./utils";
+import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -138,15 +138,33 @@ export class IosRobot implements Robot {
 			});
 	}
 
-	public async launchApp(packageName: string, locale?: string): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void> {
 		validatePackageName(packageName);
+
+		if (locale) {
+			validateLocale(locale);
+		}
+
+		if (launchArgs && Object.keys(launchArgs).length > 0) {
+			validateLaunchArgs(launchArgs);
+		}
+
 		await this.assertTunnelRunning();
 		const args = ["launch", packageName];
 		if (locale) {
-			validateLocale(locale);
 			const locales = locale.split(",").map(l => l.trim());
-			args.push("-AppleLanguages", `(${locales.join(", ")})`);
-			args.push("-AppleLocale", locales[0]);
+			args.push("--arg=-AppleLanguages", `--arg=(${locales.join(", ")})`);
+			args.push("--arg=-AppleLocale", `--arg=${locales[0]}`);
+		}
+
+		if (launchArgs && Object.keys(launchArgs).length > 0) {
+			// go-ios passes launch arguments through the repeatable `--arg` flag (see
+			// `ios launch <bundleID> [--arg=<a>]...`). Each `-key value` pair becomes two
+			// array elements, mirroring Xcode's "Arguments Passed On Launch". Requires the
+			// Developer Disk Image mounted, like other go-ios instruments features.
+			for (const [key, value] of Object.entries(launchArgs)) {
+				args.push(`--arg=-${key}`, `--arg=${value}`);
+			}
 		}
 
 		await this.ios(...args);
