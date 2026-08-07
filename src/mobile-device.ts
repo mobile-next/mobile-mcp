@@ -133,7 +133,7 @@ export class MobileDevice implements Robot {
 				break;
 		}
 
-		this.runCommand(["io", "swipe", `${x},${y},${endX},${endY}`]);
+		this.runCommand(["io", "swipe", `${Math.round(x)},${Math.round(y)},${Math.round(endX)},${Math.round(endY)}`]);
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
@@ -183,7 +183,8 @@ export class MobileDevice implements Robot {
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
-		this.runCommand(["io", "tap", `${x},${y}`]);
+		// mobilecli rejects fractional coordinates ("x and y must be integers")
+		this.runCommand(["io", "tap", `${Math.round(x)},${Math.round(y)}`]);
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
@@ -193,7 +194,7 @@ export class MobileDevice implements Robot {
 	}
 
 	public async longPress(x: number, y: number, duration: number): Promise<void> {
-		this.runCommand(["io", "longpress", `${x},${y}`, "--duration", `${duration}`]);
+		this.runCommand(["io", "longpress", `${Math.round(x)},${Math.round(y)}`, "--duration", `${duration}`]);
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
