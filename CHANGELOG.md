@@ -1,3 +1,8 @@
+## [1.0.2](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.2) (2026-08-09)
+
+* Fix: Round coordinates before passing them to mobilecli ([#403](https://github.com/mobile-next/mobile-mcp/pull/403)), thanks to [@a1573595](https://github.com/a1573595)
+* Fix(android): Recurse into mobilecli children when listing UI elements ([#406](https://github.com/mobile-next/mobile-mcp/pull/406))
+
 ## [1.0.1](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.1) (2026-08-06)
 
 * Feat(cloud): Improve remote device MCP tools and add Mobile Next Cloud logi ([#398](https://github.com/mobile-next/mobile-mcp/pull/398))
