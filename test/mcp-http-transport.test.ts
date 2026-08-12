@@ -253,7 +253,8 @@ test.describe("mcp http transport", () => {
 				const stream = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
 				const reader = stream.body!.getReader();
 				const announcement = new TextDecoder().decode((await reader.read()).value);
-				const sessionId = new URL(announcement.split("data: ")[1].trim(), server.url).searchParams.get("sessionId");
+				const endpoint = announcement.match(/^data: (.+)$/m)?.[1];
+				const sessionId = new URL(endpoint!, server.url).searchParams.get("sessionId");
 
 				// the legacy message route awaits the transport; a rejection there
 				// used to be dropped on the floor, leaving the request hanging
@@ -577,7 +578,8 @@ test.describe("mcp http transport", () => {
 				const stream = await fetch(server.sseUrl, { headers: { accept: "text/event-stream" } });
 				const reader = stream.body!.getReader();
 				const announcement = new TextDecoder().decode((await reader.read()).value);
-				const sessionId = new URL(announcement.split("data: ")[1].trim(), server.url).searchParams.get("sessionId");
+				const endpoint = announcement.match(/^data: (.+)$/m)?.[1];
+				const sessionId = new URL(endpoint!, server.url).searchParams.get("sessionId");
 
 				expect(sessionId).toBeTruthy();
 
