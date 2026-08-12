@@ -56,4 +56,3 @@ An MCP client connected through an in-memory transport lists the server's real
 tools. A table-driven test asserts the complete annotation object for every
 registered tool. This detects missing tools, omitted open-world classifications,
 and regressions in remote-device or read-only metadata.
-

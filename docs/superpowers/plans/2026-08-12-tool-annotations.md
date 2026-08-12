@@ -125,4 +125,3 @@ Expected: no whitespace errors; the diff contains the annotation implementation,
 - [ ] **Step 4: Push and create the PR**
 
 Push `fix/tool-annotations` to `origin`, then create a PR against `main` titled `fix: correct MCP tool annotations`. Summarize the explicit open-world matrix, corrected allocation/release semantics, corrected lazy-initialization read-only hints, and verification results.
-
