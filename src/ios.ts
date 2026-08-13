@@ -192,6 +192,11 @@ export class IosRobot implements Robot {
 		await wda.sendKeys(text);
 	}
 
+	public async clearActiveField(): Promise<void> {
+		const wda = await this.wda();
+		await wda.clearActiveField();
+	}
+
 	public async pressButton(button: Button): Promise<void> {
 		const wda = await this.wda();
 		await wda.pressButton(button);
