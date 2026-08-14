@@ -73,7 +73,7 @@ How we help to scale mobile automation:
 
 ### App Management
 - **`mobile_list_apps`** - List all installed apps on the device
-- **`mobile_launch_app`** - Launch an app using its package name
+- **`mobile_launch_app`** - Launch an app using its package name, optionally with a locale and launch arguments (e.g. feature flags)
 - **`mobile_terminate_app`** - Stop and terminate a running app
 - **`mobile_install_app`** - Install an app from file (.apk, .ipa, .app, .zip)
 - **`mobile_uninstall_app`** - Uninstall an app using bundle ID or package name

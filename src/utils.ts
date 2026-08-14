@@ -18,6 +18,22 @@ export function validateLocale(locale: string): void {
 	}
 }
 
+export function validateLaunchArgs(launchArgs: Record<string, string>): void {
+	for (const [key, value] of Object.entries(launchArgs)) {
+		// keys map to iOS launch argument flags and Android extra keys, so keep them
+		// to a conservative identifier-like charset.
+		if (!/^[a-zA-Z0-9._-]+$/.test(key)) {
+			throw new ActionableError(`Invalid launch argument key: "${key}"`);
+		}
+
+		// Node child processes reject NUL in argv. Platform-specific command
+		// boundaries are responsible for preserving all other string content.
+		if (value.includes("\0")) {
+			throw new ActionableError(`Invalid launch argument value for "${key}": "${value}"`);
+		}
+	}
+}
+
 function resolveRoot(root: string): string {
 	const resolved = path.resolve(root);
 

@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import * as xml from "fast-xml-parser";
 
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
-import { validatePackageName, validateLocale } from "./utils";
+import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -145,11 +145,18 @@ export class AndroidRobot implements Robot {
 			.map(line => line.substring("package:".length));
 	}
 
-	public async launchApp(packageName: string, locale?: string): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void> {
 		validatePackageName(packageName);
 
 		if (locale) {
 			validateLocale(locale);
+		}
+
+		if (launchArgs && Object.keys(launchArgs).length > 0) {
+			validateLaunchArgs(launchArgs);
+		}
+
+		if (locale) {
 			try {
 				this.silentAdb("shell", "cmd", "locale", "set-app-locales", packageName, "--locales", locale);
 			} catch (error) {
@@ -157,11 +164,64 @@ export class AndroidRobot implements Robot {
 			}
 		}
 
+		if (launchArgs && Object.keys(launchArgs).length > 0) {
+			// launch arguments require `am start` with an explicit component, so resolve
+			// the launcher activity and pass the extras as string extras (--es).
+			await this.launchWithExtras(packageName, launchArgs);
+			return;
+		}
+
 		try {
 			this.silentAdb("shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1");
 		} catch (error) {
 			throw new ActionableError(`Failed launching app with package name "${packageName}", please make sure it exists`);
 		}
+	}
+
+	private resolveLauncherActivity(packageName: string): string {
+		let text: string;
+		try {
+			text = this.adb("shell", "cmd", "package", "resolve-activity", "--brief", "-c", "android.intent.category.LAUNCHER", packageName).toString();
+		} catch (error) {
+			throw new ActionableError(`Failed resolving a launchable activity for package "${packageName}": ${this.commandErrorDetails(error)}`);
+		}
+
+		const componentPattern = /^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*\/[a-zA-Z0-9_.$]+$/;
+		const components = text
+			.split("\n")
+			.map(line => line.trim())
+			.filter(line => componentPattern.test(line));
+
+		if (components.length !== 1) {
+			throw new ActionableError(`Could not resolve a launchable activity for package "${packageName}", please make sure it exists`);
+		}
+
+		return components[0];
+	}
+
+	private async launchWithExtras(packageName: string, launchArgs: Record<string, string>): Promise<void> {
+		const component = this.resolveLauncherActivity(packageName);
+		const args = ["shell", "am", "start", "-n", component];
+		for (const [key, value] of Object.entries(launchArgs)) {
+			args.push("--es", key, this.quoteShellArgument(value));
+		}
+
+		try {
+			this.silentAdb(...args);
+		} catch (error) {
+			throw new ActionableError(`Failed launching app with package name "${packageName}": ${this.commandErrorDetails(error)}`);
+		}
+	}
+
+	private quoteShellArgument(text: string): string {
+		return `'${text.replace(/'/g, "'\\''")}'`;
+	}
+
+	private commandErrorDetails(error: unknown): string {
+		const commandError = error as { stdout?: Buffer | string; stderr?: Buffer | string; message?: string };
+		const stdout = commandError.stdout?.toString() || "";
+		const stderr = commandError.stderr?.toString() || "";
+		return (stdout + stderr).trim() || commandError.message || String(error);
 	}
 
 	public async listRunningProcesses(): Promise<string[]> {

@@ -1,4 +1,5 @@
 import { Mobilecli } from "./mobilecli";
+import { Simctl } from "./iphone-simulator";
 import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
@@ -82,9 +83,11 @@ const flattenUIElement = (element: UIElementResponse): ScreenElement[] => {
 export class MobileDevice implements Robot {
 
 	private mobilecli: Mobilecli;
+	private simctl: Simctl;
 
 	public constructor(private deviceId: string) {
 		this.mobilecli = new Mobilecli();
+		this.simctl = new Simctl(deviceId);
 	}
 
 	private runCommand(args: string[]): string {
@@ -169,10 +172,15 @@ export class MobileDevice implements Robot {
 		})) as InstalledApp[];
 	}
 
-	public async launchApp(packageName: string, locale?: string): Promise<void> {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>): Promise<void> {
 		const args = ["apps", "launch", packageName];
 		if (locale) {
 			args.push("--locale", locale);
+		}
+
+		if (launchArgs && Object.keys(launchArgs).length > 0) {
+			await this.simctl.launchApp(packageName, locale, launchArgs);
+			return;
 		}
 
 		this.runCommand(args);

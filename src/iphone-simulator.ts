@@ -6,7 +6,7 @@ import { join, basename, extname } from "node:path";
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
 import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
-import { validatePackageName, validateLocale } from "./utils";
+import { validatePackageName, validateLocale, validateLaunchArgs } from "./utils";
 
 export interface Simulator {
 	name: string;
@@ -102,7 +102,7 @@ export class Simctl implements Robot {
 		// alternative: this.simctl("openurl", this.simulatorUuid, url);
 	}
 
-	public async launchApp(packageName: string, locale?: string) {
+	public async launchApp(packageName: string, locale?: string, launchArgs?: Record<string, string>) {
 		validatePackageName(packageName);
 		const args = ["launch", this.simulatorUuid, packageName];
 		if (locale) {
@@ -110,6 +110,16 @@ export class Simctl implements Robot {
 			const locales = locale.split(",").map(l => l.trim());
 			args.push("-AppleLanguages", `(${locales.join(", ")})`);
 			args.push("-AppleLocale", locales[0]);
+		}
+
+		if (launchArgs && Object.keys(launchArgs).length > 0) {
+			// simctl passes trailing arguments to the app as launch arguments, identical
+			// to Xcode's "Arguments Passed On Launch". `-key value` pairs are parsed into
+			// UserDefaults by the OS, so no app changes are needed to read them.
+			validateLaunchArgs(launchArgs);
+			for (const [key, value] of Object.entries(launchArgs)) {
+				args.push(`-${key}`, value);
+			}
 		}
 
 		this.simctl(...args);
