@@ -9,7 +9,7 @@ type ToolAnnotationMatrix = Record<string, ToolAnnotations>;
 
 const expectedAnnotations: ToolAnnotationMatrix = {
 	mobile_list_available_devices: { readOnlyHint: true, openWorldHint: false },
-	mobile_login_to_cloud_provider: { openWorldHint: true },
+	mobile_login_to_cloud_provider: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 	mobile_list_remote_devices: { readOnlyHint: true, openWorldHint: true },
 	mobile_allocate_remote_device: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 	mobile_release_remote_device: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
@@ -41,22 +41,24 @@ test("describes every tool's side effects and interaction domain", async () => {
 	const previousTelemetrySetting = process.env.MOBILEMCP_DISABLE_TELEMETRY;
 	process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
 
-	const server = createMcpServer();
-	const client = new Client({ name: "tool-annotations-test", version: "1.0.0" });
-	const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-
 	try {
-		await server.connect(serverTransport);
-		await client.connect(clientTransport);
+		const server = createMcpServer();
+		const client = new Client({ name: "tool-annotations-test", version: "1.0.0" });
+		const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-		const result = await client.listTools();
-		const actualAnnotations = Object.fromEntries(result.tools.map(tool => [tool.name, tool.annotations]));
+		try {
+			await server.connect(serverTransport);
+			await client.connect(clientTransport);
 
-		expect(actualAnnotations).toEqual(expectedAnnotations);
+			const result = await client.listTools();
+			const actualAnnotations = Object.fromEntries(result.tools.map(tool => [tool.name, tool.annotations]));
+
+			expect(actualAnnotations).toEqual(expectedAnnotations);
+		} finally {
+			await client.close();
+			await server.close();
+		}
 	} finally {
-		await client.close();
-		await server.close();
-
 		if (previousTelemetrySetting === undefined) {
 			delete process.env.MOBILEMCP_DISABLE_TELEMETRY;
 		} else {

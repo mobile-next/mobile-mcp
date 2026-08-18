@@ -319,7 +319,7 @@ export const createMcpServer = (): McpServer => {
 		"The login keeps running in the background after this tool returns; once the user confirms they've completed it, retry the remote devices tool that originally failed. " +
 		"Only call this after the user has explicitly asked to connect to, log into, or use remote/cloud devices - never call it speculatively, since it interrupts the user to act in their browser.",
 		{},
-		{ openWorldHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({}) => {
 			ensureMobilecliAvailable();
 
