@@ -1,3 +1,21 @@
+## [1.0.2](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.2) (2026-08-09)
+
+* Fix: Round coordinates before passing them to mobilecli ([#403](https://github.com/mobile-next/mobile-mcp/pull/403)), thanks to [@a1573595](https://github.com/a1573595)
+* Fix(android): Recurse into mobilecli children when listing UI elements ([#406](https://github.com/mobile-next/mobile-mcp/pull/406))
+
+## [1.0.1](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.1) (2026-08-06)
+
+* Feat(cloud): Improve remote device MCP tools and add Mobile Next Cloud logi ([#398](https://github.com/mobile-next/mobile-mcp/pull/398))
+
+## [1.0.0](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.0) (2026-08-02)
+
+**BREAKING CHANGE**
+Starting from version 1.0.0, mobilecli is used as the backend, instead of the old typescript code.
+If you see any regression, please let us know immediately through a github issue (https://github.com/mobile-next/mobile-mcp/issues)
+You can use environment variable `MOBILEMCP_LEGACY_ROBOT` to force old implementation. Legacy code will be removed 1 month from this notice.
+
+* Feat: Route devices through mobilecli by default ([#396](https://github.com/mobile-next/mobile-mcp/pull/396))
+
 ## [0.0.62](https://github.com/mobile-next/mobile-mcp/releases/tag/0.0.62) (2026-07-11)
 * iOS: Support "-" (hyphen) in iOS bundle identifier ([#377](https://github.com/mobile-next/mobile-mcp/pull/377)), thanks to [@TsurP](https://github.com/TsurP)
 * Fix: Properly resolve symlinks for paths allowlist ([#377](https://github.com/mobile-next/mobile-mcp/pull/377)), thanks to [@TsurP](https://github.com/TsurP)

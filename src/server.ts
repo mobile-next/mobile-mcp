@@ -18,6 +18,7 @@ import { validateOutputPath, validateFileExtension } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
+const LOGIN_PROMPT_TIMEOUT_MS = 15000;
 
 interface MobilecliDevice {
 	id: string;
@@ -66,6 +67,7 @@ export const createMcpServer = (): McpServer => {
 	interface ToolAnnotations {
 		readOnlyHint?: boolean;
 		destructiveHint?: boolean;
+		openWorldHint?: boolean;
 	}
 
 	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: (args: any, telemetry: Record<string, string | number>) => Promise<string>) => {
@@ -120,6 +122,7 @@ export const createMcpServer = (): McpServer => {
 				Version: getAgentVersion(),
 				NodeVersion: process.version,
 				CI: process.env.CI || "0",
+				RobotMode: process.env.MOBILEMCP_LEGACY_ROBOT === "1" ? "legacy" : "mobilecli",
 			};
 
 			const clientName = getClientName();
@@ -150,6 +153,7 @@ export const createMcpServer = (): McpServer => {
 	const mobilecli = new Mobilecli();
 	const activeRecordings = new Map<string, ActiveRecording>();
 	const agentVerifiedSimulators = new Set<string>();
+	const activeLoginProcesses: ChildProcess[] = [];
 	posthog("launch", {}).then();
 
 	const ensureMobilecliAvailable = (): void => {
@@ -168,34 +172,39 @@ export const createMcpServer = (): McpServer => {
 		// from now on, we must have mobilecli working
 		ensureMobilecliAvailable();
 
-		// Check if it's an iOS device
-		const iosManager = new IosManager();
-		const iosDevices = iosManager.listDevices();
-		const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
-		if (iosDevice) {
-			posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
-			return new IosRobot(deviceId);
+		const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
+		if (legacyRobot) {
+			// Check if it's an iOS device
+			const iosManager = new IosManager();
+			const iosDevices = iosManager.listDevices();
+			const iosDevice = iosDevices.find(d => d.deviceId === deviceId);
+			if (iosDevice) {
+				posthog("get_robot", { "DevicePlatform": "ios", "DeviceType": "real" }).then();
+				return new IosRobot(deviceId);
+			}
+
+			// Check if it's an Android device
+			const androidManager = new AndroidDeviceManager();
+			const androidDevices = androidManager.getConnectedDevices();
+			const androidDevice = androidDevices.find(d => d.deviceId === deviceId);
+			if (androidDevice) {
+				posthog("get_robot", { "DevicePlatform": "android", "DeviceType": androidDevice.deviceType }).then();
+				return new AndroidRobot(deviceId);
+			}
 		}
 
-		// Check if it's an Android device
-		const androidManager = new AndroidDeviceManager();
-		const androidDevices = androidManager.getConnectedDevices();
-		const androidDevice = androidDevices.find(d => d.deviceId === deviceId);
-		if (androidDevice) {
-			posthog("get_robot", { "DevicePlatform": "android" }).then();
-			return new AndroidRobot(deviceId);
-		}
-
-		// Check if it's a simulator (will later replace all other device types as well)
-		const response = mobilecli.getDevices({
+		const response = mobilecli.getDevices(legacyRobot ? {
+			platform: "ios",
 			type: "simulator",
+			includeOffline: false,
+		} : {
 			includeOffline: false,
 		});
 
 		if (response.status === "ok" && response.data && response.data.devices) {
 			for (const device of response.data.devices) {
 				if (device.id === deviceId) {
-					if (!agentVerifiedSimulators.has(deviceId)) {
+					if (device.platform === "ios" && device.type === "simulator" && !agentVerifiedSimulators.has(deviceId)) {
 						const agentStatus = mobilecli.agentStatus(deviceId);
 						if (agentStatus.status === "fail") {
 							mobilecli.agentInstall(deviceId);
@@ -204,7 +213,7 @@ export const createMcpServer = (): McpServer => {
 						agentVerifiedSimulators.add(deviceId);
 					}
 
-					posthog("get_robot", { "DevicePlatform": device.platform, "DeviceType": "simulator" }).then();
+					posthog("get_robot", { "DevicePlatform": device.platform, "DeviceType": device.type }).then();
 					return new MobileDevice(deviceId);
 				}
 			}
@@ -216,73 +225,83 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_available_devices",
 		"List Devices",
-		"List all available devices. This includes both physical mobile devices and mobile simulators and emulators. It returns both Android and iOS devices.",
+		"List all available devices. This includes both physical mobile devices and mobile simulators and emulators. It returns both Android and iOS devices. " +
+		"These are local devices already connected to this machine, ready to use immediately at no cost - for devices from the shared remote cloud fleet, use mobile_list_remote_devices instead.",
 		{},
-		{ readOnlyHint: true },
+		{ readOnlyHint: true, openWorldHint: false },
 		async ({}, telemetry) => {
 
 			// from today onward, we must have mobilecli working
 			ensureMobilecliAvailable();
 
-			const iosManager = new IosManager();
-			const androidManager = new AndroidDeviceManager();
 			const devices: MobilecliDevice[] = [];
+			const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
 
-			// Get Android devices with details
-			const androidDevices = androidManager.getConnectedDevicesWithDetails();
-			telemetry.AndroidCount = androidDevices.length;
-			for (const device of androidDevices) {
-				devices.push({
-					id: device.deviceId,
-					name: device.name,
-					platform: "android",
-					type: "emulator",
-					version: device.version,
-					state: "online",
-				});
-			}
+			if (legacyRobot) {
+				const iosManager = new IosManager();
+				const androidManager = new AndroidDeviceManager();
 
-			// Get iOS physical devices with details
-			telemetry.IosRealCount = 0;
-			try {
-				const iosDevices = iosManager.listDevicesWithDetails();
-				telemetry.IosRealCount = iosDevices.length;
-				for (const device of iosDevices) {
+				// Get Android devices with details
+				const androidDevices = androidManager.getConnectedDevicesWithDetails();
+				telemetry.AndroidCount = androidDevices.length;
+				for (const device of androidDevices) {
 					devices.push({
 						id: device.deviceId,
-						name: device.deviceName,
-						platform: "ios",
-						type: "real",
+						name: device.name,
+						platform: "android",
+						type: "emulator",
 						version: device.version,
 						state: "online",
 					});
 				}
-			} catch (error: any) {
-				// If go-ios is not available, silently skip
-			}
 
-			// Get iOS and tvOS simulators from mobilecli, including offline ones so we can
-			// report how many are installed vs booted. only booted ones are returned.
-			const response = mobilecli.getDevices({
-				type: "simulator",
-				includeOffline: true,
-			});
-			telemetry.IosSimInstalledCount = 0;
-			telemetry.IosSimCount = 0;
-			if (response.status === "ok" && response.data && response.data.devices) {
-				const simulators = response.data.devices;
-				const booted = simulators.filter(device => device.state === "online");
-				telemetry.IosSimInstalledCount = simulators.length;
-				telemetry.IosSimCount = booted.length;
-				for (const device of booted) {
-					devices.push({
-						id: device.id,
-						name: device.name,
-						platform: device.platform,
-						type: device.type,
-						version: device.version,
-						state: "online",
-					});
+				// Get iOS physical devices with details
+				telemetry.IosRealCount = 0;
+				try {
+					const iosDevices = iosManager.listDevicesWithDetails();
+					telemetry.IosRealCount = iosDevices.length;
+					for (const device of iosDevices) {
+						devices.push({
+							id: device.deviceId,
+							name: device.deviceName,
+							platform: "ios",
+							type: "real",
+							version: device.version,
+							state: "online",
+						});
+					}
+				} catch (error: any) {
+					// If go-ios is not available, silently skip
+				}
+
+				// Get iOS and tvOS simulators from mobilecli, including offline ones so we can
+				// report how many are installed vs booted. only booted ones are returned.
+				const response = mobilecli.getDevices({
+					type: "simulator",
+					includeOffline: true,
+				});
+				telemetry.IosSimInstalledCount = 0;
+				telemetry.IosSimCount = 0;
+				if (response.status === "ok" && response.data && response.data.devices) {
+					const simulators = response.data.devices;
+					const booted = simulators.filter(device => device.state === "online");
+					telemetry.IosSimInstalledCount = simulators.length;
+					telemetry.IosSimCount = booted.length;
+					devices.push(...booted);
+				}
+			} else {
+				const response = mobilecli.getDevices({ includeOffline: true });
+				telemetry.AndroidCount = 0;
+				telemetry.IosRealCount = 0;
+				telemetry.IosSimInstalledCount = 0;
+				telemetry.IosSimCount = 0;
+				if (response.status === "ok" && response.data && response.data.devices) {
+					const availableDevices = response.data.devices.filter(device => device.state === "online");
+					telemetry.AndroidCount = availableDevices.filter(device => device.platform === "android").length;
+					telemetry.IosRealCount = availableDevices.filter(device => device.platform === "ios" && device.type === "real").length;
+					telemetry.IosSimInstalledCount = response.data.devices.filter(device => device.platform === "ios" && device.type === "simulator").length;
+					telemetry.IosSimCount = availableDevices.filter(device => device.platform === "ios" && device.type === "simulator").length;
+					devices.push(...availableDevices);
 				}
 			}
 
@@ -291,50 +310,140 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	if (process.env.MOBILEFLEET_ENABLE === "1") {
-		tool(
-			"mobile_list_remote_devices",
-			"List Remote Devices",
-			"List devices available in the remote fleet",
-			{},
-			{ readOnlyHint: true },
-			async ({}) => {
-				ensureMobilecliAvailable();
-				const result = mobilecli.remoteListDevices();
-				return result;
-			}
-		);
+	tool(
+		"mobile_login_to_cloud_provider",
+		"Login to Cloud Provider",
+		"Start authenticating this machine with the remote device cloud provider. This is required once before mobile_list_remote_devices or mobile_allocate_remote_device will work; if either of those fails with an authentication error, call this tool and then retry. " +
+		"This starts a browser-based device-code login and returns quickly with a URL and a one-time code - it does NOT wait for the login to complete. Show the URL and code to the user verbatim and ask them to open the URL and enter the code in their own browser. " +
+		"The login keeps running in the background after this tool returns; once the user confirms they've completed it, retry the remote devices tool that originally failed. " +
+		"Only call this after the user has explicitly asked to connect to, log into, or use remote/cloud devices - never call it speculatively, since it interrupts the user to act in their browser.",
+		{},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+		async ({}) => {
+			ensureMobilecliAvailable();
 
-		tool(
-			"mobile_allocate_remote_device",
-			"Allocate Remote Device",
-			"Reserve a device from the remote fleet",
-			{
-				platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
-			},
-			{ destructiveHint: true },
-			async ({ platform }) => {
-				ensureMobilecliAvailable();
-				const result = mobilecli.remoteAllocate(platform);
-				return result;
-			}
-		);
+			const child = mobilecli.spawnRemoteLogin();
+			activeLoginProcesses.push(child);
 
-		tool(
-			"mobile_release_remote_device",
-			"Release Remote Device",
-			"Release a device back to the remote fleet",
-			{
-				device: z.string().describe("The device identifier to release back to the remote fleet"),
-			},
-			{ destructiveHint: true },
-			async ({ device }) => {
-				ensureMobilecliAvailable();
-				const result = mobilecli.remoteRelease(device);
-				return result;
-			}
-		);
-	}
+			const forget = () => {
+				const index = activeLoginProcesses.indexOf(child);
+				if (index !== -1) {
+					activeLoginProcesses.splice(index, 1);
+				}
+			};
+
+			return new Promise<string>((resolve, reject) => {
+				let output = "";
+				let settled = false;
+
+				const promptTimeout = setTimeout(() => {
+					if (!settled) {
+						settled = true;
+						forget();
+						child.kill();
+						reject(new ActionableError(`Timed out waiting for the login prompt from mobilecli. Output so far: ${output.trim() || "(none)"}`));
+					}
+				}, LOGIN_PROMPT_TIMEOUT_MS);
+
+				child.stdout?.on("data", (chunk: Buffer) => {
+					output += chunk.toString();
+
+					if (!settled && output.includes("Waiting for authorization")) {
+						settled = true;
+						clearTimeout(promptTimeout);
+
+						const urlMatch = output.match(/(https?:\/\/\S+)/);
+						const codeMatch = output.match(/enter the code:\s*(\S+)/i);
+
+						if (urlMatch && codeMatch) {
+							resolve(`Authentication to mobilenext.ai started, please open ${urlMatch[1]} and enter the code: ${codeMatch[1]}`);
+						} else {
+							resolve(`Authentication started, please check the output: ${output.trim()}`);
+						}
+					}
+				});
+
+				child.stderr?.on("data", (chunk: Buffer) => {
+					output += chunk.toString();
+				});
+
+				child.on("error", (err: Error) => {
+					forget();
+					if (!settled) {
+						settled = true;
+						clearTimeout(promptTimeout);
+						reject(new ActionableError(`Failed to start login: ${err.message}`));
+					}
+				});
+
+				child.on("exit", (code: number | null) => {
+					forget();
+					if (!settled) {
+						settled = true;
+						clearTimeout(promptTimeout);
+						reject(new ActionableError(`mobilecli auth login exited early (code ${code}). Output: ${output.trim() || "(none)"}`));
+					}
+				});
+			});
+		}
+	);
+
+	tool(
+		"mobile_list_remote_devices",
+		"List Remote Devices",
+		"List the catalog of device models (make, platform, OS version) available to reserve from the remote cloud device fleet. " +
+		"This is different from mobile_list_available_devices, which lists real devices and simulators/emulators already connected to this local machine and ready to use immediately at no cost. " +
+		"Remote devices live in a shared cloud fleet: they are not usable until reserved with mobile_allocate_remote_device, and reserving one may be a limited/billed resource. " +
+		"Requires mobile_login_to_cloud_provider to have been called first; if this fails with an authentication error, call that tool then retry.",
+		{},
+		{ readOnlyHint: true, openWorldHint: true },
+		async ({}) => {
+			ensureMobilecliAvailable();
+			const result = mobilecli.remoteListDevices();
+			return result;
+		}
+	);
+
+	tool(
+		"mobile_allocate_remote_device",
+		"Allocate Remote Device",
+		"Reserve a physical device from the remote cloud fleet for exclusive use, returning a device identifier usable with the other mobile_* tools. " +
+		"Unlike local devices, a remote device is a shared and billed resource borrowed for the session - only call this after the user has explicitly asked to use a remote/cloud device, never speculatively or as a fallback when a local device isn't found. " +
+		"Requires mobile_login_to_cloud_provider to have been called first; if this fails with an authentication error, call that tool then retry. " +
+		"Use mobile_list_remote_devices first to see which names and versions actually exist in the fleet before filtering by them. " +
+		"Release the device with mobile_release_remote_device once the whole task is finished - releasing wipes the device's state, so do not release and reallocate between steps of the same task just to be tidy.",
+		{
+			platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
+			name: z.string().optional().describe("Filter by device name/model. Supports a trailing * for prefix match (e.g. \"iPhone*\"), or an exact name (e.g. \"iPhone 16\")."),
+			version: z.array(z.string()).optional().describe("Filter by OS version. Supports comparison prefixes >=, >, <=, < (e.g. \">=18\"), or an exact version (e.g. \"18.6.2\"). Multiple values are ANDed together."),
+			type: z.enum(["real"]).optional().describe("Device type filter. Currently only \"real\" (physical devices) is supported by the fleet."),
+			wait: z.boolean().optional().describe("If true, block until the device has finished allocating and is ready to use, up to timeoutSeconds. If false/omitted, this returns as soon as the reservation is made, but the device may not be immediately ready."),
+			timeoutSeconds: z.coerce.number().int().positive().optional().describe("Seconds to wait for allocation when wait is true. Defaults to 900 (15 minutes). Only relevant when wait is true."),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+		async ({ platform, name, version, type, wait, timeoutSeconds }) => {
+			ensureMobilecliAvailable();
+			const result = mobilecli.remoteAllocate({ platform, name, version, type, wait, timeoutSeconds });
+			return result;
+		}
+	);
+
+	tool(
+		"mobile_release_remote_device",
+		"Release Remote Device",
+		"Release a device previously reserved with mobile_allocate_remote_device back to the remote cloud fleet so it becomes available to others. " +
+		"Releasing is destructive to the device's state: apps installed, files pushed, and any other changes made during this session are lost, and a later mobile_allocate_remote_device call may take time and could return a different physical unit. " +
+		"Only release once the whole task is finished - if there is more work to do on the same device shortly, keep holding it rather than releasing and reallocating.",
+		{
+			device: z.string().describe("The device identifier to release back to the remote fleet"),
+		},
+		{ readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+		async ({ device }) => {
+			ensureMobilecliAvailable();
+			const result = mobilecli.remoteRelease(device);
+			return result;
+		}
+	);
 
 	tool(
 		"mobile_list_apps",
@@ -343,7 +452,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		{ readOnlyHint: true },
+		{ readOnlyHint: true, openWorldHint: false },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const result = await robot.listApps();
@@ -360,7 +469,7 @@ export const createMcpServer = (): McpServer => {
 			packageName: z.string().describe("The package name of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, packageName, locale }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.launchApp(packageName, locale);
@@ -376,7 +485,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to terminate"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, packageName }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.terminateApp(packageName);
@@ -392,7 +501,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, path }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.installApp(path);
@@ -408,7 +517,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			bundle_id: z.string().describe("Bundle identifier (iOS) or package name (Android) of the app to be uninstalled"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: true, openWorldHint: false },
 		async ({ device, bundle_id }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.uninstallApp(bundle_id);
@@ -423,7 +532,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		{ readOnlyHint: true },
+		{ readOnlyHint: true, openWorldHint: false },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const screenSize = await robot.getScreenSize();
@@ -440,7 +549,7 @@ export const createMcpServer = (): McpServer => {
 			x: z.coerce.number().describe("The x coordinate to click on the screen, in pixels"),
 			y: z.coerce.number().describe("The y coordinate to click on the screen, in pixels"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, x, y }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.tap(x, y);
@@ -457,7 +566,7 @@ export const createMcpServer = (): McpServer => {
 			x: z.coerce.number().describe("The x coordinate to double-tap, in pixels"),
 			y: z.coerce.number().describe("The y coordinate to double-tap, in pixels"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, x, y }) => {
 			const robot = getRobotFromDevice(device);
 			await robot!.doubleTap(x, y);
@@ -475,7 +584,7 @@ export const createMcpServer = (): McpServer => {
 			y: z.coerce.number().describe("The y coordinate to long press on the screen, in pixels"),
 			duration: z.coerce.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, x, y, duration }) => {
 			const robot = getRobotFromDevice(device);
 			const pressDuration = duration ?? 500;
@@ -491,7 +600,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		{ readOnlyHint: true },
+		{ readOnlyHint: true, openWorldHint: true },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const elements = await robot.getElementsOnScreen();
@@ -531,7 +640,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only), UP (tvOS only), DOWN (tvOS only), LEFT (tvOS only), RIGHT (tvOS only), SELECT (tvOS only), MENU (tvOS only), PLAY_PAUSE (tvOS only)"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, button }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.pressButton(button);
@@ -547,7 +656,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			url: z.string().describe("The URL to open"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, url }) => {
 			const allowUnsafeUrls = process.env.MOBILEMCP_ALLOW_UNSAFE_URLS === "1";
 			if (!allowUnsafeUrls && !url.startsWith("http://") && !url.startsWith("https://")) {
@@ -571,7 +680,7 @@ export const createMcpServer = (): McpServer => {
 			y: z.coerce.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			distance: z.coerce.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, direction, x, y, distance }) => {
 			const robot = getRobotFromDevice(device);
 
@@ -597,7 +706,7 @@ export const createMcpServer = (): McpServer => {
 			text: z.string().describe("The text to type"),
 			submit: z.boolean().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key."),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, text, submit }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.sendKeys(text);
@@ -618,7 +727,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			saveTo: z.string().describe("The path to save the screenshot to. Filename must end with .png, .jpg, or .jpeg"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, saveTo }) => {
 			validateFileExtension(saveTo, ALLOWED_SCREENSHOT_EXTENSIONS, "save_screenshot");
 			validateOutputPath(saveTo);
@@ -641,6 +750,7 @@ export const createMcpServer = (): McpServer => {
 			},
 			annotations: {
 				readOnlyHint: true,
+				openWorldHint: true,
 			},
 		},
 		async ({ device }) => {
@@ -703,7 +813,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			orientation: z.enum(["portrait", "landscape"]).describe("The desired orientation"),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, orientation }) => {
 			const robot = getRobotFromDevice(device);
 			await robot.setOrientation(orientation);
@@ -718,7 +828,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
-		{ readOnlyHint: true },
+		{ readOnlyHint: true, openWorldHint: false },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const orientation = await robot.getOrientation();
@@ -735,7 +845,7 @@ export const createMcpServer = (): McpServer => {
 			output: z.string().optional().describe("The file path to save the recording to. Filename must end with .mp4. If not provided, a temporary path will be used."),
 			timeLimit: z.coerce.number().optional().describe("Maximum recording duration in seconds. The recording will stop automatically after this time."),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, output, timeLimit }) => {
 			if (output) {
 				validateFileExtension(output, ALLOWED_RECORDING_EXTENSIONS, "start_screen_recording");
@@ -781,7 +891,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 		},
-		{ destructiveHint: true },
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device }) => {
 			const recording = activeRecordings.get(device);
 			if (!recording) {
@@ -825,7 +935,7 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 		},
-		{ readOnlyHint: true },
+		{ readOnlyHint: true, openWorldHint: true },
 		async ({ device }) => {
 			ensureMobilecliAvailable();
 			const response = mobilecli.crashesList(device);
@@ -841,7 +951,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			id: z.string().describe("The crash report ID to retrieve"),
 		},
-		{ readOnlyHint: true },
+		{ readOnlyHint: true, openWorldHint: true },
 		async ({ device, id }) => {
 			ensureMobilecliAvailable();
 			const response = mobilecli.crashesGet(device, id);

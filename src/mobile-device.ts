@@ -43,6 +43,7 @@ interface UIElementResponse {
 		height: number;
 	};
 	focused?: boolean;
+	children?: UIElementResponse[];
 }
 
 interface DumpUIResponse {
@@ -58,6 +59,25 @@ interface OrientationResponse {
 		orientation: Orientation;
 	};
 }
+
+const flattenUIElement = (element: UIElementResponse): ScreenElement[] => {
+	const screenElement: ScreenElement = {
+		type: element.type,
+		label: element.label,
+		text: element.text,
+		name: element.name,
+		value: element.value,
+		identifier: element.identifier,
+		rect: element.rect,
+		focused: element.focused,
+	};
+
+	if (!element.children) {
+		return [screenElement];
+	}
+
+	return [screenElement, ...element.children.flatMap(child => flattenUIElement(child))];
+};
 
 export class MobileDevice implements Robot {
 
@@ -133,7 +153,7 @@ export class MobileDevice implements Robot {
 				break;
 		}
 
-		this.runCommand(["io", "swipe", `${x},${y},${endX},${endY}`]);
+		this.runCommand(["io", "swipe", `${Math.round(x)},${Math.round(y)},${Math.round(endX)},${Math.round(endY)}`]);
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
@@ -183,7 +203,8 @@ export class MobileDevice implements Robot {
 	}
 
 	public async tap(x: number, y: number): Promise<void> {
-		this.runCommand(["io", "tap", `${x},${y}`]);
+		// mobilecli rejects fractional coordinates ("x and y must be integers")
+		this.runCommand(["io", "tap", `${Math.round(x)},${Math.round(y)}`]);
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
@@ -193,21 +214,12 @@ export class MobileDevice implements Robot {
 	}
 
 	public async longPress(x: number, y: number, duration: number): Promise<void> {
-		this.runCommand(["io", "longpress", `${x},${y}`, "--duration", `${duration}`]);
+		this.runCommand(["io", "longpress", `${Math.round(x)},${Math.round(y)}`, "--duration", `${duration}`]);
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
-		return response.data.elements.map(element => ({
-			type: element.type,
-			label: element.label,
-			text: element.text,
-			name: element.name,
-			value: element.value,
-			identifier: element.identifier,
-			rect: element.rect,
-			focused: element.focused,
-		}));
+		return response.data.elements.flatMap(element => flattenUIElement(element));
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
