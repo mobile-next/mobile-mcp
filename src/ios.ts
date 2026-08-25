@@ -248,7 +248,7 @@ export class IosManager {
 		try {
 			const output = execFileSync(getGoIosPath(), ["version"], { stdio: ["pipe", "pipe", "ignore"] }).toString();
 			const json: VersionCommandOutput = JSON.parse(output);
-			return json.version !== undefined && (json.version.startsWith("v") || json.version === "local-build");
+			return json.version !== undefined && (/^v?\d+\.\d+\.\d+/.test(json.version) || json.version === "local-build");
 		} catch (error) {
 			return false;
 		}

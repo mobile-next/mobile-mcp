@@ -76,6 +76,17 @@ const startStdioServer = async () => {
 		const server = createMcpServer();
 		await server.connect(transport);
 
+		// Exit cleanly on termination signals so node flushes pending work
+		// (including NODE_V8_COVERAGE output). Node's default SIGINT/SIGTERM
+		// handling terminates the process without writing the coverage file,
+		// which makes the `test:mcp` report come back all zeros.
+		const shutdown = () => {
+			process.exit(0);
+		};
+
+		process.on("SIGINT", shutdown);
+		process.on("SIGTERM", shutdown);
+
 		error("mobile-mcp server running on stdio");
 	} catch (err: any) {
 		console.error("Fatal error in main():", err);
