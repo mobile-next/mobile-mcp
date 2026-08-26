@@ -123,6 +123,19 @@ What you will need to connect MCP with your agent and mobile devices:
 
 For iOS **real devices** (simulators and Android don't need these), you'll also need [go-ios](https://github.com/danielpaulus/go-ios), [WebDriverAgent](https://github.com/appium/WebDriverAgent) installed on the device, and an iOS device tunnel. See the [wiki](https://github.com/mobile-next/mobile-mcp/wiki) for setup.
 
+### ☁️ Skip the setup — use a cloud device
+
+Don't want to install any of the above? The same MCP server runs against real iOS and Android devices in [Mobile Next Cloud](https://app.mobilenext.ai) — same tools, same prompts, no local setup. For example, with Claude Code:
+
+```bash
+claude mcp add mobilenext
+claude mcp login mobilenext
+```
+
+Then paste one prompt. A real phone starts working.
+
+Everything below still applies if you'd rather run on your own devices — local is free and open source, and switching between the two is a config change, not a rewrite.
+
 
 ## Installation and configuration
 
@@ -520,7 +533,7 @@ Mobile MCP is one piece of a toolkit for driving real mobile devices:
 
 - **[mobilewright](https://github.com/mobile-next/mobilewright)** — "Playwright for mobile." When you're ready to turn agent-driven exploration into **repeatable, deterministic tests** for iOS and Android, graduate to mobilewright.
 - **[mobilecli](https://github.com/mobile-next/mobilecli)** — the universal device CLI that Mobile MCP is built on: control devices, simulators, and emulators from the command line or a JSON-RPC API.
-- **[Mobile Next Cloud](https://mobilenext.ai)** — run all of it against real iOS and Android devices in the cloud, on demand.
+- **[Mobile Next Cloud](https://app.mobilenext.ai)** — the same stack, rented: real iOS and Android devices on demand. `claude mcp add mobilenext`, log in, paste a prompt. No Xcode, no adb, no cables.
 
 ## 🚀 Roadmap
 
