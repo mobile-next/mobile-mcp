@@ -123,7 +123,6 @@ What you will need to connect MCP with your agent and mobile devices:
 
 For iOS **real devices** (simulators and Android don't need these), you'll also need [go-ios](https://github.com/danielpaulus/go-ios), [WebDriverAgent](https://github.com/appium/WebDriverAgent) installed on the device, and an iOS device tunnel. See the [wiki](https://github.com/mobile-next/mobile-mcp/wiki) for setup.
 
-
 ## Installation and configuration
 
 **Standard config** works in most of the tools:
@@ -366,6 +365,17 @@ Once the server is configured, ask your agent to list devices:
 
 You should get back your running simulators, emulators, and connected devices. If you do, Mobile MCP is wired up correctly. If the list is empty, make sure a simulator or emulator is running (see [Prerequisites](#prerequisites)) — for more help, check the [wiki](https://github.com/mobile-next/mobile-mcp/wiki).
 
+### ☁️ Scale up, use a cloud device
+
+Want to scale to hundreds of devices? Use Mobile MCP in your CI/CD pipeline?
+
+Simply login 
+
+In your Agent, prompt: 
+```text
+log in to mobile next cloud and then show me which remote devices are available to me
+```
+
 ### SSE Server Mode
 
 By default, Mobile MCP runs over stdio. To start an SSE server instead, use the `--listen` flag:
@@ -520,7 +530,7 @@ Mobile MCP is one piece of a toolkit for driving real mobile devices:
 
 - **[mobilewright](https://github.com/mobile-next/mobilewright)** — "Playwright for mobile." When you're ready to turn agent-driven exploration into **repeatable, deterministic tests** for iOS and Android, graduate to mobilewright.
 - **[mobilecli](https://github.com/mobile-next/mobilecli)** — the universal device CLI that Mobile MCP is built on: control devices, simulators, and emulators from the command line or a JSON-RPC API.
-- **[Mobile Next Cloud](https://mobilenext.ai)** — run all of it against real iOS and Android devices in the cloud, on demand.
+- **[Mobile Next Cloud](https://mobilenext.ai/cloud)** — the same stack, rented: real iOS and Android devices on demand. Just prompt your agent: `log in to mobile next cloud and then show me which remote devices are available to me` to get started.
 
 ## 🚀 Roadmap
 
