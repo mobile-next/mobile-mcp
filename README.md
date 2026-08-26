@@ -369,8 +369,6 @@ You should get back your running simulators, emulators, and connected devices. I
 
 Want to scale to hundreds of devices? Use Mobile MCP in your CI/CD pipeline?
 
-Simply login 
-
 In your Agent, prompt: 
 ```text
 log in to mobile next cloud and then show me which remote devices are available to me
@@ -402,7 +400,7 @@ MOBILEMCP_AUTH=my-secret-token npx @mobilenext/mobile-mcp@latest --listen 3000
 
 When set, all requests must include the header `Authorization: Bearer my-secret-token`.
 
-### 🛠️ How to Use 📝
+### 🛠️ How to Use
 
 After adding the MCP server to your IDE/Client, you can instruct your AI assistant to use the available tools.
 For example, in Cursor's agent mode, you could use the prompts below to quickly validate, test and iterate on UI interactions, read information from screen, go through complex workflows.
@@ -466,7 +464,6 @@ Open Zoom app, schedule a meeting titled "AI Hackathon" for tomorrow at
 10AM with a duration of 1 hour, copy the invitation link, and send it via
 Gmail to contacts "team@example.com".
 ```
-[More prompt examples can be found here.](https://github.com/mobile-next/mobile-mcp/wiki/Prompt-Example-repo-list)
 
 ## Running & configuration
 
