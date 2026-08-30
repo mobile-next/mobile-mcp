@@ -1,0 +1,7 @@
+node_modules
+lib
+coverage
+test-results
+.git
+*.png
+*.mp4

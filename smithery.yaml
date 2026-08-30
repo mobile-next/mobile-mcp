@@ -1,0 +1,8 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required: []
+    properties: {}
+  commandFunction: |-
+    () => ({ command: 'npx', args: ['-y', '@mobilenext/mobile-mcp@latest'] })
