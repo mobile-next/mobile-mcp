@@ -5,6 +5,8 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
 
 **Works with Claude Code, Codex, Gemini, GitHub Copilot, Antigravity** — or any MCP-compatible client.
 
+Run it against devices on your own machine, or against real iOS and Android devices in the cloud with **[Mobile Next Cloud](https://mobilenext.ai/cloud?utm_source=github&utm_medium=readme&utm_campaign=mobile-mcp&utm_content=intro)** — same tools, no local setup.
+
 <h4 align="center">
   <a href="https://github.com/mobile-next/mobile-mcp">
     <img src="https://img.shields.io/github/stars/mobile-next/mobile-mcp" alt="Mobile Next Stars" />
@@ -21,7 +23,7 @@ This server allows Agents and LLMs to interact with native iOS/Android applicati
   <a href="https://github.com/mobile-next/mobile-mcp/wiki">
     <img src="https://img.shields.io/badge/documentation-wiki-blue" alt="wiki" />
   </a>
-  <a href="https://mobilenext.ai/join-slack">
+  <a href="https://mobilenext.ai/join-slack?utm_source=github&utm_medium=readme&utm_campaign=mobile-mcp&utm_content=badge">
     <img src="https://img.shields.io/badge/join-Slack-blueviolet?logo=slack&style=flat" alt="join on Slack" />
   </a>
 </h4>
@@ -527,7 +529,7 @@ Mobile MCP is one piece of a toolkit for driving real mobile devices:
 
 - **[mobilewright](https://github.com/mobile-next/mobilewright)** — "Playwright for mobile." When you're ready to turn agent-driven exploration into **repeatable, deterministic tests** for iOS and Android, graduate to mobilewright.
 - **[mobilecli](https://github.com/mobile-next/mobilecli)** — the universal device CLI that Mobile MCP is built on: control devices, simulators, and emulators from the command line or a JSON-RPC API.
-- **[Mobile Next Cloud](https://mobilenext.ai/cloud)** — the same stack, rented: real iOS and Android devices on demand. Just prompt your agent: `log in to mobile next cloud and then show me which remote devices are available to me` to get started.
+- **[Mobile Next Cloud](https://mobilenext.ai/cloud?utm_source=github&utm_medium=readme&utm_campaign=mobile-mcp&utm_content=part-of-mobile-next)** — the same stack, rented: real iOS and Android devices on demand. Just prompt your agent: `log in to mobile next cloud and then show me which remote devices are available to me` to get started.
 
 ## 🚀 Roadmap
 
@@ -540,7 +542,7 @@ Contributions are welcome — code, docs, bug reports, and ideas.
 - ⭐ **[Star the repo](https://github.com/mobile-next/mobile-mcp)** — the easiest way to help others discover Mobile MCP.
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test, and open a pull request.
 - Browse [open issues](https://github.com/mobile-next/mobile-mcp/issues) to find something to work on.
-- Questions and ideas are also welcome in our [Slack community](https://mobilenext.ai/join-slack).
+- Questions and ideas are also welcome in our [Slack community](https://mobilenext.ai/join-slack?utm_source=github&utm_medium=readme&utm_campaign=mobile-mcp&utm_content=contributing).
 
 Please also review our [Code of Conduct](CODE_OF_CONDUCT.md).
 
