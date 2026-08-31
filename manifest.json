@@ -12,6 +12,9 @@
 	"license": "Apache-2.0",
 	"icon": "mobile-mcp.png",
 	"keywords": ["mobile", "android", "ios", "automation", "testing"],
+	"compatibility": {
+		"platforms": ["darwin"]
+	},
 	"server": {
 		"type": "node",
 		"entry_point": "lib/index.js",

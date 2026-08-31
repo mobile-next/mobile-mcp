@@ -74,9 +74,13 @@ jobs:
     runs-on: macos-latest
     needs: build
     if: github.ref_type == 'tag'
+    permissions:
+      contents: read
 
     steps:
     - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
 
     - name: Use Node.js 24
       uses: actions/setup-node@v5
