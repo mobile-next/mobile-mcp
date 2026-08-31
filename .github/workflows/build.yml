@@ -97,7 +97,7 @@ jobs:
         VERSION: ${{ github.ref_name }}
       run: |
         mkdir -p /tmp/mcpb-stage
-        cp -r lib package.json package-lock.json manifest.json mobile-mcp.png /tmp/mcpb-stage/
+        cp -r lib package.json package-lock.json manifest.json icon.png /tmp/mcpb-stage/
         cd /tmp/mcpb-stage
         node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
         npm ci --omit=dev --ignore-scripts

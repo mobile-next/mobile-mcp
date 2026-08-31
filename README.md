@@ -553,3 +553,9 @@ Please also review our [Code of Conduct](CODE_OF_CONDUCT.md).
   <a href = "https://github.com/mobile-next/mobile-mcp/graphs/contributors">
    <img src = "https://contrib.rocks/image?repo=mobile-next/mobile-mcp"/>
  </a>
+
+## Privacy Policy
+
+Mobile MCP runs locally and communicates only with the devices you connect.
+See the Mobile Next privacy policy at https://mobilenext.ai/privacy for data
+collection, usage, retention, and contact information.

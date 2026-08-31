@@ -10,11 +10,12 @@
 	},
 	"homepage": "https://mobilenext.ai/docs",
 	"license": "Apache-2.0",
-	"icon": "mobile-mcp.png",
+	"icon": "icon.png",
 	"keywords": ["mobile", "android", "ios", "automation", "testing"],
 	"compatibility": {
 		"platforms": ["darwin"]
 	},
+	"privacy_policies": ["https://mobilenext.ai/privacy"],
 	"server": {
 		"type": "node",
 		"entry_point": "lib/index.js",
