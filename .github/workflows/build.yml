@@ -68,6 +68,53 @@ jobs:
         mcp-publisher publish
         mcp-publisher logout
 
+  publish_mcpb:
+    # macos runner (arm64) so sharp bundles darwin-arm64 native libs;
+    # the bundle targets macOS Apple Silicon to fit Smithery's 25MB cap
+    runs-on: macos-latest
+    needs: build
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
+
+    - name: Use Node.js 24
+      uses: actions/setup-node@v5
+      with:
+        node-version: '24'
+
+    - name: Build
+      run: |
+        npm ci --ignore-scripts
+        npm run build
+
+    - name: Pack mcpb bundle (darwin-arm64)
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: |
+        mkdir -p /tmp/mcpb-stage
+        cp -r lib package.json package-lock.json manifest.json icon.png /tmp/mcpb-stage/
+        cd /tmp/mcpb-stage
+        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
+        npm version "$VERSION" --no-git-tag-version
+        npm ci --omit=dev --ignore-scripts
+        # trim to darwin-arm64: other platforms' mobilecli binaries and the
+        # sharp wasm fallback push the bundle past Smithery's 25MB cap
+        rm -f node_modules/mobilecli/bin/*windows* node_modules/mobilecli/bin/*linux* node_modules/mobilecli/bin/mobilecli-darwin-amd64
+        rm -rf node_modules/@img/sharp-wasm32
+        npx -y @anthropic-ai/mcpb pack . /tmp/mobile-mcp.mcpb
+        ls -lh /tmp/mobile-mcp.mcpb
+
+    - name: Publish to Smithery
+      env:
+        SMITHERY_API_KEY: ${{ secrets.SMITHERY_API_KEY }}
+      run: |
+        npx -y @smithery/cli mcp publish /tmp/mobile-mcp.mcpb -n mobile-next/mobile-mcp
+
   e2e_test:
     runs-on: self-hosted
     needs: build

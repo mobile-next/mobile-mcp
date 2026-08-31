@@ -1,0 +1,27 @@
+{
+	"manifest_version": "0.3",
+	"name": "mobile-mcp",
+	"display_name": "Mobile MCP",
+	"version": "1.0.2",
+	"description": "Mobile automation for AI agents: control Android and iOS devices, emulators and simulators — launch apps, tap, swipe, type, take screenshots, read the accessibility tree.",
+	"author": {
+		"name": "Mobile Next",
+		"url": "https://mobilenext.ai"
+	},
+	"homepage": "https://mobilenext.ai/docs",
+	"license": "Apache-2.0",
+	"icon": "icon.png",
+	"keywords": ["mobile", "android", "ios", "automation", "testing"],
+	"compatibility": {
+		"platforms": ["darwin"]
+	},
+	"privacy_policies": ["https://mobilenext.ai/privacy"],
+	"server": {
+		"type": "node",
+		"entry_point": "lib/index.js",
+		"mcp_config": {
+			"command": "node",
+			"args": ["${__dirname}/lib/index.js"]
+		}
+	}
+}
