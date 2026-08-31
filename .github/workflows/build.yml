@@ -100,6 +100,7 @@ jobs:
         cp -r lib package.json package-lock.json manifest.json icon.png /tmp/mcpb-stage/
         cd /tmp/mcpb-stage
         node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
+        npm version "$VERSION" --no-git-tag-version
         npm ci --omit=dev --ignore-scripts
         # trim to darwin-arm64: other platforms' mobilecli binaries and the
         # sharp wasm fallback push the bundle past Smithery's 25MB cap
