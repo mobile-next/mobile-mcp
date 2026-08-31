@@ -30,7 +30,7 @@ export interface MobilecliAgentStatusResponse {
 
 export interface MobilecliDevicesOptions {
 	includeOffline?: boolean;
-	platform?: "ios" | "android";
+	platform?: "ios" | "android" | "tvos";
 	type?: "real" | "emulator" | "simulator";
 }
 
@@ -51,7 +51,7 @@ export interface MobilecliDeviceProvider {
 export interface MobilecliDevice {
 	id: string;
 	name: string;
-	platform: "android" | "ios";
+	platform: "android" | "ios" | "tvos";
 	type: "real" | "emulator" | "simulator";
 	version: string;
 	state: "online" | "offline";
@@ -235,8 +235,8 @@ export class Mobilecli {
 			}
 
 			if (options.platform) {
-				if (options.platform !== "ios" && options.platform !== "android") {
-					throw new Error(`Invalid platform: ${options.platform}. Must be "ios" or "android"`);
+				if (options.platform !== "ios" && options.platform !== "android" && options.platform !== "tvos") {
+					throw new Error(`Invalid platform: ${options.platform}. Must be "ios", "android" or "tvos"`);
 				}
 
 				args.push("--platform", options.platform);
