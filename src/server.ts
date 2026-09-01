@@ -727,8 +727,8 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			saveTo: z.string().describe("The path to save the screenshot to. Filename must end with .png, .jpg, or .jpeg"),
-			maxSize: z.number().optional().describe("Maximum width/height in pixels, keeping aspect ratio. Omit for full size."),
-			scale: z.number().optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
+			maxSize: z.number().int().positive().optional().describe("Maximum width/height in pixels, keeping aspect ratio. Omit for full size."),
+			scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, saveTo, maxSize, scale }) => {
@@ -739,6 +739,13 @@ export const createMcpServer = (): McpServer => {
 
 			const format = saveTo.toLowerCase().endsWith(".png") ? "png" : "jpeg";
 			const screenshot = await robot.getScreenshot({ format, maxSize, scale });
+
+			// legacy robots ignore the requested format and always return a png
+			const isPng = screenshot.length > 0 && screenshot[0] === 0x89;
+			if (format === "jpeg" && isPng) {
+				throw new ActionableError("This device only supports png screenshots, save to a .png file instead.");
+			}
+
 			fs.writeFileSync(saveTo, screenshot);
 			return `Screenshot saved to: ${saveTo}`;
 		}
@@ -751,8 +758,8 @@ export const createMcpServer = (): McpServer => {
 			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 			inputSchema: {
 				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-				maxSize: z.number().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
-				scale: z.number().optional().describe("Scale factor (0.0-1.0). Overrides maxSize when provided."),
+				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
+				scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Overrides maxSize when provided."),
 			},
 			annotations: {
 				readOnlyHint: true,

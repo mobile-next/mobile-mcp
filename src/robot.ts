@@ -69,10 +69,9 @@ export interface Robot {
 	swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void>;
 
 	/**
-	 * Get a screenshot of the screen. Returns a Buffer that contains
-	 * a PNG image of the screen. Will be same dimensions as getScreenSize().
-	 * Robots that support it may honor options (format, quality, scale);
-	 * others ignore them and return a full-size PNG.
+	 * Get a screenshot of the screen. Returns a PNG image by default.
+	 * Robots that support it may honor options (format, quality, scale,
+	 * maxSize); others ignore them and return a full-size PNG.
 	 */
 	getScreenshot(options?: ScreenshotOptions): Promise<Buffer>;
 
