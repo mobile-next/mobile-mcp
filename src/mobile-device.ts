@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, SwipeDirection } from "./robot";
+import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -156,8 +156,21 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "swipe", `${Math.round(x)},${Math.round(y)},${Math.round(endX)},${Math.round(endY)}`]);
 	}
 
-	public async getScreenshot(): Promise<Buffer> {
-		const fullArgs = ["screenshot", "--device", this.deviceId, "--format", "png", "--output", "-"];
+	public async getScreenshot(options?: ScreenshotOptions): Promise<Buffer> {
+		const format = options?.format || "png";
+		const fullArgs = ["screenshot", "--device", this.deviceId, "--format", format, "--output", "-"];
+		if (format === "jpeg" && options?.quality) {
+			fullArgs.push("--quality", `${options.quality}`);
+		}
+
+		if (options?.maxSize) {
+			fullArgs.push("--max-size", `${options.maxSize}`);
+		}
+
+		if (options?.scale && options.scale !== 1) {
+			fullArgs.push("--scale", `${options.scale}`);
+		}
+
 		return this.mobilecli.executeCommandBuffer(fullArgs);
 	}
 

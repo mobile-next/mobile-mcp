@@ -11,12 +11,12 @@ import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Robot } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
-import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension } from "./utils";
 
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
+const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
 
@@ -727,15 +727,18 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			saveTo: z.string().describe("The path to save the screenshot to. Filename must end with .png, .jpg, or .jpeg"),
+			maxSize: z.number().optional().describe("Maximum width/height in pixels, keeping aspect ratio. Omit for full size."),
+			scale: z.number().optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-		async ({ device, saveTo }) => {
+		async ({ device, saveTo, maxSize, scale }) => {
 			validateFileExtension(saveTo, ALLOWED_SCREENSHOT_EXTENSIONS, "save_screenshot");
 			validateOutputPath(saveTo);
 
 			const robot = getRobotFromDevice(device);
 
-			const screenshot = await robot.getScreenshot();
+			const format = saveTo.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+			const screenshot = await robot.getScreenshot({ format, maxSize, scale });
 			fs.writeFileSync(saveTo, screenshot);
 			return `Screenshot saved to: ${saveTo}`;
 		}
@@ -747,40 +750,36 @@ export const createMcpServer = (): McpServer => {
 			title: "Take Screenshot",
 			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 			inputSchema: {
-				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+				maxSize: z.number().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
+				scale: z.number().optional().describe("Scale factor (0.0-1.0). Overrides maxSize when provided."),
 			},
 			annotations: {
 				readOnlyHint: true,
 				openWorldHint: true,
 			},
 		},
-		async ({ device }) => {
+		async ({ device, maxSize, scale }) => {
 			try {
 				const robot = getRobotFromDevice(device);
-				const screenSize = await robot.getScreenSize();
 
-				let screenshot = await robot.getScreenshot();
-				let mimeType = "image/png";
+				// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
+				const screenshot = await robot.getScreenshot(scale !== undefined
+					? { format: "jpeg", quality: 75, scale }
+					: { format: "jpeg", quality: 75, maxSize: maxSize ?? DEFAULT_SCREENSHOT_MAX_SIZE });
 
-				// validate we received a png, will throw exception otherwise
-				const image = new PNG(screenshot);
-				const pngSize = image.getDimensions();
-				if (pngSize.width <= 0 || pngSize.height <= 0) {
-					throw new ActionableError("Screenshot is invalid. Please try again.");
-				}
+				const isJpeg = screenshot.length > 2 && screenshot[0] === 0xff && screenshot[1] === 0xd8;
+				let mimeType = "image/jpeg";
+				if (!isJpeg) {
+					mimeType = "image/png";
 
-				if (isScalingAvailable()) {
-					trace("Image scaling is available, resizing screenshot");
-					const image = Image.fromBuffer(screenshot);
-					const beforeSize = screenshot.length;
-					screenshot = image.resize(Math.floor(pngSize.width / screenSize.scale))
-						.jpeg({ quality: 75 })
-						.toBuffer();
+					// validate we received a png, will throw exception otherwise
+					const image = new PNG(screenshot);
+					const pngSize = image.getDimensions();
+					if (pngSize.width <= 0 || pngSize.height <= 0) {
+						throw new ActionableError("Screenshot is invalid. Please try again.");
+					}
 
-					const afterSize = screenshot.length;
-					trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
-
-					mimeType = "image/jpeg";
 				}
 
 				const screenshot64 = screenshot.toString("base64");
@@ -789,8 +788,6 @@ export const createMcpServer = (): McpServer => {
 					"ToolName": "mobile_take_screenshot",
 					"ScreenshotFilesize": screenshot64.length,
 					"ScreenshotMimeType": mimeType,
-					"ScreenshotWidth": pngSize.width,
-					"ScreenshotHeight": pngSize.height,
 				}).then();
 
 				return {

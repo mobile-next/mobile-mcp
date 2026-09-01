@@ -45,6 +45,13 @@ export class ActionableError extends Error {
 
 export type Orientation = "portrait" | "landscape";
 
+export interface ScreenshotOptions {
+	format?: "png" | "jpeg";
+	quality?: number;
+	scale?: number;
+	maxSize?: number;
+}
+
 export interface Robot {
 	/**
 	 * Get the screen size of the device in pixels.
@@ -64,8 +71,10 @@ export interface Robot {
 	/**
 	 * Get a screenshot of the screen. Returns a Buffer that contains
 	 * a PNG image of the screen. Will be same dimensions as getScreenSize().
+	 * Robots that support it may honor options (format, quality, scale);
+	 * others ignore them and return a full-size PNG.
 	 */
-	getScreenshot(): Promise<Buffer>;
+	getScreenshot(options?: ScreenshotOptions): Promise<Buffer>;
 
 	/**
 	 * List all installed apps on the device. Returns an array of package names (or
