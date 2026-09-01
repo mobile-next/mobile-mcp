@@ -8,7 +8,7 @@ import { ChildProcess } from "node:child_process";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
-import { ActionableError, Robot } from "./robot";
+import { ActionableError, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { Mobilecli } from "./mobilecli";
@@ -759,7 +759,7 @@ export const createMcpServer = (): McpServer => {
 			inputSchema: {
 				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
-				scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Overrides maxSize when provided."),
+				scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
 			},
 			annotations: {
 				readOnlyHint: true,
@@ -771,9 +771,17 @@ export const createMcpServer = (): McpServer => {
 				const robot = getRobotFromDevice(device);
 
 				// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
-				const screenshot = await robot.getScreenshot(scale !== undefined
-					? { format: "jpeg", quality: 75, scale }
-					: { format: "jpeg", quality: 75, maxSize: maxSize ?? DEFAULT_SCREENSHOT_MAX_SIZE });
+				// maxSize wins over scale (same precedence as mobilecli); the default applies only when neither is given
+				const options: ScreenshotOptions = { format: "jpeg", quality: 75 };
+				if (maxSize !== undefined) {
+					options.maxSize = maxSize;
+				} else if (scale !== undefined) {
+					options.scale = scale;
+				} else {
+					options.maxSize = DEFAULT_SCREENSHOT_MAX_SIZE;
+				}
+
+				const screenshot = await robot.getScreenshot(options);
 
 				const isJpeg = screenshot.length > 2 && screenshot[0] === 0xff && screenshot[1] === 0xd8;
 				let mimeType = "image/jpeg";
