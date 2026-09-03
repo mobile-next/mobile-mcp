@@ -49,4 +49,21 @@ test.describe("MobileDevice", () => {
 			expect(calls[0]).toEqual(["io", "tap", "450,785", "--device", "test-device"]);
 		});
 	});
+
+	test.describe("element state", () => {
+
+		test("getElementsOnScreen should keep ref, selected, checked and enabled from dump ui", async () => {
+			const dump = { status: "ok", data: { elements: [{
+				ref: "e1", type: "Switch", label: "Wi-Fi", rect: { x: 0, y: 0, width: 100, height: 40 },
+				selected: true, checked: true, enabled: false,
+				children: [{ ref: "e2", type: "Text", text: "child", rect: { x: 0, y: 0, width: 10, height: 10 } }],
+			}] } };
+			const { device } = createMockMobileDevice(JSON.stringify(dump));
+			const elements = await device.getElementsOnScreen();
+
+			expect(elements.map(e => e.ref)).toEqual(["e1", "e2"]);
+			expect(elements[0]).toMatchObject({ selected: true, checked: true, enabled: false });
+			expect(elements[1].selected).toBeUndefined();
+		});
+	});
 });

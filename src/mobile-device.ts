@@ -30,6 +30,7 @@ interface DeviceInfoResponse {
 }
 
 interface UIElementResponse {
+	ref?: string;
 	type: string;
 	label?: string;
 	text?: string;
@@ -43,6 +44,9 @@ interface UIElementResponse {
 		height: number;
 	};
 	focused?: boolean;
+	selected?: boolean;
+	checked?: boolean;
+	enabled?: boolean;
 	children?: UIElementResponse[];
 }
 
@@ -69,7 +73,11 @@ const flattenUIElement = (element: UIElementResponse): ScreenElement[] => {
 		value: element.value,
 		identifier: element.identifier,
 		rect: element.rect,
+		ref: element.ref,
 		focused: element.focused,
+		selected: element.selected,
+		checked: element.checked,
+		enabled: element.enabled,
 	};
 
 	if (!element.children) {

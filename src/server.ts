@@ -605,6 +605,7 @@ export const createMcpServer = (): McpServer => {
 
 			const result = elements.map(element => {
 				const out: any = {
+					ref: element.ref,
 					type: element.type,
 					text: element.text,
 					label: element.label,
@@ -619,8 +620,21 @@ export const createMcpServer = (): McpServer => {
 					},
 				};
 
+				// only emit non-default states, otherwise don't confuse llm
 				if (element.focused) {
 					out.focused = true;
+				}
+
+				if (element.selected) {
+					out.selected = true;
+				}
+
+				if (element.checked) {
+					out.checked = true;
+				}
+
+				if (element.enabled === false) {
+					out.enabled = false;
 				}
 
 				return out;
