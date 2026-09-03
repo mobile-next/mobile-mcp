@@ -53,6 +53,14 @@ interface DumpUIResponse {
 	};
 }
 
+interface ForegroundAppResponse {
+	status: "ok",
+	data: {
+		packageName: string;
+		appName?: string;
+	};
+}
+
 interface OrientationResponse {
 	status: "ok",
 	data: {
@@ -167,6 +175,14 @@ export class MobileDevice implements Robot {
 			appName: app.appName || app.packageName,
 			packageName: app.packageName,
 		})) as InstalledApp[];
+	}
+
+	public async getForegroundApp(): Promise<InstalledApp> {
+		const response = JSON.parse(this.runCommand(["apps", "foreground"])) as ForegroundAppResponse;
+		return {
+			appName: response.data.appName || response.data.packageName,
+			packageName: response.data.packageName,
+		};
 	}
 
 	public async launchApp(packageName: string, locale?: string): Promise<void> {

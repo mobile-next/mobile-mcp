@@ -459,6 +459,25 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_get_foreground_app",
+		"Get Foreground App",
+		"Get the app currently in the foreground on the device. Use this to verify which app or screen you are on before interacting with it.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+		},
+		{ readOnlyHint: true, openWorldHint: false },
+		async ({ device }) => {
+			const robot = getRobotFromDevice(device);
+			if (!robot.getForegroundApp) {
+				throw new ActionableError("Getting the foreground app is not supported in legacy robot mode");
+			}
+
+			const app = await robot.getForegroundApp();
+			return `Foreground app: ${app.appName} (${app.packageName})`;
+		}
+	);
+
+	tool(
 		"mobile_launch_app",
 		"Launch App",
 		"Launch an app on mobile device. Use this to open a specific app. You can find the package name of the app by calling list_apps_on_device.",

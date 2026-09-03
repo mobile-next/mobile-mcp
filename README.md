@@ -75,6 +75,7 @@ How we help to scale mobile automation:
 
 ### App Management
 - **`mobile_list_apps`** - List all installed apps on the device
+- **`mobile_get_foreground_app`** - Get the app currently in the foreground
 - **`mobile_launch_app`** - Launch an app using its package name
 - **`mobile_terminate_app`** - Stop and terminate a running app
 - **`mobile_install_app`** - Install an app from file (.apk, .ipa, .app, .zip)
