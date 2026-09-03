@@ -32,8 +32,14 @@ export interface ScreenElement {
 	identifier?: string;
 	rect: ScreenElementRect;
 
+	// short reference from the latest ui dump (e.g. "e5"), mobilecli only
+	ref?: string;
+
 	// currently only on android tv
 	focused?: boolean;
+	selected?: boolean;
+	checked?: boolean;
+	enabled?: boolean;
 }
 
 export class ActionableError extends Error {
