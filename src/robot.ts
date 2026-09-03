@@ -80,6 +80,11 @@ export interface Robot {
 	listApps(): Promise<InstalledApp[]>;
 
 	/**
+	 * Get the app currently in the foreground. Optional, not all robots support it.
+	 */
+	getForegroundApp?(): Promise<InstalledApp>;
+
+	/**
 	 * Launch an app.
 	 */
 	launchApp(packageName: string, locale?: string): Promise<void>;

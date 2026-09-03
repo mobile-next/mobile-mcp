@@ -14,6 +14,7 @@ const expectedAnnotations: ToolAnnotationMatrix = {
 	mobile_allocate_remote_device: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 	mobile_release_remote_device: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
 	mobile_list_apps: { readOnlyHint: true, openWorldHint: false },
+	mobile_get_foreground_app: { readOnlyHint: true, openWorldHint: false },
 	mobile_launch_app: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 	mobile_terminate_app: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 	mobile_install_app: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },

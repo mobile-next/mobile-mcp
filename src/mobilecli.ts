@@ -118,7 +118,10 @@ export class Mobilecli {
 		const normalizedPlatform = platform === "win32" ? "windows" : platform;
 		const normalizedArch = arch === "arm64" ? "arm64" : "amd64";
 		const ext = platform === "win32" ? ".exe" : "";
-		const binaryName = `mobilecli-${normalizedPlatform}-${normalizedArch}${ext}`;
+		const scopedPackage = `mobilecli-${normalizedPlatform}-${normalizedArch}`;
+		const binaryName = `${scopedPackage}${ext}`;
+
+		const nodeModulesRoots: string[] = [];
 
 		// Check if mobile-mcp is installed as a package
 		const currentPath = __filename;
@@ -127,22 +130,25 @@ export class Mobilecli {
 
 		if (lastNodeModulesIndex !== -1) {
 			// We're inside node_modules, go to the last node_modules in the path
-			const nodeModulesParts = pathParts.slice(0, lastNodeModulesIndex + 1);
-			const lastNodeModulesPath = nodeModulesParts.join(sep);
-			const mobilecliPath = join(lastNodeModulesPath, "mobilecli", "bin", binaryName);
-
-			if (existsSync(mobilecliPath)) {
-				return mobilecliPath;
-			}
+			nodeModulesRoots.push(pathParts.slice(0, lastNodeModulesIndex + 1).join(sep));
 		}
 
 		// Not in node_modules, look one directory up from current script
-		const scriptDir = dirname(__filename);
-		const parentDir = dirname(scriptDir);
-		const mobilecliPath = join(parentDir, "node_modules", "mobilecli", "bin", binaryName);
+		nodeModulesRoots.push(join(dirname(dirname(__filename)), "node_modules"));
 
-		if (existsSync(mobilecliPath)) {
-			return mobilecliPath;
+		for (const root of nodeModulesRoots) {
+			// mobilecli <= 1.0.6 shipped the binary in its own bin directory
+			const legacyPath = join(root, "mobilecli", "bin", binaryName);
+			if (existsSync(legacyPath)) {
+				return legacyPath;
+			}
+
+			// mobilecli >= 1.0.7 ships per-platform binaries in scoped packages
+			const scopedPath = join(root, "@mobilenext", scopedPackage, binaryName);
+			if (existsSync(scopedPath)) {
+				return scopedPath;
+			}
+
 		}
 
 		throw new Error(`Could not find mobilecli binary for platform: ${platform}`);
