@@ -49,4 +49,15 @@ test.describe("MobileDevice", () => {
 			expect(calls[0]).toEqual(["io", "tap", "450,785", "--device", "test-device"]);
 		});
 	});
+
+	test.describe("foreground app", () => {
+
+		test("getForegroundApp should call mobilecli apps foreground and fall back to package name when app name is missing", async () => {
+			const { device, calls } = createMockMobileDevice(JSON.stringify({ status: "ok", data: { packageName: "com.example.app" } }));
+			const app = await device.getForegroundApp();
+
+			expect(calls[0]).toEqual(["apps", "foreground", "--device", "test-device"]);
+			expect(app).toEqual({ appName: "com.example.app", packageName: "com.example.app" });
+		});
+	});
 });
