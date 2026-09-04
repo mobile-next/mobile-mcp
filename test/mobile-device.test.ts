@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { EventEmitter } from "node:events";
 
 import { MobileDevice } from "../src/mobile-device";
 
@@ -115,22 +116,49 @@ test.describe("MobileDevice", () => {
 
 	test.describe("logs", () => {
 
-		test("getLogs should pass limit and each filter as a repeated --filter flag", async () => {
-			const { device, calls } = createMockMobileDevice("{}");
-			const logs = await device.getLogs(50, ["tag=ActivityManager", "level!=Debug"], 1000);
-
-			expect(calls[0]).toEqual(["device", "logs", "--limit", "50", "--filter", "tag=ActivityManager", "--filter", "level!=Debug", "--device", "test-device"]);
-			expect(logs).toBe("{}");
-		});
-
-		test("getLogs should return partial output when mobilecli times out before reaching the limit", async () => {
-			const { device } = createMockMobileDevice("");
-			(device as any).mobilecli.executeCommand = function(): string {
-				throw Object.assign(new Error("timed out"), { code: "ETIMEDOUT", stdout: "{\"a\":1}\n" });
+		function createMockLogStream(exitCode: number | null): { device: MobileDevice; calls: string[][]; child: any } {
+			const { device, calls } = createMockMobileDevice("");
+			const child = new EventEmitter() as any;
+			child.stdout = new EventEmitter();
+			child.stderr = new EventEmitter();
+			child.killed = false;
+			child.kill = () => {
+				child.killed = true;
+				child.emit("close", null);
+			};
+			(device as any).mobilecli.spawnCommand = function(args: string[]): any {
+				calls.push(args);
+				if (exitCode !== null) {
+					setImmediate(() => child.emit("close", exitCode));
+				}
+				return child;
 			};
 
-			const logs = await device.getLogs(50, [], 1000);
-			expect(logs).toBe("{\"a\":1}");
+			return { device, calls, child };
+		}
+
+		test("getLogs should pass limit and each filter as a repeated --filter flag", async () => {
+			const { device, calls } = createMockLogStream(0);
+			await device.getLogs(50, ["tag=ActivityManager", "level!=Debug"], 1000);
+
+			expect(calls[0]).toEqual(["device", "logs", "--limit", "50", "--filter", "tag=ActivityManager", "--filter", "level!=Debug", "--device", "test-device"]);
+		});
+
+		test("getLogs should return captured output once the stream goes silent for timeoutMs", async () => {
+			const { device, child } = createMockLogStream(null);
+			const pending = device.getLogs(50, [], 50);
+			child.stdout.emit("data", Buffer.from("{\"a\":1}\n"));
+
+			expect(await pending).toBe("{\"a\":1}");
+			expect(child.killed).toBe(true);
+		});
+
+		test("getLogs should reject when mobilecli exits with an error", async () => {
+			const { device, child } = createMockLogStream(1);
+			const pending = device.getLogs(5, [], 1000);
+			child.stderr.emit("data", Buffer.from("no such device"));
+
+			await expect(pending).rejects.toThrow("no such device");
 		});
 	});
 });

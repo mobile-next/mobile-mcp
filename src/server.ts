@@ -863,8 +863,8 @@ export const createMcpServer = (): McpServer => {
 		"Override the GPS location reported by the device, or clear the override to restore the real location. Omit latitude and longitude to clear.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			latitude: z.number().optional().describe("Latitude in decimal degrees, e.g. 37.7749. Omit together with longitude to clear the override."),
-			longitude: z.number().optional().describe("Longitude in decimal degrees, e.g. -122.4194. Omit together with latitude to clear the override."),
+			latitude: z.number().min(-90).max(90).optional().describe("Latitude in decimal degrees, e.g. 37.7749. Omit together with longitude to clear the override."),
+			longitude: z.number().min(-180).max(180).optional().describe("Longitude in decimal degrees, e.g. -122.4194. Omit together with latitude to clear the override."),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, latitude, longitude }) => {

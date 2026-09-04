@@ -278,17 +278,44 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "clipboard", "set", text]);
 	}
 
-	public async getLogs(limit: number, filters: string[], timeoutMs: number): Promise<string> {
+	public getLogs(limit: number, filters: string[], timeoutMs: number): Promise<string> {
 		const args = ["device", "logs", "--limit", String(limit), ...filters.flatMap(filter => ["--filter", filter]), "--device", this.deviceId];
-		try {
-			return this.mobilecli.executeCommand(args, timeoutMs);
-		} catch (err: any) {
-			// ponytail: quiet device never reaches limit, keep whatever was streamed before the timeout
-			if (err.code === "ETIMEDOUT" && err.stdout !== undefined) {
-				return err.stdout.toString().trim();
-			}
+		const child = this.mobilecli.spawnCommand(args, true);
 
-			throw err;
-		}
+		return new Promise((resolve, reject) => {
+			const stdout: Buffer[] = [];
+			const stderr: Buffer[] = [];
+			let silenceTimer: NodeJS.Timeout;
+
+			// kill the stream once no log entry arrived for timeoutMs, then return what was captured
+			const restartSilenceTimer = () => {
+				clearTimeout(silenceTimer);
+				silenceTimer = setTimeout(() => child.kill(), timeoutMs);
+			};
+
+			child.stdout?.on("data", (chunk: Buffer) => {
+				stdout.push(chunk);
+				restartSilenceTimer();
+			});
+
+			child.stderr?.on("data", (chunk: Buffer) => stderr.push(chunk));
+
+			child.on("error", err => {
+				clearTimeout(silenceTimer);
+				reject(err);
+			});
+
+			child.on("close", code => {
+				clearTimeout(silenceTimer);
+				if (code !== 0 && !child.killed) {
+					reject(new Error(`mobilecli device logs failed with code ${code}: ${Buffer.concat(stderr).toString().trim()}`));
+					return;
+				}
+
+				resolve(Buffer.concat(stdout).toString().trim());
+			});
+
+			restartSilenceTimer();
+		});
 	}
 }

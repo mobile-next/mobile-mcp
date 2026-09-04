@@ -91,10 +91,10 @@ export class Mobilecli {
 		return execFileSync(path, args, options).toString().trim();
 	}
 
-	public spawnCommand(args: string[]): ChildProcess {
+	public spawnCommand(args: string[], captureOutput = false): ChildProcess {
 		const binaryPath = this.getPath();
 		return spawn(binaryPath, args, {
-			stdio: ["ignore", "ignore", "ignore"],
+			stdio: ["ignore", captureOutput ? "pipe" : "ignore", captureOutput ? "pipe" : "ignore"],
 		});
 	}
 
