@@ -61,7 +61,7 @@ How we help to scale mobile automation:
 | Target | Supported | Setup |
 |---|:---:|---|
 | iOS Simulator | ✅ | Xcode + a booted simulator (`xcrun simctl`) |
-| iOS Real Device | ✅ | go-ios + WebDriverAgent + tunnel |
+| iOS Real Device | ✅ | Device connected over USB and trusted |
 | Android Emulator | ✅ | Android SDK + running emulator (`adb`) |
 | Android Real Device | ✅ | `adb` + USB debugging enabled & authorized |
 
@@ -123,8 +123,6 @@ What you will need to connect MCP with your agent and mobile devices:
 - [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
 - [node.js](https://nodejs.org/en/download/) v20+
 - [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
-
-For iOS **real devices** (simulators and Android don't need these), you'll also need [go-ios](https://github.com/danielpaulus/go-ios), [WebDriverAgent](https://github.com/appium/WebDriverAgent) installed on the device, and an iOS device tunnel. See the [wiki](https://github.com/mobile-next/mobile-mcp/wiki) for setup.
 
 ## Installation and configuration
 
