@@ -77,4 +77,60 @@ test.describe("MobileDevice", () => {
 			expect(app).toEqual({ appName: "com.example.app", packageName: "com.example.app" });
 		});
 	});
+
+	test.describe("location", () => {
+
+		test("setLocation should call mobilecli device location set with lat,lng", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.setLocation(37.7749, -122.4194);
+
+			expect(calls[0]).toEqual(["device", "location", "set", "37.7749,-122.4194", "--device", "test-device"]);
+		});
+
+		test("clearLocation should call mobilecli device location clear", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.clearLocation();
+
+			expect(calls[0]).toEqual(["device", "location", "clear", "--device", "test-device"]);
+		});
+	});
+
+	test.describe("clipboard", () => {
+
+		test("getClipboard should call mobilecli io clipboard get and return the text", async () => {
+			const { device, calls } = createMockMobileDevice(JSON.stringify({ status: "ok", data: { text: "hello" } }));
+			const text = await device.getClipboard();
+
+			expect(calls[0]).toEqual(["io", "clipboard", "get", "--device", "test-device"]);
+			expect(text).toBe("hello");
+		});
+
+		test("setClipboard should call mobilecli io clipboard set with the text", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.setClipboard("hello");
+
+			expect(calls[0]).toEqual(["io", "clipboard", "set", "hello", "--device", "test-device"]);
+		});
+	});
+
+	test.describe("logs", () => {
+
+		test("getLogs should pass limit and each filter as a repeated --filter flag", async () => {
+			const { device, calls } = createMockMobileDevice("{}");
+			const logs = await device.getLogs(50, ["tag=ActivityManager", "level!=Debug"], 1000);
+
+			expect(calls[0]).toEqual(["device", "logs", "--limit", "50", "--filter", "tag=ActivityManager", "--filter", "level!=Debug", "--device", "test-device"]);
+			expect(logs).toBe("{}");
+		});
+
+		test("getLogs should return partial output when mobilecli times out before reaching the limit", async () => {
+			const { device } = createMockMobileDevice("");
+			(device as any).mobilecli.executeCommand = function(): string {
+				throw Object.assign(new Error("timed out"), { code: "ETIMEDOUT", stdout: "{\"a\":1}\n" });
+			};
+
+			const logs = await device.getLogs(50, [], 1000);
+			expect(logs).toBe("{\"a\":1}");
+		});
+	});
 });

@@ -72,6 +72,12 @@ interface OrientationResponse {
 	};
 }
 
+interface ClipboardResponse {
+	data: {
+		text: string;
+	};
+}
+
 const flattenUIElement = (element: UIElementResponse): ScreenElement[] => {
 	const screenElement: ScreenElement = {
 		type: element.type,
@@ -253,5 +259,36 @@ export class MobileDevice implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
 		return response.data.orientation;
+	}
+
+	public async setLocation(latitude: number, longitude: number): Promise<void> {
+		this.runCommand(["device", "location", "set", `${latitude},${longitude}`]);
+	}
+
+	public async clearLocation(): Promise<void> {
+		this.runCommand(["device", "location", "clear"]);
+	}
+
+	public async getClipboard(): Promise<string> {
+		const response = JSON.parse(this.runCommand(["io", "clipboard", "get"])) as ClipboardResponse;
+		return response.data.text;
+	}
+
+	public async setClipboard(text: string): Promise<void> {
+		this.runCommand(["io", "clipboard", "set", text]);
+	}
+
+	public async getLogs(limit: number, filters: string[], timeoutMs: number): Promise<string> {
+		const args = ["device", "logs", "--limit", String(limit), ...filters.flatMap(filter => ["--filter", filter]), "--device", this.deviceId];
+		try {
+			return this.mobilecli.executeCommand(args, timeoutMs);
+		} catch (err: any) {
+			// ponytail: quiet device never reaches limit, keep whatever was streamed before the timeout
+			if (err.code === "ETIMEDOUT" && err.stdout !== undefined) {
+				return err.stdout.toString().trim();
+			}
+
+			throw err;
+		}
 	}
 }
