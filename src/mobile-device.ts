@@ -72,6 +72,12 @@ interface OrientationResponse {
 	};
 }
 
+interface ClipboardResponse {
+	data: {
+		text: string;
+	};
+}
+
 const flattenUIElement = (element: UIElementResponse): ScreenElement[] => {
 	const screenElement: ScreenElement = {
 		type: element.type,
@@ -253,5 +259,63 @@ export class MobileDevice implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
 		return response.data.orientation;
+	}
+
+	public async setLocation(latitude: number, longitude: number): Promise<void> {
+		this.runCommand(["device", "location", "set", `${latitude},${longitude}`]);
+	}
+
+	public async clearLocation(): Promise<void> {
+		this.runCommand(["device", "location", "clear"]);
+	}
+
+	public async getClipboard(): Promise<string> {
+		const response = JSON.parse(this.runCommand(["io", "clipboard", "get"])) as ClipboardResponse;
+		return response.data.text;
+	}
+
+	public async setClipboard(text: string): Promise<void> {
+		this.runCommand(["io", "clipboard", "set", text]);
+	}
+
+	public getLogs(limit: number, filters: string[], timeoutMs: number): Promise<string> {
+		const args = ["device", "logs", "--limit", String(limit), ...filters.flatMap(filter => ["--filter", filter]), "--device", this.deviceId];
+		const child = this.mobilecli.spawnCommand(args, true);
+
+		return new Promise((resolve, reject) => {
+			const stdout: Buffer[] = [];
+			const stderr: Buffer[] = [];
+			let silenceTimer: NodeJS.Timeout;
+
+			// kill the stream once no log entry arrived for timeoutMs, then return what was captured
+			const restartSilenceTimer = () => {
+				clearTimeout(silenceTimer);
+				silenceTimer = setTimeout(() => child.kill(), timeoutMs);
+			};
+
+			child.stdout?.on("data", (chunk: Buffer) => {
+				stdout.push(chunk);
+				restartSilenceTimer();
+			});
+
+			child.stderr?.on("data", (chunk: Buffer) => stderr.push(chunk));
+
+			child.on("error", err => {
+				clearTimeout(silenceTimer);
+				reject(err);
+			});
+
+			child.on("close", code => {
+				clearTimeout(silenceTimer);
+				if (code !== 0 && !child.killed) {
+					reject(new Error(`mobilecli device logs failed with code ${code}: ${Buffer.concat(stderr).toString().trim()}`));
+					return;
+				}
+
+				resolve(Buffer.concat(stdout).toString().trim());
+			});
+
+			restartSilenceTimer();
+		});
 	}
 }

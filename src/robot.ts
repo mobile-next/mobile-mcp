@@ -85,6 +85,32 @@ export interface Robot {
 	getForegroundApp?(): Promise<InstalledApp>;
 
 	/**
+	 * Override the GPS location reported by the device. Optional, not all robots support it.
+	 */
+	setLocation?(latitude: number, longitude: number): Promise<void>;
+
+	/**
+	 * Remove the GPS location override. Optional, not all robots support it.
+	 */
+	clearLocation?(): Promise<void>;
+
+	/**
+	 * Read the device clipboard. Optional, not all robots support it.
+	 */
+	getClipboard?(): Promise<string>;
+
+	/**
+	 * Replace the device clipboard. Optional, not all robots support it.
+	 */
+	setClipboard?(text: string): Promise<void>;
+
+	/**
+	 * Collect device logs until `limit` entries arrive or `timeoutMs` passes. Returns raw NDJSON lines.
+	 * Filters use key=value or key!=value syntax. Optional, not all robots support it.
+	 */
+	getLogs?(limit: number, filters: string[], timeoutMs: number): Promise<string>;
+
+	/**
 	 * Launch an app.
 	 */
 	launchApp(packageName: string, locale?: string): Promise<void>;

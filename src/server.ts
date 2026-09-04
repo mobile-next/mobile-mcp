@@ -16,6 +16,11 @@ import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension } from "./utils";
 
+const ALLOWED_LOG_EXTENSIONS = [".log", ".txt", ".jsonl"];
+const DEFAULT_DEVICE_LOG_ENTRIES = 100;
+const MAX_DEVICE_LOG_ENTRIES = 10000;
+const DEVICE_LOG_TIMEOUT_MS = 30000;
+const DEVICE_LOG_FILTER_PATTERN = /^(pid|process|tag|level|subsystem|category|message)!?=.+$/;
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
@@ -849,6 +854,93 @@ export const createMcpServer = (): McpServer => {
 			const robot = getRobotFromDevice(device);
 			await robot.setOrientation(orientation);
 			return `Changed device orientation to ${orientation}`;
+		}
+	);
+
+	tool(
+		"mobile_set_location",
+		"Set Location",
+		"Override the GPS location reported by the device, or clear the override to restore the real location. Omit latitude and longitude to clear.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			latitude: z.number().min(-90).max(90).optional().describe("Latitude in decimal degrees, e.g. 37.7749. Omit together with longitude to clear the override."),
+			longitude: z.number().min(-180).max(180).optional().describe("Longitude in decimal degrees, e.g. -122.4194. Omit together with latitude to clear the override."),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+		async ({ device, latitude, longitude }) => {
+			const robot = getRobotFromDevice(device);
+			if (!robot.setLocation || !robot.clearLocation) {
+				throw new ActionableError("Setting location is not supported in legacy robot mode");
+			}
+
+			if (latitude === undefined && longitude === undefined) {
+				await robot.clearLocation();
+				return "Cleared location override";
+			}
+
+			if (latitude === undefined || longitude === undefined) {
+				throw new ActionableError("Both latitude and longitude are required to set a location");
+			}
+
+			await robot.setLocation(latitude, longitude);
+			return `Set device location to ${latitude},${longitude}`;
+		}
+	);
+
+	tool(
+		"mobile_clipboard",
+		"Clipboard",
+		"Read or replace the device clipboard. Pass text to set the clipboard, omit it to read the current clipboard.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			text: z.string().optional().describe("Text to place on the clipboard. Omit to read the clipboard instead."),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+		async ({ device, text }) => {
+			const robot = getRobotFromDevice(device);
+			if (!robot.getClipboard || !robot.setClipboard) {
+				throw new ActionableError("Clipboard is not supported in legacy robot mode");
+			}
+
+			if (text === undefined) {
+				return await robot.getClipboard();
+			}
+
+			await robot.setClipboard(text);
+			return "Clipboard updated";
+		}
+	);
+
+	tool(
+		"mobile_get_device_logs",
+		"Get Device Logs",
+		"Collect live device logs (logcat on Android, unified log on iOS) as one JSON object per line. Only logs emitted after the call starts are captured, so trigger the behavior you want to observe right before or during the call. Stops after `limit` entries or after 30 seconds of silence. Each line of a stack trace counts as one entry, so filter by process or tag to avoid filling the limit with noise. Start with a small limit (20-50) for a quick look. For large captures, pass `saveTo` to write logs to a file and only the entry count is returned.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			limit: z.number().int().min(1).max(MAX_DEVICE_LOG_ENTRIES).default(DEFAULT_DEVICE_LOG_ENTRIES).describe("Stop after this many log entries"),
+			filter: z.array(z.string().regex(DEVICE_LOG_FILTER_PATTERN, "Filter must be key=value or key!=value with key in: pid, process, tag, level, subsystem, category, message")).default([]).describe("Filters, ANDed together. key=value includes, key!=value excludes. Keys: pid, process, tag, level, subsystem, category, message. Example: [\"tag=ActivityManager\", \"level=Error\", \"process!=SpringBoard\"]"),
+			saveTo: z.string().optional().describe("Path to write the logs to instead of returning them. Filename must end with .log, .txt, or .jsonl"),
+		},
+		{ readOnlyHint: true, openWorldHint: true },
+		async ({ device, limit, filter, saveTo }) => {
+			if (saveTo) {
+				validateFileExtension(saveTo, ALLOWED_LOG_EXTENSIONS, "get_device_logs");
+				validateOutputPath(saveTo);
+			}
+
+			const robot = getRobotFromDevice(device);
+			if (!robot.getLogs) {
+				throw new ActionableError("Device logs are not supported in legacy robot mode");
+			}
+
+			const logs = await robot.getLogs(limit, filter, DEVICE_LOG_TIMEOUT_MS);
+			if (!saveTo) {
+				return logs || "No log entries received";
+			}
+
+			fs.writeFileSync(saveTo, logs + "\n");
+			const lineCount = logs ? logs.split("\n").length : 0;
+			return `Saved ${lineCount} log entries to: ${saveTo}`;
 		}
 	);
 

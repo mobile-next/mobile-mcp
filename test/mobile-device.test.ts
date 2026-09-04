@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { EventEmitter } from "node:events";
 
 import { MobileDevice } from "../src/mobile-device";
 
@@ -75,6 +76,89 @@ test.describe("MobileDevice", () => {
 
 			expect(calls[0]).toEqual(["apps", "foreground", "--device", "test-device"]);
 			expect(app).toEqual({ appName: "com.example.app", packageName: "com.example.app" });
+		});
+	});
+
+	test.describe("location", () => {
+
+		test("setLocation should call mobilecli device location set with lat,lng", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.setLocation(37.7749, -122.4194);
+
+			expect(calls[0]).toEqual(["device", "location", "set", "37.7749,-122.4194", "--device", "test-device"]);
+		});
+
+		test("clearLocation should call mobilecli device location clear", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.clearLocation();
+
+			expect(calls[0]).toEqual(["device", "location", "clear", "--device", "test-device"]);
+		});
+	});
+
+	test.describe("clipboard", () => {
+
+		test("getClipboard should call mobilecli io clipboard get and return the text", async () => {
+			const { device, calls } = createMockMobileDevice(JSON.stringify({ status: "ok", data: { text: "hello" } }));
+			const text = await device.getClipboard();
+
+			expect(calls[0]).toEqual(["io", "clipboard", "get", "--device", "test-device"]);
+			expect(text).toBe("hello");
+		});
+
+		test("setClipboard should call mobilecli io clipboard set with the text", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.setClipboard("hello");
+
+			expect(calls[0]).toEqual(["io", "clipboard", "set", "hello", "--device", "test-device"]);
+		});
+	});
+
+	test.describe("logs", () => {
+
+		function createMockLogStream(exitCode: number | null): { device: MobileDevice; calls: string[][]; child: any } {
+			const { device, calls } = createMockMobileDevice("");
+			const child = new EventEmitter() as any;
+			child.stdout = new EventEmitter();
+			child.stderr = new EventEmitter();
+			child.killed = false;
+			child.kill = () => {
+				child.killed = true;
+				child.emit("close", null);
+			};
+			(device as any).mobilecli.spawnCommand = function(args: string[]): any {
+				calls.push(args);
+				if (exitCode !== null) {
+					setImmediate(() => child.emit("close", exitCode));
+				}
+				return child;
+			};
+
+			return { device, calls, child };
+		}
+
+		test("getLogs should pass limit and each filter as a repeated --filter flag", async () => {
+			const { device, calls } = createMockLogStream(0);
+			await device.getLogs(50, ["tag=ActivityManager", "level!=Debug"], 1000);
+
+			expect(calls[0]).toEqual(["device", "logs", "--limit", "50", "--filter", "tag=ActivityManager", "--filter", "level!=Debug", "--device", "test-device"]);
+		});
+
+		test("getLogs should return captured output once the stream goes silent for timeoutMs", async () => {
+			const { device, child } = createMockLogStream(null);
+			const pending = device.getLogs(50, [], 50);
+			child.stdout.emit("data", Buffer.from("{\"a\":1}\n"));
+
+			expect(await pending).toBe("{\"a\":1}");
+			expect(child.killed).toBe(true);
+		});
+
+		test("getLogs should reject when mobilecli exits with an error", async () => {
+			const { device, child } = createMockLogStream(1);
+			const pending = device.getLogs(5, [], 1000);
+			child.stderr.emit("data", Buffer.from("no such device"));
+
+			await expect(pending).rejects.toThrow("no such device");
 		});
 	});
 });
