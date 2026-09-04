@@ -72,6 +72,14 @@ How we help to scale mobile automation:
 - **`mobile_get_screen_size`** - Get the screen size of the mobile device in pixels
 - **`mobile_get_orientation`** - Get the current screen orientation of the device
 - **`mobile_set_orientation`** - Change the screen orientation (portrait/landscape)
+- **`mobile_set_location`** - Override the GPS location reported by the device, or clear the override
+- **`mobile_clipboard`** - Read or replace the device clipboard
+
+### Remote Devices (Mobile Next Cloud)
+- **`mobile_login_to_cloud_provider`** - Authenticate this machine with the cloud device provider (browser-based device-code login)
+- **`mobile_list_remote_devices`** - List device models available to reserve from the cloud fleet
+- **`mobile_allocate_remote_device`** - Reserve a physical cloud device for exclusive use
+- **`mobile_release_remote_device`** - Release a reserved cloud device back to the fleet
 
 ### App Management
 - **`mobile_list_apps`** - List all installed apps on the device
@@ -97,7 +105,8 @@ How we help to scale mobile automation:
 - **`mobile_press_button`** - Press device buttons (HOME, BACK, VOLUME_UP/DOWN, ENTER, etc.)
 - **`mobile_open_url`** - Open URLs in the device browser
 
-### Crash Reports
+### Logs & Crash Reports
+- **`mobile_get_device_logs`** - Collect live device logs (logcat on Android, unified log on iOS), optionally saved to a file
 - **`mobile_list_crashes`** - List crash reports available on the device
 - **`mobile_get_crash`** - Get the full content of a crash report by its ID
 
