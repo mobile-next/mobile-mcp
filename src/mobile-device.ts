@@ -159,15 +159,15 @@ export class MobileDevice implements Robot {
 	public async getScreenshot(options?: ScreenshotOptions): Promise<Buffer> {
 		const format = options?.format || "png";
 		const fullArgs = ["screenshot", "--device", this.deviceId, "--format", format, "--output", "-"];
-		if (format === "jpeg" && options?.quality) {
+		if (format === "jpeg" && options?.quality !== undefined) {
 			fullArgs.push("--quality", `${options.quality}`);
 		}
 
-		if (options?.maxSize) {
+		if (options?.maxSize !== undefined) {
 			fullArgs.push("--max-size", `${options.maxSize}`);
 		}
 
-		if (options?.scale && options.scale !== 1) {
+		if (options?.scale !== undefined && options.scale !== 1) {
 			fullArgs.push("--scale", `${options.scale}`);
 		}
 
