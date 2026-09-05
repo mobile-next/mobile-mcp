@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
+import { ActionableError, Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -114,8 +114,17 @@ export class MobileDevice implements Robot {
 		return this.mobilecli.executeCommand(fullArgs);
 	}
 
+	private runJsonCommand<T>(args: string[]): T {
+		const output = this.runCommand(args);
+		try {
+			return JSON.parse(output) as T;
+		} catch {
+			throw new ActionableError(`Failed to parse JSON response from mobilecli ${args.join(" ")}`);
+		}
+	}
+
 	public async getScreenSize(): Promise<ScreenSize> {
-		const response = JSON.parse(this.runCommand(["device", "info"])) as DeviceInfoResponse;
+		const response = this.runJsonCommand<DeviceInfoResponse>(["device", "info"]);
 		if (response.data.device.screenSize) {
 			return response.data.device.screenSize;
 		}
@@ -197,7 +206,7 @@ export class MobileDevice implements Robot {
 	}
 
 	public async listApps(): Promise<InstalledApp[]> {
-		const response = JSON.parse(this.runCommand(["apps", "list"])) as InstalledAppsResponse;
+		const response = this.runJsonCommand<InstalledAppsResponse>(["apps", "list"]);
 		return response.data.map(app => ({
 			appName: app.appName || app.packageName,
 			packageName: app.packageName,
@@ -205,7 +214,7 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getForegroundApp(): Promise<InstalledApp> {
-		const response = JSON.parse(this.runCommand(["apps", "foreground"])) as ForegroundAppResponse;
+		const response = this.runJsonCommand<ForegroundAppResponse>(["apps", "foreground"]);
 		return {
 			appName: response.data.appName || response.data.packageName,
 			packageName: response.data.packageName,
@@ -261,7 +270,7 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const response = JSON.parse(this.runCommand(["dump", "ui"])) as DumpUIResponse;
+		const response = this.runJsonCommand<DumpUIResponse>(["dump", "ui"]);
 		return response.data.elements.flatMap(element => flattenUIElement(element));
 	}
 
@@ -270,7 +279,7 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getOrientation(): Promise<Orientation> {
-		const response = JSON.parse(this.runCommand(["device", "orientation", "get"])) as OrientationResponse;
+		const response = this.runJsonCommand<OrientationResponse>(["device", "orientation", "get"]);
 		return response.data.orientation;
 	}
 
@@ -283,7 +292,7 @@ export class MobileDevice implements Robot {
 	}
 
 	public async getClipboard(): Promise<string> {
-		const response = JSON.parse(this.runCommand(["io", "clipboard", "get"])) as ClipboardResponse;
+		const response = this.runJsonCommand<ClipboardResponse>(["io", "clipboard", "get"]);
 		return response.data.text;
 	}
 
