@@ -23,6 +23,7 @@ const DEVICE_LOG_FILTER_PATTERN = /^(pid|process|tag|level|subsystem|category|me
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
+const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
 
 interface MobilecliDevice {
@@ -525,6 +526,11 @@ export const createMcpServer = (): McpServer => {
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, path }) => {
+			validateFileExtension(path, ALLOWED_APP_EXTENSIONS, "install_app");
+			if (!fs.existsSync(path)) {
+				throw new ActionableError(`App file not found: ${path}`);
+			}
+
 			const robot = getRobotFromDevice(device);
 			await robot.installApp(path);
 			return `Installed app from ${path}`;
@@ -568,8 +574,8 @@ export const createMcpServer = (): McpServer => {
 		"Click on the screen at given x,y coordinates. If clicking on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.coerce.number().describe("The x coordinate to click on the screen, in pixels"),
-			y: z.coerce.number().describe("The y coordinate to click on the screen, in pixels"),
+			x: z.coerce.number().min(0).describe("The x coordinate to click on the screen, in pixels"),
+			y: z.coerce.number().min(0).describe("The y coordinate to click on the screen, in pixels"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, x, y }) => {
@@ -585,8 +591,8 @@ export const createMcpServer = (): McpServer => {
 		"Double-tap on the screen at given x,y coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.coerce.number().describe("The x coordinate to double-tap, in pixels"),
-			y: z.coerce.number().describe("The y coordinate to double-tap, in pixels"),
+			x: z.coerce.number().min(0).describe("The x coordinate to double-tap, in pixels"),
+			y: z.coerce.number().min(0).describe("The y coordinate to double-tap, in pixels"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, x, y }) => {
@@ -602,8 +608,8 @@ export const createMcpServer = (): McpServer => {
 		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.coerce.number().describe("The x coordinate to long press on the screen, in pixels"),
-			y: z.coerce.number().describe("The y coordinate to long press on the screen, in pixels"),
+			x: z.coerce.number().min(0).describe("The x coordinate to long press on the screen, in pixels"),
+			y: z.coerce.number().min(0).describe("The y coordinate to long press on the screen, in pixels"),
 			duration: z.coerce.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
@@ -712,8 +718,8 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
-			x: z.coerce.number().optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			y: z.coerce.number().optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			x: z.coerce.number().min(0).optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			y: z.coerce.number().min(0).optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			distance: z.coerce.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
