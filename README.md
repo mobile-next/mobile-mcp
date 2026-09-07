@@ -1,6 +1,9 @@
 # Mobile Next - MCP server for Mobile Development and Automation | iOS, Android, Simulator, Emulator, and Real Devices
 
-This is a [Model Context Protocol (MCP) server](https://github.com/modelcontextprotocol) that enables scalable mobile automation, development through a platform-agnostic interface, eliminating the need for distinct iOS or Android knowledge. You can run it on emulators, simulators, and real devices (iOS and Android).
+**English** | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
+
+This is an MCP Server that enables scalable mobile automation, development through a platform-agnostic interface, eliminating the need for distinct iOS or Android knowledge. You can run it on emulators, simulators, and real devices (iOS and Android).
+
 This server allows Agents and LLMs to interact with native iOS/Android applications and devices through structured accessibility snapshots or coordinate-based taps based on screenshots.
 
 **Works with Claude Code, Codex, Gemini, GitHub Copilot, Antigravity** — or any MCP-compatible client.
@@ -379,7 +382,7 @@ You should get back your running simulators, emulators, and connected devices. I
 
 Want to scale to hundreds of devices? Use Mobile MCP in your CI/CD pipeline?
 
-In your Agent, prompt: 
+In your Agent, prompt:
 ```text
 log in to mobile next cloud and then show me which remote devices are available to me
 ```
