@@ -161,6 +161,11 @@ export interface Robot {
 	tap(x: number, y: number): Promise<void>;
 
 	/**
+	 * Tap on the center of an element by its ref from the latest getElementsOnScreen (e.g. "@e5"). mobilecli only.
+	 */
+	tapByRef?(ref: string): Promise<void>;
+
+	/**
 	 * Tap on a specific coordinate on the screen.
 	 */
 	doubleTap(x: number, y: number): Promise<void>;

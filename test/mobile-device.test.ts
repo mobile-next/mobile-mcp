@@ -43,6 +43,13 @@ test.describe("MobileDevice", () => {
 			expect(calls[0]).toEqual(["io", "swipe", "101,300,101,-100", "--device", "test-device"]);
 		});
 
+		test("tapByRef should pass the element ref to mobilecli io tap", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.tapByRef("@e5");
+
+			expect(calls[0]).toEqual(["io", "tap", "@e5", "--device", "test-device"]);
+		});
+
 		test("tap should keep integer coordinates unchanged", async () => {
 			const { device, calls } = createMockMobileDevice("");
 			await device.tap(450, 785);
