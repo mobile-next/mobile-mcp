@@ -76,7 +76,13 @@ export const createMcpServer = (): McpServer => {
 		openWorldHint?: boolean;
 	}
 
-	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: (args: any, telemetry: Record<string, string | number>) => Promise<string>) => {
+	type ToolCallback = (args: any, telemetry: Record<string, string | number>) => Promise<string>;
+
+	// ponytail: batch calls tool callbacks directly, bypassing mcp transport
+	const toolCallbacks: Record<string, ToolCallback> = {};
+
+	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: ToolCallback) => {
+		toolCallbacks[name] = cb;
 		server.registerTool(name, {
 			title,
 			description,
@@ -1097,6 +1103,55 @@ export const createMcpServer = (): McpServer => {
 			ensureMobilecliAvailable();
 			const response = mobilecli.crashesGet(device, id);
 			return response.data.content;
+		}
+	);
+
+	tool(
+		"mobile_batch_commands",
+		"Batch Commands",
+		"Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			steps: z.array(z.object({
+				name: z.string().describe("Tool name, e.g. mobile_click_on_screen_at_coordinates"),
+				arguments: z.record(z.string(), z.any()).describe("Arguments for the tool, same as calling it directly"),
+			})).min(1).describe("Tools to run, in order"),
+			stopOnError: z.boolean().optional().describe("Stop at the first failing step. Defaults to true"),
+			listElementsAtEnd: z.boolean().optional().describe("Run mobile_list_elements_on_screen after the last step and include its result. Defaults to false"),
+		},
+		{ readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+		async ({ device, steps, stopOnError, listElementsAtEnd }, telemetry) => {
+			const shouldStopOnError = stopOnError ?? true;
+			const results: string[] = [];
+			telemetry.StepCount = steps.length;
+
+			for (let i = 0; i < steps.length; i++) {
+				const step = steps[i];
+				if (step.name === "mobile_batch_commands") {
+					throw new ActionableError("mobile_batch_commands cannot be nested");
+				}
+
+				const cb = toolCallbacks[step.name];
+				if (!cb) {
+					throw new ActionableError(`Unknown tool in step ${i + 1}: ${step.name}`);
+				}
+
+				try {
+					const output = await cb({ device, ...step.arguments }, {});
+					results.push(`Step ${i + 1} (${step.name}): ${output}`);
+				} catch (error: any) {
+					results.push(`Step ${i + 1} (${step.name}) failed: ${error.message}`);
+					if (shouldStopOnError) {
+						break;
+					}
+				}
+			}
+
+			if (listElementsAtEnd) {
+				results.push(await toolCallbacks["mobile_list_elements_on_screen"]({ device }, {}));
+			}
+
+			return results.join("\n");
 		}
 	);
 
