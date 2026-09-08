@@ -79,10 +79,10 @@ export const createMcpServer = (): McpServer => {
 	type ToolCallback = (args: any, telemetry: Record<string, string | number>) => Promise<string>;
 
 	// ponytail: batch calls tool callbacks directly, bypassing mcp transport
-	const toolCallbacks: Record<string, ToolCallback> = {};
+	const toolCallbacks = new Map<string, { callback: ToolCallback; paramsSchema: ZodSchemaShape }>();
 
 	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: ToolCallback) => {
-		toolCallbacks[name] = cb;
+		toolCallbacks.set(name, { callback: cb, paramsSchema });
 		server.registerTool(name, {
 			title,
 			description,
@@ -1131,13 +1131,18 @@ export const createMcpServer = (): McpServer => {
 					throw new ActionableError("mobile_batch_commands cannot be nested");
 				}
 
-				const cb = toolCallbacks[step.name];
-				if (!cb) {
+				if (step.name === "mobile_take_screenshot") {
+					throw new ActionableError("mobile_take_screenshot returns an image and cannot be used in a batch, use mobile_save_screenshot instead");
+				}
+
+				const entry = toolCallbacks.get(step.name);
+				if (!entry) {
 					throw new ActionableError(`Unknown tool in step ${i + 1}: ${step.name}`);
 				}
 
 				try {
-					const output = await cb({ device, ...step.arguments }, {});
+					const args = z.object(entry.paramsSchema).parse({ device, ...step.arguments });
+					const output = await entry.callback(args, {});
 					results.push(`Step ${i + 1} (${step.name}): ${output}`);
 				} catch (error: any) {
 					results.push(`Step ${i + 1} (${step.name}) failed: ${error.message}`);
@@ -1148,7 +1153,7 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			if (listElementsAtEnd) {
-				results.push(await toolCallbacks["mobile_list_elements_on_screen"]({ device }, {}));
+				results.push(await toolCallbacks.get("mobile_list_elements_on_screen")!.callback({ device }, {}));
 			}
 
 			return results.join("\n");

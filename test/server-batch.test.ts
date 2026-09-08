@@ -51,3 +51,25 @@ test("stops at the first failing step by default", async () => {
 	expect(text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
 	expect(text).not.toContain("Step 2");
 });
+
+test("rejects a step named after an inherited object property", async () => {
+	const client = await createConnectedClient();
+	const text = await runBatch(client, { device: "nope", steps: [{ name: "constructor", arguments: {} }] });
+	expect(text).toContain("Unknown tool in step 1: constructor");
+});
+
+test("rejects mobile_take_screenshot with a hint to use mobile_save_screenshot", async () => {
+	const client = await createConnectedClient();
+	const text = await runBatch(client, { device: "nope", steps: [{ name: "mobile_take_screenshot", arguments: {} }] });
+	expect(text).toContain("use mobile_save_screenshot instead");
+});
+
+test("validates step arguments against the target tool schema", async () => {
+	const client = await createConnectedClient();
+	const text = await runBatch(client, {
+		device: "nope",
+		steps: [{ name: "mobile_click_on_screen_at_coordinates", arguments: { x: "not-a-number", y: 1 } }],
+	});
+	expect(text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
+	expect(text).toContain("x");
+});
