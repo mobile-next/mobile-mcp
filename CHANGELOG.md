@@ -15,6 +15,7 @@
 * Fix: Resolve mobilecli binary from scoped `@mobilenext` packages ([#419](https://github.com/mobile-next/mobile-mcp/pull/419))
 * Chore: Correct destructive/readOnly tool annotation hints ([#408](https://github.com/mobile-next/mobile-mcp/pull/408))
 * Docs: Translate README to Japanese and Simplified Chinese ([#426](https://github.com/mobile-next/mobile-mcp/pull/426))
+* Chore: Upgrade bundled mobilecli from 1.0.0 to 1.0.9 via mobilewright 0.0.57 ([#417](https://github.com/mobile-next/mobile-mcp/pull/417), [#428](https://github.com/mobile-next/mobile-mcp/pull/428))
 * Feat: Per-platform npm packages, npm now downloads only the binary for the current platform ([mobilecli#134](https://github.com/mobile-next/mobilecli/pull/134))
 * Feat: On-screen keyboard excluded from `dump ui` by default, use `full` boolean to include it ([mobilecli#398](https://github.com/mobile-next/mobilecli/pull/398))
 * Fix(iOS): Don't fail device listing when one device is untrusted ([mobilecli#373](https://github.com/mobile-next/mobilecli/pull/373))
