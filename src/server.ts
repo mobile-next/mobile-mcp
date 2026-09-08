@@ -173,7 +173,21 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
+	// cache per device id, saves ~0.2s (mobilecli --version + devices) on every tool call
+	const robotCache = new Map<string, Robot>();
+
 	const getRobotFromDevice = (deviceId: string): Robot => {
+		const cached = robotCache.get(deviceId);
+		if (cached) {
+			return cached;
+		}
+
+		const robot = createRobotFromDevice(deviceId);
+		robotCache.set(deviceId, robot);
+		return robot;
+	};
+
+	const createRobotFromDevice = (deviceId: string): Robot => {
 
 		// from now on, we must have mobilecli working
 		ensureMobilecliAvailable();
