@@ -259,6 +259,10 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "tap", `${Math.round(x)},${Math.round(y)}`]);
 	}
 
+	public async tapByRef(ref: string): Promise<void> {
+		this.runCommand(["io", "tap", ref]);
+	}
+
 	public async doubleTap(x: number, y: number): Promise<void> {
 		// TODO: should move into mobilecli itself as "io doubletap"
 		await this.tap(x, y);

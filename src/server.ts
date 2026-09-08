@@ -591,15 +591,29 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_click_on_screen_at_coordinates",
 		"Click Screen",
-		"Click on the screen at given x,y coordinates. If clicking on an element, use the list_elements_on_screen tool to find the coordinates.",
+		"Click on the screen, either at x,y coordinates or on an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			x: z.coerce.number().min(0).describe("The x coordinate to click on the screen, in pixels"),
-			y: z.coerce.number().min(0).describe("The y coordinate to click on the screen, in pixels"),
+			x: z.coerce.number().min(0).optional().describe("The x coordinate to click on the screen, in pixels. Required unless ref is given"),
+			y: z.coerce.number().min(0).optional().describe("The y coordinate to click on the screen, in pixels. Required unless ref is given"),
+			ref: z.string().optional().describe("Element ref from mobile_list_elements_on_screen, e.g. \"@e5\". Takes precedence over x,y"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, x, y }) => {
+		async ({ device, x, y, ref }) => {
 			const robot = getRobotFromDevice(device);
+			if (ref !== undefined) {
+				if (!robot.tapByRef) {
+					throw new ActionableError("Clicking by ref is not supported in legacy robot mode");
+				}
+
+				await robot.tapByRef(ref);
+				return `Clicked on element ${ref}`;
+			}
+
+			if (x === undefined || y === undefined) {
+				throw new ActionableError("Either ref or both x and y must be provided");
+			}
+
 			await robot.tap(x, y);
 			return `Clicked on screen at coordinates: ${x}, ${y}`;
 		}
@@ -625,7 +639,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long Press Screen",
-		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
+		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the mobile_list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			x: z.coerce.number().min(0).describe("The x coordinate to long press on the screen, in pixels"),
@@ -644,7 +658,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_elements_on_screen",
 		"List Screen Elements",
-		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
+		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
