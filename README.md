@@ -112,6 +112,7 @@ How we help to scale mobile automation:
 - **`mobile_get_device_logs`** - Collect live device logs (logcat on Android, unified log on iOS), optionally saved to a file
 - **`mobile_list_crashes`** - List crash reports available on the device
 - **`mobile_get_crash`** - Get the full content of a crash report by its ID
+- **`mobile_batch_commands`** - Run multiple tools in sequence in a single call (e.g. click, type, click), optionally listing screen elements at the end
 
 ## 🏗️ Mobile MCP Architecture
 
