@@ -173,7 +173,7 @@ export const createMcpServer = (): McpServer => {
 		}
 	};
 
-	// ponytail: cache per device id, saves ~0.2s (mobilecli --version + devices) on every tool call
+	// cache per device id, saves ~0.2s (mobilecli --version + devices) on every tool call
 	const robotCache = new Map<string, Robot>();
 
 	const getRobotFromDevice = (deviceId: string): Robot => {
