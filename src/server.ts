@@ -14,6 +14,7 @@ import { PNG } from "./png";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension } from "./utils";
+import { formatElements } from "./format-elements";
 
 const ALLOWED_LOG_EXTENSIONS = [".log", ".txt", ".jsonl"];
 const DEFAULT_DEVICE_LOG_ENTRIES = 100;
@@ -660,51 +661,14 @@ export const createMcpServer = (): McpServer => {
 		"List Screen Elements",
 		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
-			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			format: z.enum(["text", "json"]).optional().describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array"),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
-		async ({ device }) => {
+		async ({ device, format = "text" }) => {
 			const robot = getRobotFromDevice(device);
 			const elements = await robot.getElementsOnScreen();
-
-			const result = elements.map(element => {
-				const out: any = {
-					ref: element.ref,
-					type: element.type,
-					text: element.text,
-					label: element.label,
-					name: element.name,
-					value: element.value,
-					identifier: element.identifier,
-					coordinates: {
-						x: element.rect.x,
-						y: element.rect.y,
-						width: element.rect.width,
-						height: element.rect.height,
-					},
-				};
-
-				// only emit non-default states, otherwise don't confuse llm
-				if (element.focused) {
-					out.focused = true;
-				}
-
-				if (element.selected) {
-					out.selected = true;
-				}
-
-				if (element.checked) {
-					out.checked = true;
-				}
-
-				if (element.enabled === false) {
-					out.enabled = false;
-				}
-
-				return out;
-			});
-
-			return `Found these elements on screen: ${JSON.stringify(result)}`;
+			return formatElements(elements, format);
 		}
 	);
 
