@@ -31,7 +31,7 @@ const formatElementAsText = (element: ScreenElement): string => {
 	}
 
 	if (element.identifier) {
-		parts.push(`id=${element.identifier}`);
+		parts.push(`id=${quote(element.identifier)}`);
 	}
 
 	parts.push(`at=${element.rect.x},${element.rect.y}`);
