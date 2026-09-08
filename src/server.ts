@@ -571,12 +571,12 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_click_on_screen_at_coordinates",
 		"Click Screen",
-		"Click on the screen, either at x,y coordinates or on an element by its ref (e.g. \"@e5\") from the latest list_elements_on_screen result. Prefer ref when the element is listed.",
+		"Click on the screen, either at x,y coordinates or on an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			x: z.coerce.number().min(0).optional().describe("The x coordinate to click on the screen, in pixels. Required unless ref is given"),
 			y: z.coerce.number().min(0).optional().describe("The y coordinate to click on the screen, in pixels. Required unless ref is given"),
-			ref: z.string().optional().describe("Element ref from list_elements_on_screen, e.g. \"@e5\". Takes precedence over x,y"),
+			ref: z.string().optional().describe("Element ref from mobile_list_elements_on_screen, e.g. \"@e5\". Takes precedence over x,y"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, x, y, ref }) => {
@@ -619,7 +619,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long Press Screen",
-		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the list_elements_on_screen tool to find the coordinates.",
+		"Long press on the screen at given x,y coordinates. If long pressing on an element, use the mobile_list_elements_on_screen tool to find the coordinates.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			x: z.coerce.number().min(0).describe("The x coordinate to long press on the screen, in pixels"),
