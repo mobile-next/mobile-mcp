@@ -500,7 +500,7 @@ Mobile Next Mobile MCP を実行する前に、モバイルプラットフォー
 
 ### テレメトリ
 
-Mobile MCP は PostHog を通じて匿名の利用テレメトリを収集します。無効にするには、環境変数 `MOBILEMCP_DISABLE_TELEMETRY` を設定します:
+Mobile MCP は PostHog と Scarf を通じて匿名の利用テレメトリを収集します。無効にするには、環境変数 `MOBILEMCP_DISABLE_TELEMETRY` を設定します:
 
 ```bash
 MOBILEMCP_DISABLE_TELEMETRY=1 npx @mobilenext/mobile-mcp@latest

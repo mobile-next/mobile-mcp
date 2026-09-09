@@ -501,7 +501,7 @@ Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and 
 
 ### Telemetry
 
-Mobile MCP collects anonymous usage telemetry via PostHog. To disable it, set the `MOBILEMCP_DISABLE_TELEMETRY` environment variable:
+Mobile MCP collects anonymous usage telemetry via PostHog and Scarf. To disable it, set the `MOBILEMCP_DISABLE_TELEMETRY` environment variable:
 
 ```bash
 MOBILEMCP_DISABLE_TELEMETRY=1 npx @mobilenext/mobile-mcp@latest

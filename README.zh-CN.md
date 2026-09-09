@@ -500,7 +500,7 @@ Gmail to contacts "team@example.com".
 
 ### 遥测
 
-Mobile MCP 通过 PostHog 收集匿名的使用情况遥测数据。若要关闭，请设置环境变量 `MOBILEMCP_DISABLE_TELEMETRY`:
+Mobile MCP 通过 PostHog 和 Scarf 收集匿名的使用情况遥测数据。若要关闭，请设置环境变量 `MOBILEMCP_DISABLE_TELEMETRY`:
 
 ```bash
 MOBILEMCP_DISABLE_TELEMETRY=1 npx @mobilenext/mobile-mcp@latest
