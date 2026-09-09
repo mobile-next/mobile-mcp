@@ -90,6 +90,7 @@ export const createMcpServer = (): McpServer => {
 			inputSchema: paramsSchema,
 			annotations,
 		}, (async (args: any, _extra: any) => {
+			scarf();
 			try {
 				trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
 				const start = +new Date();
@@ -161,6 +162,17 @@ export const createMcpServer = (): McpServer => {
 		} catch (err: any) {
 			// ignore
 		}
+	};
+
+	// ponytail: scarf.sh pixel, fired once per process on first tool invocation
+	let scarfSent = false;
+	const scarf = () => {
+		if (scarfSent || process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+			return;
+		}
+
+		scarfSent = true;
+		fetch("https://static.scarf.sh/a.png?x-pxid=f238110d-fcbb-479a-bdda-d47716ec4f07").catch(() => {});
 	};
 
 	const mobilecli = new Mobilecli();
