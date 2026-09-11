@@ -1,3 +1,6 @@
+## Unreleased
+* Fix: Every `mobile_take_screenshot` result now states how to convert positions in the screenshot into screen coordinates, so taps derived from downscaled screenshots land where intended ([#440](https://github.com/mobile-next/mobile-mcp/pull/440), closes [#29](https://github.com/mobile-next/mobile-mcp/issues/29), [#163](https://github.com/mobile-next/mobile-mcp/issues/163))
+
 ## [1.0.3](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.3) (2026-09-08)
 * Feat: Add `mobile_batch_commands` tool to run several tools in one call for major performance boost ([#427](https://github.com/mobile-next/mobile-mcp/pull/427))
 * Feat: Request to list elements (refresh) after commands end, to sync state ([#427](https://github.com/mobile-next/mobile-mcp/pull/427))
