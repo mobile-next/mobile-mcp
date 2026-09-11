@@ -387,9 +387,9 @@ npx @mobilenext/mobile-mcp@latest
 log in to mobile next cloud and then show me which remote devices are available to me
 ```
 
-### SSE 服务器模式
+### Streamable HTTP 服务器模式
 
-Mobile MCP 默认通过 stdio 运行。若要改为启动 SSE 服务器，请使用 `--listen` 参数:
+Mobile MCP 默认通过 stdio 运行。若要改为启动 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) 服务器，请使用 `--listen` 参数:
 
 ```bash
 npx @mobilenext/mobile-mcp@latest --listen 3000
@@ -401,17 +401,19 @@ npx @mobilenext/mobile-mcp@latest --listen 3000
 npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 ```
 
-然后将你的 MCP 客户端配置为连接 `http://<host>:3000/mcp`。
+然后将你的 MCP 客户端配置为连接 `http://<host>:3000/mcp`（TLS 后可用 `https://…/mcp`）。该端点接受 Streamable HTTP（对 `/mcp` 的 `POST`/`GET`/`DELETE`）；远程模式为 **无状态**（无需会话亲和性）。
+
+> **迁移说明:** 此前 `--listen` 在 `/mcp` 上提供已弃用的 HTTP+SSE。客户端需对 `http(s)://host:port/mcp` 使用 Streamable HTTP。见 [#98](https://github.com/mobile-next/mobile-mcp/issues/98)。
 
 #### 认证授权
 
-若要在 SSE 服务器上强制使用 Bearer token 授权，请设置环境变量 `MOBILEMCP_AUTH`:
+若要在 HTTP 服务器上强制使用 Bearer token 授权，请设置环境变量 `MOBILEMCP_AUTH`:
 
 ```bash
 MOBILEMCP_AUTH=my-secret-token npx @mobilenext/mobile-mcp@latest --listen 3000
 ```
 
-设置之后，所有请求都必须包含请求头 `Authorization: Bearer my-secret-token`。
+设置之后，所有请求都必须包含请求头 `Authorization: Bearer my-secret-token`。未设置时接受未认证连接并输出警告。
 
 ### 🛠️ 如何使用
 
@@ -484,7 +486,7 @@ Gmail to contacts "team@example.com".
 
 | 变量 | 说明 | 示例 |
 |---|---|---|
-| `MOBILEMCP_AUTH` | 要求 SSE 服务器使用 Bearer token —— 设置后每个请求都必须发送 `Authorization: Bearer <token>`。 | `MOBILEMCP_AUTH=my-secret-token` |
+| `MOBILEMCP_AUTH` | 要求 Streamable HTTP 服务器（`--listen`）使用 Bearer token —— 设置后每个请求都必须发送 `Authorization: Bearer <token>`。 | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | 关闭匿名使用情况遥测。 | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | 允许 `mobile_open_url` 打开非标准的 URL scheme（默认被阻止）。 | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | 对 Android 设备和 iOS 真机使用旧版的平台专用 robot。iOS 模拟器仍然使用 `mobilecli`。 | `MOBILEMCP_LEGACY_ROBOT=1` |

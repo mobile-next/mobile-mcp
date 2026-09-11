@@ -388,9 +388,9 @@ In your Agent, prompt:
 log in to mobile next cloud and then show me which remote devices are available to me
 ```
 
-### SSE Server Mode
+### Streamable HTTP Server Mode
 
-By default, Mobile MCP runs over stdio. To start an SSE server instead, use the `--listen` flag:
+By default, Mobile MCP runs over stdio. To start a [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) server instead, use the `--listen` flag:
 
 ```bash
 npx @mobilenext/mobile-mcp@latest --listen 3000
@@ -402,17 +402,21 @@ This binds to `localhost:3000`. To bind to a specific interface:
 npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 ```
 
-Then configure your MCP client to connect to `http://<host>:3000/mcp`.
+Then configure your MCP client to connect to `http://<host>:3000/mcp` (or `https://…/mcp` behind TLS). The endpoint accepts Streamable HTTP (`POST`/`GET`/`DELETE` on `/mcp`); remote mode is **stateless** (no session affinity required), which works well with Smithery and other horizontal hosts.
+
+> **Migration note:** `--listen` previously served the deprecated HTTP+SSE transport on `/mcp`. Clients must use Streamable HTTP against `http(s)://host:port/mcp`. The old pure-SSE flow on `/mcp` is no longer available. See [#98](https://github.com/mobile-next/mobile-mcp/issues/98).
+
+When binding to localhost, Host-header DNS rebinding protection is enabled automatically.
 
 #### Authorization
 
-To require Bearer token authorization on the SSE server, set the `MOBILEMCP_AUTH` environment variable:
+To require Bearer token authorization on the HTTP server, set the `MOBILEMCP_AUTH` environment variable:
 
 ```bash
 MOBILEMCP_AUTH=my-secret-token npx @mobilenext/mobile-mcp@latest --listen 3000
 ```
 
-When set, all requests must include the header `Authorization: Bearer my-secret-token`.
+When set, all requests must include the header `Authorization: Bearer my-secret-token`. When unset, the server accepts unauthenticated connections and logs a warning.
 
 ### 🛠️ How to Use
 
@@ -485,7 +489,7 @@ Gmail to contacts "team@example.com".
 
 | Variable | Description | Example |
 |---|---|---|
-| `MOBILEMCP_AUTH` | Require a Bearer token on the SSE server — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
+| `MOBILEMCP_AUTH` | Require a Bearer token on the Streamable HTTP server (`--listen`) — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
