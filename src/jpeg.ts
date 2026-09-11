@@ -3,6 +3,9 @@ import { ActionableError, Dimensions } from "./robot";
 const JPEG_SOI = 0xffd8;
 const MARKER_PREFIX = 0xff;
 
+// length(2) precision(1) height(2) width(2) components(1)
+const SOF_MIN_SEGMENT_LENGTH = 8;
+
 // SOFn markers carry the frame header with the image dimensions. 0xc4 (DHT),
 // 0xc8 (JPG) and 0xcc (DAC) sit in the same range but are not frame headers.
 const isStartOfFrameMarker = (marker: number): boolean =>
@@ -19,12 +22,17 @@ export const getJpegDimensions = (buffer: Buffer): Dimensions => {
 			throw new ActionableError("Invalid JPEG");
 		}
 
+		// a marker may be preceded by any number of 0xff fill bytes
+		while (buffer[offset + 1] === MARKER_PREFIX && offset + 4 < buffer.length) {
+			offset++;
+		}
+
 		const marker = buffer[offset + 1];
 		const segmentLength = buffer.readUInt16BE(offset + 2);
 
 		if (isStartOfFrameMarker(marker)) {
 			// segment: length(2) precision(1) height(2) width(2) ...
-			if (offset + 9 > buffer.length) {
+			if (segmentLength < SOF_MIN_SEGMENT_LENGTH || offset + 9 > buffer.length) {
 				throw new ActionableError("Invalid JPEG");
 			}
 

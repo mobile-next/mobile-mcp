@@ -12,6 +12,11 @@ test.describe("coordinate mapping", () => {
 		expect(text).toBe("Screenshot is 1080x2400 and its coordinates match the screen.");
 	});
 
+	test("does not claim a match when the sizes differ by a single pixel", () => {
+		const text = describeCoordinateMapping({ width: 10001, height: 2400 }, { width: 10000, height: 2400 });
+		expect(text).toBe("Screenshot is 10001x2400. Screen coordinates are 10000x2400. To tap something you see in this screenshot, multiply its x by 1 and y by 1.");
+	});
+
 	test("handles a full-size pixel screenshot of a screen measured in points", () => {
 		const text = describeCoordinateMapping({ width: 1179, height: 2556 }, { width: 393, height: 852 });
 		expect(text).toBe("Screenshot is 1179x2556. Screen coordinates are 393x852. To tap something you see in this screenshot, multiply its x by 0.333 and y by 0.333.");

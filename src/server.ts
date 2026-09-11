@@ -810,7 +810,7 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		{
 			title: "Take Screenshot",
-			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
+			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
 			inputSchema: {
 				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),

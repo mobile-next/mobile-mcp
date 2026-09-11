@@ -20,11 +20,11 @@ export const describeCoordinateMapping = (screenshot: Dimensions, screen: Dimens
 		return null;
 	}
 
-	const x = formatRatio(screen.width / screenshot.width);
-	const y = formatRatio(screen.height / screenshot.height);
-	if (x === "1" && y === "1") {
+	if (screenshot.width === screen.width && screenshot.height === screen.height) {
 		return `Screenshot is ${screenshot.width}x${screenshot.height} and its coordinates match the screen.`;
 	}
 
+	const x = formatRatio(screen.width / screenshot.width);
+	const y = formatRatio(screen.height / screenshot.height);
 	return `Screenshot is ${screenshot.width}x${screenshot.height}. Screen coordinates are ${screen.width}x${screen.height}. To tap something you see in this screenshot, multiply its x by ${x} and y by ${y}.`;
 };
