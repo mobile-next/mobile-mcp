@@ -404,7 +404,7 @@ npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 
 その後、MCP クライアントが `http://<host>:3000/mcp`（TLS 配下なら `https://…/mcp`）に接続するよう設定します。エンドポイントは Streamable HTTP（`/mcp` への `POST`）を受け付けます。リモートモードは **ステートレス** で（セッション親和性不要）、Smithery などの水平スケールするホストとも相性が良いです。
 
-> **移行メモ:** 以前の `--listen` は非推奨の HTTP+SSE を `/mcp` で提供していました。クライアントは `http(s)://host:port/mcp` に対して Streamable HTTP を使う必要があります。以前の純粋な SSE フローは `/mcp` では利用できなくなりました。詳細は [#98](https://github.com/mobile-next/mobile-mcp/issues/98) を参照してください。
+> **移行メモ:** 以前の `--listen` は非推奨の HTTP+SSE を `/mcp` で提供していました。クライアントは `http(s)://host:port/mcp` に対して Streamable HTTP を使う必要があります。以前の純粋な SSE フローは `/mcp` では利用できなくなりました。
 
 localhost にバインドする場合、Host ヘッダーによる DNS リバインディング保護が自動的に有効になります。
 
