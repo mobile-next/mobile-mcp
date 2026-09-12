@@ -7,9 +7,9 @@ fence around it. The very first character of your response must be "{" and the v
 
 <test>
 Assert that there is only one Android emulator connected.
-On that Android emulator. List apps and assert "com.mobilenext.Playground" app is installed.
-If it's running then terminate it. Now launch "com.mobilenext.Playground" app.
-Assert that com.mobilenext.Playground app is in the foreground.
+On that Android emulator. List apps and assert "com.mobilenext.playground" app is installed.
+If it's running then terminate it. Now launch "com.mobilenext.playground" app.
+Assert that com.mobilenext.playground app is in the foreground.
 Press HOME button.
 Assert that it's not in the foreground anymore, but instead we're back to app launcher.
 Launch the app again and save a screenshot to "delete-me.png".
