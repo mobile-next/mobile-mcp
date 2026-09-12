@@ -402,7 +402,7 @@ This binds to `localhost:3000`. To bind to a specific interface:
 npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 ```
 
-Then configure your MCP client to connect to `http://<host>:3000/mcp` (or `https://…/mcp` behind TLS). The endpoint accepts Streamable HTTP (`POST`/`GET`/`DELETE` on `/mcp`); remote mode is **stateless** (no session affinity required), which works well with Smithery and other horizontal hosts.
+Then configure your MCP client to connect to `http://<host>:3000/mcp` (or `https://…/mcp` behind TLS). The endpoint accepts Streamable HTTP (`POST` on `/mcp`); remote mode is **stateless** (no session affinity required), which works well with Smithery and other horizontal hosts.
 
 > **Migration note:** `--listen` previously served the deprecated HTTP+SSE transport on `/mcp`. Clients must use Streamable HTTP against `http(s)://host:port/mcp`. The old pure-SSE flow on `/mcp` is no longer available. See [#98](https://github.com/mobile-next/mobile-mcp/issues/98).
 

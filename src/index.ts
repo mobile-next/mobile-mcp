@@ -49,12 +49,13 @@ const startHttpServer = async (host: string, port: number) => {
 			const transport = new StreamableHTTPServerTransport({
 				sessionIdGenerator: undefined,
 			});
-			await server.connect(transport);
-			await transport.handleRequest(req, res, req.body);
+			// Register cleanup first: the response can close before handleRequest resolves.
 			res.on("close", () => {
 				transport.close();
 				server.close();
 			});
+			await server.connect(transport);
+			await transport.handleRequest(req, res, req.body);
 		} catch (err: unknown) {
 			error("Error handling MCP request: " + (err instanceof Error ? err.stack : String(err)));
 			if (!res.headersSent) {

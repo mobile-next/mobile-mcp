@@ -85,10 +85,14 @@ async function main() {
 		console.error("--- server log ---\n" + serverLog);
 		process.exitCode = 1;
 	} finally {
-		child.kill("SIGTERM");
-		await new Promise(r => setTimeout(r, 300));
-		if (!child.killed) {
-			child.kill("SIGKILL");
+		// child.killed only means a signal was sent; wait for the actual exit.
+		if (child.exitCode === null && child.signalCode === null) {
+			const exited = new Promise(r => child.once("exit", () => r(true)));
+			child.kill("SIGTERM");
+			const didExit = await Promise.race([exited, new Promise(r => setTimeout(() => r(false), 3000))]);
+			if (!didExit) {
+				child.kill("SIGKILL");
+			}
 		}
 	}
 }

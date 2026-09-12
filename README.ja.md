@@ -401,7 +401,7 @@ npx @mobilenext/mobile-mcp@latest --listen 3000
 npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 ```
 
-その後、MCP クライアントが `http://<host>:3000/mcp`（TLS 配下なら `https://…/mcp`）に接続するよう設定します。エンドポイントは Streamable HTTP（`/mcp` への `POST`/`GET`/`DELETE`）を受け付けます。リモートモードは **ステートレス** です（セッション親和性不要）。
+その後、MCP クライアントが `http://<host>:3000/mcp`（TLS 配下なら `https://…/mcp`）に接続するよう設定します。エンドポイントは Streamable HTTP（`/mcp` への `POST`）を受け付けます。リモートモードは **ステートレス** です（セッション親和性不要）。
 
 > **移行メモ:** 以前の `--listen` は非推奨の HTTP+SSE を `/mcp` で提供していました。クライアントは `http(s)://host:port/mcp` に対して Streamable HTTP を使う必要があります。 [#98](https://github.com/mobile-next/mobile-mcp/issues/98)
 

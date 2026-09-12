@@ -401,7 +401,7 @@ npx @mobilenext/mobile-mcp@latest --listen 3000
 npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 ```
 
-然后将你的 MCP 客户端配置为连接 `http://<host>:3000/mcp`（TLS 后可用 `https://…/mcp`）。该端点接受 Streamable HTTP（对 `/mcp` 的 `POST`/`GET`/`DELETE`）；远程模式为 **无状态**（无需会话亲和性）。
+然后将你的 MCP 客户端配置为连接 `http://<host>:3000/mcp`（TLS 后可用 `https://…/mcp`）。该端点接受 Streamable HTTP（对 `/mcp` 的 `POST`）；远程模式为 **无状态**（无需会话亲和性）。
 
 > **迁移说明:** 此前 `--listen` 在 `/mcp` 上提供已弃用的 HTTP+SSE。客户端需对 `http(s)://host:port/mcp` 使用 Streamable HTTP。见 [#98](https://github.com/mobile-next/mobile-mcp/issues/98)。
 
