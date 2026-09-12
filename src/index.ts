@@ -11,6 +11,20 @@ const startHttpServer = async (host: string, port: number) => {
 	// createMcpExpressApp applies express.json() and Host-header DNS rebinding
 	// protection automatically when binding to localhost / 127.0.0.1 / ::1.
 	const app = createMcpExpressApp({ host });
+
+	// Migration hint for clients still pointing at the removed SSE transport.
+	// Registered before auth so unauthenticated clients see the reason, not a 401.
+	app.all("/sse", (_req: Request, res: Response) => {
+		res.status(410).json({
+			jsonrpc: "2.0",
+			error: {
+				code: -32000,
+				message: "SSE transport removed. mobile-mcp now serves MCP Streamable HTTP at /mcp. See https://github.com/mobile-next/mobile-mcp#streamable-http-server-mode",
+			},
+			id: null,
+		});
+	});
+
 	const authToken = process.env.MOBILEMCP_AUTH;
 	if (!authToken) {
 		error("WARNING: MOBILEMCP_AUTH is not set. The HTTP server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
