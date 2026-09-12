@@ -112,6 +112,7 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 - **`mobile_get_device_logs`** - 采集设备实时日志（Android 上为 logcat，iOS 上为 unified log），可选择保存到文件
 - **`mobile_list_crashes`** - 列出设备上可用的崩溃报告
 - **`mobile_get_crash`** - 按 ID 获取崩溃报告的完整内容
+- **`mobile_batch_commands`** - 在一次调用中按顺序运行多个工具（例如点击、输入、点击），可选择在最后列出屏幕元素
 
 ## 🏗️ Mobile MCP 架构
 
@@ -401,9 +402,11 @@ npx @mobilenext/mobile-mcp@latest --listen 3000
 npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 ```
 
-然后将你的 MCP 客户端配置为连接 `http://<host>:3000/mcp`（TLS 后可用 `https://…/mcp`）。该端点接受 Streamable HTTP（对 `/mcp` 的 `POST`）；远程模式为 **无状态**（无需会话亲和性）。
+然后将你的 MCP 客户端配置为连接 `http://<host>:3000/mcp`（TLS 后可用 `https://…/mcp`）。该端点接受 Streamable HTTP（对 `/mcp` 的 `POST`）；远程模式为 **无状态**（无需会话亲和性），非常适合 Smithery 等水平扩展的托管平台。
 
-> **迁移说明:** 此前 `--listen` 在 `/mcp` 上提供已弃用的 HTTP+SSE。客户端需对 `http(s)://host:port/mcp` 使用 Streamable HTTP。见 [#98](https://github.com/mobile-next/mobile-mcp/issues/98)。
+> **迁移说明:** 此前 `--listen` 在 `/mcp` 上提供已弃用的 HTTP+SSE。客户端需对 `http(s)://host:port/mcp` 使用 Streamable HTTP。`/mcp` 上原有的纯 SSE 流程已不再可用。
+
+绑定到 localhost 时，会自动启用基于 Host 请求头的 DNS 重绑定防护。
 
 #### 认证授权
 
@@ -571,4 +574,4 @@ Mobile MCP 是驱动真实移动设备这套工具集中的一环:
 
 Mobile MCP 在本地运行，仅与你所连接的设备通信。
 有关数据收集、使用、保留以及联系方式，请查看 Mobile Next 隐私政策:
-https://mobilenext.ai/privacy。
+[https://mobilenext.ai/privacy](https://mobilenext.ai/privacy)。
