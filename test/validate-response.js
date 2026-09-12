@@ -6,8 +6,14 @@ const raw = fs.readFileSync(0, "utf8").trim();
 
 console.log(raw);
 
-const fenced = raw.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
-const json = fenced ? fenced[1].trim() : raw;
+const fenced = raw.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
+const unfenced = fenced ? fenced[1].trim() : raw;
+
+// Agents occasionally prepend a sentence despite being told to emit JSON only.
+// Take the outermost {...} rather than failing the whole run over a preamble.
+const start = unfenced.indexOf("{");
+const end = unfenced.lastIndexOf("}");
+const json = (start !== -1 && end > start) ? unfenced.slice(start, end + 1) : unfenced;
 
 let response;
 try {
