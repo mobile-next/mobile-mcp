@@ -4,16 +4,15 @@ This is a living document of planned and in-progress features. Items are roughly
 
 | Feature | Description | Status |
 |---|---|---|
-| **Background daemon for speedup** | A long-lived background process that keeps device connections, agents and tunnels warm between tool calls, so each call skips discovery and setup and returns in milliseconds instead of seconds. | In Progress |
-| **Element refs in UI dump** | Every element in the UI dump gets a stable `@ref` id that can be passed to tap, type, etc., so agents act on elements without coordinates. | In Progress |
-| **Embed Android Device Kit in the binary** | Ship the Android agent as a dex embedded in the executable and run it via `app_process`, so nothing gets installed on the device and the Device Kit APK goes away. | In Progress |
 | **Streamable HTTP support** | Support the newer MCP Streamable HTTP transport, alongside the existing SSE and stdio transports. | Planned |
 | **File system tools** | List, push, and pull files on the device or within an app container. | Planned |
-| **Better screenshot handling** | Native cropping and scaling, removing the dependency on `sips` and ImageMagick. | Planned |
 | **App launch options** | Launch an app with custom arguments. | Planned |
 | **Pinch to zoom** | Pinch-in and pinch-out gesture support for zooming in and out. | Planned |
-| **Device logs** | Read device system logs — syslog, console, and logcat. | Planned |
 | **WebView support** | Inspect and interact with WebView content inside native apps. | Planned |
+| **Flutter UI support** | Dump Flutter widget trees with semantics and element types, so agents see Flutter apps like native ones. | Planned |
+| **Browser support** | Drive the on-device browser, Safari on iOS and Chrome on Android, alongside native apps. | Planned |
+| **Device settings** | Toggle dark mode, override the timezone, and switch wifi and airplane mode to test offline behaviour. | Planned |
+| **Clear app storage** | Clear an app's cache and documents between runs. | Planned |
 
 ## Done Done
 
@@ -21,6 +20,11 @@ Shipped in 2026, most recent first.
 
 | Feature | Description | Date |
 |---|---|---|
+| **Device logs** | Read device system logs — syslog, console, and logcat. | 2026-09-08 |
+| **Background daemon for speedup** | A long-lived background process that keeps device connections, agents and tunnels warm between tool calls, so each call skips discovery and setup and returns in milliseconds instead of seconds. | 2026-09-08 |
+| **Element refs in UI dump** | Every element in the UI dump gets a stable `@ref` id that can be passed to tap, type, etc., so agents act on elements without coordinates. | 2026-09-08 |
+| **Embed Android Device Kit in the binary** | Ship the Android agent as a dex embedded in the executable and run it via `app_process`, so nothing gets installed on the device and the Device Kit APK goes away. | 2026-09-08 |
+| **Better screenshot handling** | Native cropping and scaling, removing the dependency on `sips` and ImageMagick. | 2026-09-08 |
 | **iOS on Device Kit** | Replaced WebDriverAgent with our own Device Kit on real iOS devices too. | 2026-09-04 |
 | **Remove go-ios dependency** | Dropped the external `go-ios` dependency entirely. | 2026-09-04 |
 | **iOS Device Kit on Simulator** | Replaced WebDriverAgent with our own Device Kit for iOS Simulator automation. | 2026-05-01 |
