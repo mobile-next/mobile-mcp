@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Mobilecli } from "../src/mobilecli";
 
 type ExecuteCommandCall = {
@@ -114,6 +117,27 @@ test.describe("mobilecli", () => {
 
 			expect(calls.length).toBe(1);
 			expect(calls[0].args).toEqual(["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
+		});
+	});
+
+	test.describe("executeCommand", () => {
+		test.skip(process.platform === "win32", "uses a POSIX shell script");
+
+		test("should time out instead of blocking forever when the command hangs", () => {
+			const scriptPath = join(tmpdir(), `mobilecli-hang-${process.pid}.sh`);
+			writeFileSync(scriptPath, "#!/bin/sh\nsleep 60\n", { mode: 0o755 });
+
+			try {
+				process.env.MOBILECLI_PATH = scriptPath;
+				const hanging = new Mobilecli();
+				const started = Date.now();
+
+				expect(() => hanging.executeCommand(["devices"], 1000)).toThrow();
+				expect(Date.now() - started).toBeLessThan(15000);
+			} finally {
+				delete process.env.MOBILECLI_PATH;
+				rmSync(scriptPath, { force: true });
+			}
 		});
 	});
 });
