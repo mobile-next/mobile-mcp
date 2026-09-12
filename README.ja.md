@@ -387,9 +387,9 @@ npx @mobilenext/mobile-mcp@latest
 log in to mobile next cloud and then show me which remote devices are available to me
 ```
 
-### SSE サーバーモード
+### Streamable HTTP サーバーモード
 
-Mobile MCP はデフォルトで stdio 上で動作します。代わりに SSE サーバーを起動するには、`--listen` フラグを使用します:
+Mobile MCP はデフォルトで stdio 上で動作します。代わりに [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) サーバーを起動するには、`--listen` フラグを使用します:
 
 ```bash
 npx @mobilenext/mobile-mcp@latest --listen 3000
@@ -401,17 +401,19 @@ npx @mobilenext/mobile-mcp@latest --listen 3000
 npx @mobilenext/mobile-mcp@latest --listen 0.0.0.0:3000
 ```
 
-その後、MCP クライアントが `http://<host>:3000/mcp` に接続するよう設定します。
+その後、MCP クライアントが `http://<host>:3000/mcp`（TLS 配下なら `https://…/mcp`）に接続するよう設定します。エンドポイントは Streamable HTTP（`/mcp` への `POST`）を受け付けます。リモートモードは **ステートレス** です（セッション親和性不要）。
+
+> **移行メモ:** 以前の `--listen` は非推奨の HTTP+SSE を `/mcp` で提供していました。クライアントは `http(s)://host:port/mcp` に対して Streamable HTTP を使う必要があります。 [#98](https://github.com/mobile-next/mobile-mcp/issues/98)
 
 #### 認可
 
-SSE サーバーで Bearer トークンによる認可を要求するには、環境変数 `MOBILEMCP_AUTH` を設定します:
+HTTP サーバーで Bearer トークンによる認可を要求するには、環境変数 `MOBILEMCP_AUTH` を設定します:
 
 ```bash
 MOBILEMCP_AUTH=my-secret-token npx @mobilenext/mobile-mcp@latest --listen 3000
 ```
 
-設定すると、すべてのリクエストにヘッダー `Authorization: Bearer my-secret-token` を含める必要があります。
+設定すると、すべてのリクエストにヘッダー `Authorization: Bearer my-secret-token` を含める必要があります。未設定の場合は認証なしで受け付け、警告を出力します。
 
 ### 🛠️ 使い方
 
@@ -484,7 +486,7 @@ Gmail to contacts "team@example.com".
 
 | 変数 | 説明 | 例 |
 |---|---|---|
-| `MOBILEMCP_AUTH` | SSE サーバーで Bearer トークンを必須にします。設定すると、すべてのリクエストが `Authorization: Bearer <token>` を送信する必要があります。 | `MOBILEMCP_AUTH=my-secret-token` |
+| `MOBILEMCP_AUTH` | Streamable HTTP サーバー（`--listen`）で Bearer トークンを必須にします。設定すると、すべてのリクエストが `Authorization: Bearer <token>` を送信する必要があります。 | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | 匿名の利用テレメトリを無効にします。 | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | `mobile_open_url` が標準外の URL スキームを開くことを許可します（デフォルトではブロックされます）。 | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Android デバイスおよび iOS 実機に対して、従来のプラットフォーム固有のロボットを使用します。iOS シミュレーターは引き続き `mobilecli` を使用します。 | `MOBILEMCP_LEGACY_ROBOT=1` |
