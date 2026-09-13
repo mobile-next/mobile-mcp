@@ -8,13 +8,17 @@ import { ChildProcess } from "node:child_process";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
-import { ActionableError, Robot, ScreenshotOptions } from "./robot";
+import { ActionableError, Dimensions, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
+import { getJpegDimensions } from "./jpeg";
+import { describeCoordinateMapping } from "./coordinate-mapping";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension } from "./utils";
 import { formatElements } from "./format-elements";
+
+type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
 const ALLOWED_LOG_EXTENSIONS = [".log", ".txt", ".jsonl"];
 const DEFAULT_DEVICE_LOG_ENTRIES = 100;
@@ -806,7 +810,7 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		{
 			title: "Take Screenshot",
-			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
+			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
 			inputSchema: {
 				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
@@ -836,29 +840,41 @@ export const createMcpServer = (): McpServer => {
 
 				const isJpeg = screenshot.length > 2 && screenshot[0] === 0xff && screenshot[1] === 0xd8;
 				let mimeType = "image/jpeg";
-				if (!isJpeg) {
+				let screenshotSize: Dimensions;
+				if (isJpeg) {
+					screenshotSize = getJpegDimensions(screenshot);
+				} else {
 					mimeType = "image/png";
 
 					// validate we received a png, will throw exception otherwise
 					const image = new PNG(screenshot);
-					const pngSize = image.getDimensions();
-					if (pngSize.width <= 0 || pngSize.height <= 0) {
-						throw new ActionableError("Screenshot is invalid. Please try again.");
-					}
-
+					screenshotSize = image.getDimensions();
 				}
 
+				if (screenshotSize.width <= 0 || screenshotSize.height <= 0) {
+					throw new ActionableError("Screenshot is invalid. Please try again.");
+				}
+
+				// the screenshot is downscaled (and on ios the screen is in points while pixels are not),
+				// so tell the model how to map what it sees onto tap coordinates. see #29.
+				const screenSize = await robot.getScreenSize();
+				const mapping = describeCoordinateMapping(screenshotSize, screenSize);
+
 				const screenshot64 = screenshot.toString("base64");
-				trace(`Screenshot taken: ${screenshot.length} bytes`);
+				trace(`Screenshot taken: ${screenshot.length} bytes, ${screenshotSize.width}x${screenshotSize.height}`);
 				posthog("tool_invoked", {
 					"ToolName": "mobile_take_screenshot",
 					"ScreenshotFilesize": screenshot64.length,
 					"ScreenshotMimeType": mimeType,
 				}).then();
 
-				return {
-					content: [{ type: "image", data: screenshot64, mimeType }]
-				};
+				const content: ScreenshotContent[] = [];
+				if (mapping !== null) {
+					content.push({ type: "text", text: mapping });
+				}
+
+				content.push({ type: "image", data: screenshot64, mimeType });
+				return { content };
 			} catch (err: any) {
 				error(`Error taking screenshot: ${err.message} ${err.stack}`);
 				return {
