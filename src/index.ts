@@ -1,18 +1,33 @@
 #!/usr/bin/env node
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { createMcpServer, getAgentVersion } from "./server";
 import { error } from "./logger";
-import express from "express";
+import { Request, Response } from "express";
 import { program } from "commander";
 
-const startSseServer = async (host: string, port: number) => {
-	const app = express();
-	const server = createMcpServer();
+const startHttpServer = async (host: string, port: number) => {
+	// createMcpExpressApp applies express.json() and Host-header DNS rebinding
+	// protection automatically when binding to localhost / 127.0.0.1 / ::1.
+	const app = createMcpExpressApp({ host });
+
+	// Migration hint for clients still pointing at the removed SSE transport.
+	// Registered before auth so unauthenticated clients see the reason, not a 401.
+	app.all("/sse", (_req: Request, res: Response) => {
+		res.status(410).json({
+			jsonrpc: "2.0",
+			error: {
+				code: -32000,
+				message: "SSE transport removed. mobile-mcp now serves MCP Streamable HTTP at /mcp. See https://github.com/mobile-next/mobile-mcp#streamable-http-server-mode",
+			},
+			id: null,
+		});
+	});
 
 	const authToken = process.env.MOBILEMCP_AUTH;
 	if (!authToken) {
-		error("WARNING: MOBILEMCP_AUTH is not set. The SSE server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
+		error("WARNING: MOBILEMCP_AUTH is not set. The HTTP server will accept unauthenticated connections. Set MOBILEMCP_AUTH to require Bearer token authentication.");
 	}
 
 	if (authToken) {
@@ -26,46 +41,56 @@ const startSseServer = async (host: string, port: number) => {
 		});
 	}
 
-	// Block cross-origin requests — MCP clients are not browsers
-	app.use((req, res, next) => {
-		if (req.headers.origin) {
-			res.status(403).json({ error: "Cross-origin requests are not allowed" });
-			return;
+	const handleMcpRequest = async (req: Request, res: Response) => {
+		// Stateless Streamable HTTP: fresh server + transport per request
+		// (Smithery / horizontal-host friendly; no session affinity).
+		const server = createMcpServer();
+		try {
+			const transport = new StreamableHTTPServerTransport({
+				sessionIdGenerator: undefined,
+			});
+			// Register cleanup first: the response can close before handleRequest resolves.
+			res.on("close", () => {
+				transport.close();
+				server.close();
+			});
+			await server.connect(transport);
+			await transport.handleRequest(req, res, req.body);
+		} catch (err: unknown) {
+			error("Error handling MCP request: " + (err instanceof Error ? err.stack : String(err)));
+			if (!res.headersSent) {
+				res.status(500).json({
+					jsonrpc: "2.0",
+					error: {
+						code: -32603,
+						message: "Internal server error",
+					},
+					id: null,
+				});
+			}
 		}
+	};
 
-		if (req.method === "OPTIONS") {
-			res.status(403).end();
-			return;
-		}
+	app.post("/mcp", handleMcpRequest);
 
-		next();
-	});
+	// Stateless mode has no long-lived sessions; GET (SSE stream) and DELETE
+	// (session teardown) are not applicable. Return 405 per SDK guidance.
+	const methodNotAllowed = (_req: Request, res: Response) => {
+		res.status(405).json({
+			jsonrpc: "2.0",
+			error: {
+				code: -32000,
+				message: "Method not allowed.",
+			},
+			id: null,
+		});
+	};
 
-	let transport: SSEServerTransport | null = null;
-
-	app.post("/mcp", (req, res) => {
-		if (transport) {
-			transport.handlePostMessage(req, res);
-		}
-	});
-
-	app.get("/mcp", (req, res) => {
-		if (transport) {
-			res.status(409).json({ error: "Another client is already connected. Disconnect the existing client first." });
-			return;
-		}
-
-		transport = new SSEServerTransport("/mcp", res);
-
-		transport.onclose = () => {
-			transport = null;
-		};
-
-		server.connect(transport);
-	});
+	app.get("/mcp", methodNotAllowed);
+	app.delete("/mcp", methodNotAllowed);
 
 	app.listen(port, host, () => {
-		error(`mobile-mcp ${getAgentVersion()} sse server listening on http://${host}:${port}/mcp`);
+		error(`mobile-mcp ${getAgentVersion()} streamable http server listening on http://${host}:${port}/mcp`);
 	});
 };
 
@@ -98,7 +123,7 @@ const startStdioServer = async () => {
 const main = async () => {
 	program
 		.version(getAgentVersion())
-		.option("--listen <listen>", "Start SSE server on [host:]port")
+		.option("--listen <listen>", "Start Streamable HTTP server on [host:]port")
 		.option("--stdio", "Start stdio server (default)")
 		.parse(process.argv);
 
@@ -123,7 +148,7 @@ const main = async () => {
 			process.exit(1);
 		}
 
-		await startSseServer(host, port);
+		await startHttpServer(host, port);
 	} else {
 		await startStdioServer();
 	}
