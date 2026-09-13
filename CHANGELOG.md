@@ -1,4 +1,5 @@
-## Unreleased
+## [1.0.4](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.4) (2026-09-13)
+* Feat: Serve Streamable HTTP on `--listen` at `/mcp`; the removed `/sse` endpoint now returns 410 with a migration note ([#441](https://github.com/mobile-next/mobile-mcp/pull/441))
 * Fix: Every `mobile_take_screenshot` result now states how to convert positions in the screenshot into screen coordinates, so taps derived from downscaled screenshots land where intended ([#440](https://github.com/mobile-next/mobile-mcp/pull/440), closes [#29](https://github.com/mobile-next/mobile-mcp/issues/29), [#163](https://github.com/mobile-next/mobile-mcp/issues/163))
 
 ## [1.0.3](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.3) (2026-09-08)
