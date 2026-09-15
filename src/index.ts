@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
+import { createMcpExpressApp } from "@modelcontextprotocol/express";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { createMcpServer, getAgentVersion } from "./server";
 import { error } from "./logger";
 import { Request, Response } from "express";
@@ -46,7 +46,7 @@ const startHttpServer = async (host: string, port: number) => {
 		// (Smithery / horizontal-host friendly; no session affinity).
 		const server = createMcpServer();
 		try {
-			const transport = new StreamableHTTPServerTransport({
+			const transport = new NodeStreamableHTTPServerTransport({
 				sessionIdGenerator: undefined,
 			});
 			// Register cleanup first: the response can close before handleRequest resolves.

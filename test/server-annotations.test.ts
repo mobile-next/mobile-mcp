@@ -1,8 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
-
+import { Client, InMemoryTransport, ToolAnnotations } from "@modelcontextprotocol/client";
 import { createMcpServer } from "../src/server";
 
 type ToolAnnotationMatrix = Record<string, ToolAnnotations>;
