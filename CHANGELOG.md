@@ -1,5 +1,5 @@
 ## Unreleased
-* Chore: Migrate to the MCP TypeScript SDK v2 package split (`@modelcontextprotocol/server`, `/node`, `/express`); no protocol or transport change, v1 clients keep working ([#445](https://github.com/mobile-next/mobile-mcp/pull/445))
+* Chore: Migrate to the MCP TypeScript SDK v2 package split (`@modelcontextprotocol/server`, `/node`, `/express`); no protocol or transport change, v1 clients keep working ([#445](https://github.com/mobile-next/mobile-mcp/pull/445), based on [#400](https://github.com/mobile-next/mobile-mcp/pull/400) by [@anxkhn](https://github.com/anxkhn))
 
 ## [1.0.4](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.4) (2026-09-13)
 * Feat: Serve Streamable HTTP on `--listen` at `/mcp`; the removed `/sse` endpoint now returns 410 with a migration note ([#441](https://github.com/mobile-next/mobile-mcp/pull/441))
