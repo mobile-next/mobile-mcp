@@ -1,4 +1,6 @@
 ## Unreleased
+* Feat: Server instructions telling clients to pick a device first, read the screen via `mobile_list_elements_on_screen`, batch round-trips, and release remote devices when done ([#445](https://github.com/mobile-next/mobile-mcp/pull/445))
+* Chore: Log the mobile-mcp and MCP SDK versions on stdio startup ([#445](https://github.com/mobile-next/mobile-mcp/pull/445))
 * Chore: Migrate to the MCP TypeScript SDK v2 package split (`@modelcontextprotocol/server`, `/node`, `/express`); no protocol or transport change, v1 clients keep working ([#445](https://github.com/mobile-next/mobile-mcp/pull/445), based on [#400](https://github.com/mobile-next/mobile-mcp/pull/400) by [@anxkhn](https://github.com/anxkhn))
 
 ## [1.0.4](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.4) (2026-09-13)
