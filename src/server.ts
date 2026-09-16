@@ -55,6 +55,18 @@ export const getAgentVersion = (): string => {
 	return json.version;
 };
 
+export const getSdkVersion = (): string => {
+	try {
+		// the sdk doesn't export its package.json, so resolve the installed
+		// package directory and read it from disk.
+		const entry = require.resolve("@modelcontextprotocol/server");
+		const packageRoot = entry.slice(0, entry.lastIndexOf(`${path.sep}dist${path.sep}`));
+		return JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8")).version;
+	} catch (err: any) {
+		return "unknown version";
+	}
+};
+
 export const createMcpServer = (): McpServer => {
 
 	const server = new McpServer({

@@ -2,7 +2,7 @@
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
-import { createMcpServer, getAgentVersion } from "./server";
+import { createMcpServer, getAgentVersion, getSdkVersion } from "./server";
 import { error } from "./logger";
 import { Request, Response } from "express";
 import { program } from "commander";
@@ -112,7 +112,7 @@ const startStdioServer = async () => {
 		process.on("SIGINT", shutdown);
 		process.on("SIGTERM", shutdown);
 
-		error("mobile-mcp server running on stdio");
+		error(`mobile-mcp ${getAgentVersion()} (mcp sdk ${getSdkVersion()}) server running on stdio`);
 	} catch (err: any) {
 		console.error("Fatal error in main():", err);
 		error("Fatal error in main(): " + JSON.stringify(err.stack));
