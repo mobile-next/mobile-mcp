@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import fs from "node:fs";
 import os from "node:os";
@@ -55,11 +55,44 @@ export const getAgentVersion = (): string => {
 	return json.version;
 };
 
+export const getSdkVersion = (): string => {
+	try {
+		// the sdk doesn't export its package.json, so resolve the installed
+		// package directory and read it from disk.
+		const entry = require.resolve("@modelcontextprotocol/server");
+		const packageRoot = entry.slice(0, entry.lastIndexOf(`${path.sep}dist${path.sep}`));
+		return JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8")).version;
+	} catch (err: any) {
+		return "unknown version";
+	}
+};
+
+const SERVER_INSTRUCTIONS = `Drive a real or simulated iOS/Android device.
+
+Start with mobile_list_available_devices and pass the chosen device id to every
+later call - there is no implicit "current device". Use a remote device only
+when local ones do not fit or when requested by the user. Remote devices cost
+money and take time to allocate and release. Release when done using, so the
+remote device cleans and returns to pool.
+
+Read the screen with mobile_list_elements_on_screen, not screenshots: it returns
+refs, coordinates and labels, and tapping by ref survives layout differences
+between devices. Fall back to mobile_take_screenshot only for elements missing
+from the hierarchy, or to judge visual appearance.
+
+Each call is a device round-trip. Group known sequences (tap, type, tap) into
+mobile_batch_commands instead of issuing them one at a time.
+
+Prefer mobile_open_url or mobile_launch_app over navigating through the UI to
+reach a screen.`;
+
 export const createMcpServer = (): McpServer => {
 
 	const server = new McpServer({
 		name: "mobile-mcp",
 		version: getAgentVersion(),
+	}, {
+		instructions: SERVER_INSTRUCTIONS,
 	});
 
 
@@ -91,7 +124,7 @@ export const createMcpServer = (): McpServer => {
 		server.registerTool(name, {
 			title,
 			description,
-			inputSchema: paramsSchema,
+			inputSchema: z.object(paramsSchema),
 			annotations,
 		}, (async (args: any, _extra: any) => {
 			scarf();
@@ -811,11 +844,11 @@ export const createMcpServer = (): McpServer => {
 		{
 			title: "Take Screenshot",
 			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
-			inputSchema: {
+			inputSchema: z.object({
 				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
 				scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
-			},
+			}),
 			annotations: {
 				readOnlyHint: true,
 				openWorldHint: true,

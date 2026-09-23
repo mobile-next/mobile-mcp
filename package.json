@@ -25,19 +25,22 @@
     "lib"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/express": "2.0.0",
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "ajv": "^8.18.0",
     "commander": "14.0.0",
     "express": "5.1.0",
     "fast-xml-parser": "5.8.0",
     "mobilewright": "0.0.60",
     "qs": "^6.15.0",
-    "zod": "^4.1.13",
+    "zod": "^4.2.0",
     "zod-to-json-schema": "3.25.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.19.0",
+    "@modelcontextprotocol/client": "2.0.0",
     "@playwright/test": "^1.49.0",
     "@stylistic/eslint-plugin": "^3.0.1",
     "@types/commander": "^2.12.0",
