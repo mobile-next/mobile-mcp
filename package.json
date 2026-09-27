@@ -12,7 +12,7 @@
   },
   "license": "Apache-2.0",
   "scripts": {
-    "build": "tsc && chmod +x lib/index.js",
+    "build": "tsc && shx chmod +x lib/index.js",
     "start": "node lib/index.js",
     "lint": "eslint .",
     "fixlint": "eslint . --fix",
@@ -55,6 +55,7 @@
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-notice": "^1.0.0",
     "husky": "^9.1.7",
+    "shx": "^0.4.0",
     "typescript": "5.8.2"
   },
   "main": "index.js",
