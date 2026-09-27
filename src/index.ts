@@ -47,8 +47,11 @@ const startHttpServer = async (host: string, port: number) => {
 	// with `server/discover` and the modern result vocabulary) get a fresh
 	// era-marked instance, and legacy `initialize` traffic is served stateless
 	// from the same factory — the same per-request model as before.
-	const handler = createMcpHandler(() => createMcpServer());
-	const node = toNodeHandler(handler);
+	// onerror keeps request-handling and transport failures in the application
+	// log (the SDK otherwise answers HTTP 500 silently).
+	const onerror = (err: Error) => error("Error handling MCP request: " + (err.stack ?? String(err)));
+	const handler = createMcpHandler(() => createMcpServer(), { onerror });
+	const node = toNodeHandler(handler, { onerror });
 
 	app.all("/mcp", (req: Request, res: Response) => {
 		void node(req, res, req.body);
