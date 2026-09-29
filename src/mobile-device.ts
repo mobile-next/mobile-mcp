@@ -52,8 +52,10 @@ interface UIElementResponse {
 
 interface DumpUIResponse {
 	status: "ok",
-	data: {
-		elements: UIElementResponse[];
+	// mobilecli answers "dump ui" with status "ok" but an empty payload when the
+	// device screen is off or locked, so neither level can be relied on.
+	data?: {
+		elements?: UIElementResponse[];
 	};
 }
 
@@ -275,7 +277,13 @@ export class MobileDevice implements Robot {
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const response = this.runJsonCommand<DumpUIResponse>(["dump", "ui"]);
-		return response.data.elements.flatMap(element => flattenUIElement(element));
+		const elements = response.data?.elements;
+
+		if (!elements) {
+			throw new ActionableError("No UI hierarchy was returned for this device - its screen is most likely off or locked. Wake it up (for example with mobile_press_button using HOME, or POWER when that is supported) and try again");
+		}
+
+		return elements.flatMap(element => flattenUIElement(element));
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
