@@ -1,4 +1,4 @@
-import { Mobilecli } from "./mobilecli";
+import { Mobilecli, MobilecliDevice } from "./mobilecli";
 import { ActionableError, Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
@@ -57,6 +57,26 @@ interface DumpUIResponse {
 	};
 }
 
+interface RawIOSUIElementResponse {
+	elementType?: number;
+	label?: string;
+	identifier?: string;
+	frame?: {
+		X?: number;
+		Y?: number;
+		Width?: number;
+		Height?: number;
+	};
+	children?: RawIOSUIElementResponse[];
+}
+
+interface RawDumpUIResponse {
+	status: "ok",
+	data: {
+		rawData?: RawIOSUIElementResponse;
+	};
+}
+
 interface ForegroundAppResponse {
 	status: "ok",
 	data: {
@@ -101,11 +121,112 @@ const flattenUIElement = (element: UIElementResponse): ScreenElement[] => {
 	return [screenElement, ...element.children.flatMap(child => flattenUIElement(child))];
 };
 
+const normalizedWords = (value: string): string => value
+	.trim()
+	.toLowerCase()
+	.replace(/[:._-]+/g, " ")
+	.replace(/\s+/g, " ");
+
+/**
+ * Detects compact iOS labels that are missing or mechanically derived from an
+ * accessibility identifier instead of carrying user-facing semantics.
+ */
+const hasIdentifierDerivedLabel = (element: ScreenElement): boolean => {
+	if (!element.identifier) {
+		return false;
+	}
+
+	if (!element.label) {
+		return true;
+	}
+
+	const identifierTail = element.identifier.includes(":")
+		? element.identifier.slice(element.identifier.lastIndexOf(":") + 1)
+		: element.identifier;
+	const normalizedLabel = normalizedWords(element.label);
+
+	return normalizedLabel === normalizedWords(element.identifier)
+		|| normalizedLabel === normalizedWords(identifierTail);
+};
+
+/**
+ * Builds the same identifier-and-geometry key for raw iOS elements that the
+ * compact dump uses after truncating frame coordinates.
+ */
+const rawElementKey = (element: RawIOSUIElementResponse): string | undefined => {
+	if (!element.identifier || !element.frame) {
+		return undefined;
+	}
+
+	const { X, Y, Width, Height } = element.frame;
+	if (
+		typeof X !== "number"
+		|| typeof Y !== "number"
+		|| typeof Width !== "number"
+		|| typeof Height !== "number"
+	) {
+		return undefined;
+	}
+
+	return [element.identifier, Math.trunc(X), Math.trunc(Y), Math.trunc(Width), Math.trunc(Height)].join("\u0000");
+};
+
+/** Builds an identifier-and-geometry key for one compact screen element. */
+const screenElementKey = (element: ScreenElement): string | undefined => {
+	if (!element.identifier) {
+		return undefined;
+	}
+
+	const { x, y, width, height } = element.rect;
+	return [element.identifier, x, y, width, height].join("\u0000");
+};
+
+/**
+ * Indexes unambiguous raw iOS labels. A null value marks a key that appears
+ * with conflicting labels and must not be used for recovery.
+ */
+const collectRawIOSLabels = (root: RawIOSUIElementResponse): Map<string, string | null> => {
+	const labels = new Map<string, string | null>();
+	const visit = (element: RawIOSUIElementResponse): void => {
+		const key = rawElementKey(element);
+		if (key && element.label?.trim()) {
+			if (!labels.has(key)) {
+				labels.set(key, element.label);
+			} else if (labels.get(key) !== element.label) {
+				labels.set(key, null);
+			}
+		}
+		element.children?.forEach(visit);
+	};
+	visit(root);
+	return labels;
+};
+
+/**
+ * Restores native iOS accessibility labels where compact output lost them,
+ * leaving elements unchanged when the raw match is missing or ambiguous.
+ */
+const restoreIOSAccessibilityLabels = (
+	elements: ScreenElement[],
+	rawRoot: RawIOSUIElementResponse,
+): ScreenElement[] => {
+	const rawLabels = collectRawIOSLabels(rawRoot);
+	return elements.map(element => {
+		if (!hasIdentifierDerivedLabel(element)) {
+			return element;
+		}
+
+		const key = screenElementKey(element);
+		const rawLabel = key ? rawLabels.get(key) : undefined;
+		return rawLabel ? { ...element, label: rawLabel } : element;
+	});
+};
+
 export class MobileDevice implements Robot {
 
 	private mobilecli: Mobilecli;
 
-	public constructor(private deviceId: string) {
+	public constructor(private deviceId: string, private platform?: MobilecliDevice["platform"]) {
 		this.mobilecli = new Mobilecli();
 	}
 
@@ -273,9 +394,25 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "longpress", `${Math.round(x)},${Math.round(y)}`, "--duration", `${duration}`]);
 	}
 
+	/**
+	 * Lists visible elements and recovers native iOS accessibility labels when
+	 * the compact mobilecli dump replaced them with identifier-derived text.
+	 */
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
 		const response = this.runJsonCommand<DumpUIResponse>(["dump", "ui"]);
-		return response.data.elements.flatMap(element => flattenUIElement(element));
+		const elements = response.data.elements.flatMap(element => flattenUIElement(element));
+		if (this.platform !== "ios" || !elements.some(hasIdentifierDerivedLabel)) {
+			return elements;
+		}
+
+		try {
+			const rawResponse = this.runJsonCommand<RawDumpUIResponse>(["dump", "ui", "--format", "raw"]);
+			const rawRoot = rawResponse.data.rawData;
+			return rawRoot ? restoreIOSAccessibilityLabels(elements, rawRoot) : elements;
+		} catch {
+			// Raw label recovery is best-effort; the processed dump remains usable.
+			return elements;
+		}
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {

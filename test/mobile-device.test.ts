@@ -3,13 +3,15 @@ import { EventEmitter } from "node:events";
 
 import { MobileDevice } from "../src/mobile-device";
 
-function createMockMobileDevice(mockResponse: string): { device: MobileDevice; calls: string[][] } {
-	const device = new MobileDevice("test-device");
+/** Creates a MobileDevice whose mobilecli calls return deterministic fixtures. */
+function createMockMobileDevice(mockResponse: string | string[], platform?: "ios" | "android"): { device: MobileDevice; calls: string[][] } {
+	const device = new MobileDevice("test-device", platform);
 	const calls: string[][] = [];
+	const responses = Array.isArray(mockResponse) ? [...mockResponse] : [mockResponse];
 
 	(device as any).mobilecli.executeCommand = function(args: string[]): string {
 		calls.push(args);
-		return mockResponse;
+		return responses.shift() ?? "";
 	};
 
 	return { device, calls };
@@ -72,6 +74,159 @@ test.describe("MobileDevice", () => {
 			expect(elements.map(e => e.ref)).toEqual(["e1", "e2"]);
 			expect(elements[0]).toMatchObject({ selected: true, checked: true, enabled: false });
 			expect(elements[1].selected).toBeUndefined();
+		});
+
+		test("getElementsOnScreen should restore an identifier-derived iOS label from the raw dump", async () => {
+			const compactDump = {
+				status: "ok",
+				data: {
+					elements: [{
+						ref: "@e1",
+						type: "Button",
+						label: "btn home add hollow",
+						name: "btn:btn_home_add_hollow",
+						identifier: "btn:btn_home_add_hollow",
+						rect: { x: 160, y: 791, width: 80, height: 49 },
+					}],
+				},
+			};
+			const rawDump = {
+				status: "ok",
+				data: {
+					rawData: {
+						elementType: 0,
+						frame: { X: 0, Y: 0, Width: 402, Height: 874 },
+						children: [{
+							elementType: 9,
+							label: "拍摄",
+							identifier: "btn:btn_home_add_hollow",
+							frame: { X: 160.8, Y: 791, Width: 80.4, Height: 49 },
+						}],
+					},
+				},
+			};
+			const { device, calls } = createMockMobileDevice(
+				[JSON.stringify(compactDump), JSON.stringify(rawDump)],
+				"ios",
+			);
+
+			const elements = await device.getElementsOnScreen();
+
+			expect(calls).toEqual([
+				["dump", "ui", "--device", "test-device"],
+				["dump", "ui", "--format", "raw", "--device", "test-device"],
+			]);
+			expect(elements[0]).toMatchObject({
+				ref: "@e1",
+				label: "拍摄",
+				identifier: "btn:btn_home_add_hollow",
+				rect: { x: 160, y: 791, width: 80, height: 49 },
+			});
+		});
+
+		test("getElementsOnScreen should preserve the compact label for ambiguous raw matches", async () => {
+			const compactDump = {
+				status: "ok",
+				data: {
+					elements: [{
+						type: "Button",
+						label: "btn home add hollow",
+						identifier: "btn:btn_home_add_hollow",
+						rect: { x: 160, y: 791, width: 80, height: 49 },
+					}],
+				},
+			};
+			const rawDump = {
+				status: "ok",
+				data: {
+					rawData: {
+						elementType: 0,
+						frame: { X: 0, Y: 0, Width: 402, Height: 874 },
+						children: [
+							{
+								elementType: 9,
+								label: "拍摄",
+								identifier: "btn:btn_home_add_hollow",
+								frame: { X: 160.1, Y: 791, Width: 80.1, Height: 49 },
+							},
+							{
+								elementType: 9,
+								label: "发布",
+								identifier: "btn:btn_home_add_hollow",
+								frame: { X: 160.9, Y: 791, Width: 80.9, Height: 49 },
+							},
+						],
+					},
+				},
+			};
+			const { device } = createMockMobileDevice(
+				[JSON.stringify(compactDump), JSON.stringify(rawDump)],
+				"ios",
+			);
+
+			const elements = await device.getElementsOnScreen();
+
+			expect(elements[0].label).toBe("btn home add hollow");
+		});
+
+		test("getElementsOnScreen should not request a raw dump for semantic iOS labels", async () => {
+			const dump = {
+				status: "ok",
+				data: {
+					elements: [{
+						ref: "@e1",
+						type: "Button",
+						label: "拍摄",
+						identifier: "btn:btn_home_add_hollow",
+						rect: { x: 160, y: 791, width: 80, height: 49 },
+					}],
+				},
+			};
+			const { device, calls } = createMockMobileDevice(JSON.stringify(dump), "ios");
+
+			const elements = await device.getElementsOnScreen();
+
+			expect(calls).toEqual([["dump", "ui", "--device", "test-device"]]);
+			expect(elements[0].label).toBe("拍摄");
+		});
+
+		test("getElementsOnScreen should keep the compact dump when raw iOS label recovery fails", async () => {
+			const dump = {
+				status: "ok",
+				data: {
+					elements: [{
+						type: "Button",
+						label: "btn home add hollow",
+						identifier: "btn:btn_home_add_hollow",
+						rect: { x: 160, y: 791, width: 80, height: 49 },
+					}],
+				},
+			};
+			const { device, calls } = createMockMobileDevice(JSON.stringify(dump), "ios");
+
+			const elements = await device.getElementsOnScreen();
+
+			expect(calls).toHaveLength(2);
+			expect(elements[0].label).toBe("btn home add hollow");
+		});
+
+		test("getElementsOnScreen should not request a raw dump on Android", async () => {
+			const dump = {
+				status: "ok",
+				data: {
+					elements: [{
+						type: "Button",
+						label: "submit button",
+						identifier: "submit_button",
+						rect: { x: 0, y: 0, width: 100, height: 40 },
+					}],
+				},
+			};
+			const { device, calls } = createMockMobileDevice(JSON.stringify(dump), "android");
+
+			await device.getElementsOnScreen();
+
+			expect(calls).toEqual([["dump", "ui", "--device", "test-device"]]);
 		});
 	});
 
