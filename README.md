@@ -75,6 +75,7 @@ How we help to scale mobile automation:
 - **`mobile_get_screen_size`** - Get the screen size of the mobile device in pixels
 - **`mobile_get_orientation`** - Get the current screen orientation of the device
 - **`mobile_set_orientation`** - Change the screen orientation (portrait/landscape)
+- **`mobile_fold_device`** - Fold or unfold a foldable device (iPhone Duo simulators, foldable Android emulators)
 - **`mobile_set_location`** - Override the GPS location reported by the device, or clear the override
 - **`mobile_clipboard`** - Read or replace the device clipboard
 

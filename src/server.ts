@@ -935,6 +935,40 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_fold_device",
+		"Fold Device",
+		"Fold or unfold a foldable device, such as iPhone Duo simulators and foldable Android emulators. Provide either posture or angle.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			posture: z.enum(["folded", "half-open", "open"]).optional().describe("The desired hinge posture: folded (0 degrees), half-open (90 degrees) or open (180 degrees)"),
+			angle: z.number().min(0).max(180).optional().describe("The desired hinge angle in degrees, between 0 (folded) and 180 (open). iOS only, e.g. iPhone Duo. Use instead of posture."),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+		async ({ device, posture, angle }) => {
+			const robot = getRobotFromDevice(device);
+			if (!robot.fold) {
+				throw new ActionableError("Folding the device is not supported in legacy robot mode");
+			}
+
+			if (posture !== undefined && angle !== undefined) {
+				throw new ActionableError("Provide either posture or angle, not both");
+			}
+
+			if (posture === undefined && angle === undefined) {
+				throw new ActionableError("Either posture or angle is required to fold the device");
+			}
+
+			if (angle !== undefined) {
+				await robot.fold(angle);
+				return `Set device hinge angle to ${angle} degrees`;
+			}
+
+			await robot.fold(posture!);
+			return `Changed device posture to ${posture}`;
+		}
+	);
+
+	tool(
 		"mobile_set_location",
 		"Set Location",
 		"Override the GPS location reported by the device, or clear the override to restore the real location. Omit latitude and longitude to clear.",

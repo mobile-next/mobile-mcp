@@ -51,6 +51,8 @@ export class ActionableError extends Error {
 
 export type Orientation = "portrait" | "landscape";
 
+export type FoldPosture = "folded" | "half-open" | "open";
+
 export interface ScreenshotOptions {
 	format?: "png" | "jpeg";
 	quality?: number;
@@ -101,6 +103,12 @@ export interface Robot {
 	 * Remove the GPS location override. Optional, not all robots support it.
 	 */
 	clearLocation?(): Promise<void>;
+
+	/**
+	 * Set the hinge of a foldable device, either to a named posture or to an
+	 * angle in degrees (0-180). Optional, not all robots support it.
+	 */
+	fold?(posture: FoldPosture | number): Promise<void>;
 
 	/**
 	 * Read the device clipboard. Optional, not all robots support it.
