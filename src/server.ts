@@ -287,7 +287,7 @@ export const createMcpServer = (): McpServer => {
 						agentVerifiedSimulators.add(deviceId);
 					}
 
-					return new MobileDevice(deviceId);
+					return new MobileDevice(deviceId, device.platform);
 				}
 			}
 		}
