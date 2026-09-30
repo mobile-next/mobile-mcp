@@ -80,6 +80,22 @@ jobs:
       run: |
         npm publish --access public --provenance
 
+    - name: Wait for package to be available on npm
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: |
+        # npm takes a while to serve a freshly published version; give up after 5 minutes
+        for attempt in $(seq 1 60); do
+          if npm view "@mobilenext/mobile-mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "@mobilenext/mobile-mcp@$VERSION is available on npm"
+            exit 0
+          fi
+          echo "Waiting for @mobilenext/mobile-mcp@$VERSION on npm (attempt $attempt/60)"
+          sleep 5
+        done
+        echo "@mobilenext/mobile-mcp@$VERSION did not appear on npm in time"
+        exit 1
+
     - name: Publish on github mcp registry
       env:
         VERSION: ${{ github.ref_name }}
