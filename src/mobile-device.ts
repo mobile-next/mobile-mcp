@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { ActionableError, Button, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
+import { ActionableError, Button, FoldPosture, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -285,6 +285,11 @@ export class MobileDevice implements Robot {
 	public async getOrientation(): Promise<Orientation> {
 		const response = this.runJsonCommand<OrientationResponse>(["device", "orientation", "get"]);
 		return response.data.orientation;
+	}
+
+	public async fold(posture: FoldPosture | number): Promise<void> {
+		// parse the response, older mobilecli versions print help and exit 0 on unknown commands
+		this.runJsonCommand<unknown>(["device", "fold", `${posture}`]);
 	}
 
 	public async setLocation(latitude: number, longitude: number): Promise<void> {

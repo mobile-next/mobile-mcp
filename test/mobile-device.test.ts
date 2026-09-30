@@ -86,6 +86,23 @@ test.describe("MobileDevice", () => {
 		});
 	});
 
+	test.describe("fold", () => {
+
+		test("fold should call mobilecli device fold with a named posture", async () => {
+			const { device, calls } = createMockMobileDevice(JSON.stringify({ status: "ok", data: {} }));
+			await device.fold("half-open");
+
+			expect(calls[0]).toEqual(["device", "fold", "half-open", "--device", "test-device"]);
+		});
+
+		test("fold should call mobilecli device fold with an angle in degrees", async () => {
+			const { device, calls } = createMockMobileDevice(JSON.stringify({ status: "ok", data: {} }));
+			await device.fold(120);
+
+			expect(calls[0]).toEqual(["device", "fold", "120", "--device", "test-device"]);
+		});
+	});
+
 	test.describe("location", () => {
 
 		test("setLocation should call mobilecli device location set with lat,lng", async () => {
