@@ -1,3 +1,6 @@
+## [1.0.6](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.6) (2026-09-30)
+* Feat: `mobile_fold_device` folds and unfolds foldable devices by posture (`folded`, `half-open`, `open`) or hinge angle; supports iPhone Duo simulators and foldable Android emulators ([#458](https://github.com/mobile-next/mobile-mcp/pull/458))
+
 ## [1.0.5](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.5) (2026-09-23)
 * Feat: Server instructions telling clients to pick a device first, read the screen via `mobile_list_elements_on_screen`, batch round-trips, and release remote devices when done ([#445](https://github.com/mobile-next/mobile-mcp/pull/445))
 * Fix: Recordings from `mobile_stop_screen_recording` are playable mp4s; streams with B-frames used to decode as one frame lasting hundreds of hours ([mobilecli#430](https://github.com/mobile-next/mobilecli/pull/430))
