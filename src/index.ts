@@ -8,6 +8,10 @@ import { error } from "./logger";
 import { Request, Response } from "express";
 import { program } from "commander";
 
+const logMcpError = (err: Error) => {
+	error("Error handling MCP request: " + (err.stack ?? String(err)));
+};
+
 const startHttpServer = async (host: string, port: number) => {
 	// createMcpExpressApp applies express.json() and Host-header DNS rebinding
 	// protection automatically when binding to localhost / 127.0.0.1 / ::1.
@@ -49,11 +53,10 @@ const startHttpServer = async (host: string, port: number) => {
 	// from the same factory — the same per-request model as before.
 	// onerror keeps request-handling and transport failures in the application
 	// log (the SDK otherwise answers HTTP 500 silently).
-	const onerror = (err: Error) => error("Error handling MCP request: " + (err.stack ?? String(err)));
-	const handler = createMcpHandler(() => createMcpServer(), { onerror });
-	const node = toNodeHandler(handler, { onerror });
+	const handler = createMcpHandler(() => createMcpServer(), { onerror: logMcpError });
+	const node = toNodeHandler(handler, { onerror: logMcpError });
 
-	app.all("/mcp", (req: Request, res: Response) => {
+	app.post("/mcp", (req: Request, res: Response) => {
 		void node(req, res, req.body);
 	});
 
@@ -83,8 +86,10 @@ const startStdioServer = async () => {
 		// serveStdio owns the transport and the era decision for the
 		// connection: a `server/discover` probe (revision 2026-07-28) pins
 		// the connection modern, while an `initialize` handshake keeps
-		// serving the 2025-era protocol exactly as before.
-		serveStdio(() => createMcpServer());
+		// serving the 2025-era protocol exactly as before. The factory runs
+		// lazily on the first message, so a failing createMcpServer() surfaces
+		// through onerror rather than the catch below.
+		serveStdio(() => createMcpServer(), { onerror: logMcpError });
 
 		// Exit cleanly on termination signals so node flushes pending work
 		// (including NODE_V8_COVERAGE output). Node's default SIGINT/SIGTERM
