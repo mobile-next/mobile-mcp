@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { EventEmitter } from "node:events";
 
 import { MobileDevice } from "../src/mobile-device";
+import { ActionableError } from "../src/robot";
 
 function createMockMobileDevice(mockResponse: string): { device: MobileDevice; calls: string[][] } {
 	const device = new MobileDevice("test-device");
@@ -72,6 +73,36 @@ test.describe("MobileDevice", () => {
 			expect(elements.map(e => e.ref)).toEqual(["e1", "e2"]);
 			expect(elements[0]).toMatchObject({ selected: true, checked: true, enabled: false });
 			expect(elements[1].selected).toBeUndefined();
+		});
+
+		test("getElementsOnScreen should return no elements for an empty hierarchy", async () => {
+			const { device } = createMockMobileDevice(JSON.stringify({ status: "ok", data: { elements: [] } }));
+			await expect(device.getElementsOnScreen()).resolves.toEqual([]);
+		});
+	});
+
+	test.describe("empty ui dump", () => {
+
+		// A sleeping or locked device makes mobilecli report success with an
+		// empty payload, which used to surface as a raw
+		// "Cannot read properties of undefined (reading 'flatMap')" TypeError.
+		test("getElementsOnScreen should raise an actionable error when dump ui returns no elements", async () => {
+			const { device, calls } = createMockMobileDevice(JSON.stringify({ status: "ok", data: {} }));
+			const pending = device.getElementsOnScreen();
+
+			await expect(pending).rejects.toThrow(ActionableError);
+			await expect(pending).rejects.toThrow(/screen is most likely off or locked/);
+			expect(calls[0]).toEqual(["dump", "ui", "--device", "test-device"]);
+		});
+
+		test("getElementsOnScreen should raise an actionable error when dump ui omits data entirely", async () => {
+			const { device } = createMockMobileDevice(JSON.stringify({ status: "ok" }));
+			await expect(device.getElementsOnScreen()).rejects.toThrow(/screen is most likely off or locked/);
+		});
+
+		test("getElementsOnScreen should raise an actionable error when dump ui data is null", async () => {
+			const { device } = createMockMobileDevice(JSON.stringify({ status: "ok", data: null }));
+			await expect(device.getElementsOnScreen()).rejects.toThrow(/screen is most likely off or locked/);
 		});
 	});
 
