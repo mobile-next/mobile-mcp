@@ -1,3 +1,16 @@
+## [1.0.7](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.7) (2026-10-01)
+* Fix: `server/discover` is answered for protocol revision 2026-07-28 instead of `Method not found` ([#451](https://github.com/mobile-next/mobile-mcp/pull/451), [#463](https://github.com/mobile-next/mobile-mcp/pull/463)), thanks to [@rahul05ranjan](https://github.com/rahul05ranjan)
+* Fix: `mobile_list_elements_on_screen` raises an actionable error instead of a raw `TypeError` when the screen has no elements, e.g. an Android device with its screen off ([#457](https://github.com/mobile-next/mobile-mcp/pull/457)), thanks to [@Yi-111-a](https://github.com/Yi-111-a)
+* Fix: `mobile_long_press_on_screen_at_coordinates` rejects a negative duration ([mobilecli#474](https://github.com/mobile-next/mobilecli/pull/474))
+* Fix: No more orphan mobilecli server, signals are forwarded to the binary ([mobilecli#475](https://github.com/mobile-next/mobilecli/pull/475))
+* Fix(iOS): Landscape screenshots are rotated in the pixels, not with an EXIF tag ([devicekit-ios#93](https://github.com/mobile-next/devicekit-ios/pull/93))
+* Fix(iOS): `mobile_get_screen_size` reports the unfolded screen size on foldable simulators ([devicekit-ios#91](https://github.com/mobile-next/devicekit-ios/pull/91))
+* Fix(iOS): Fail fast when the agent server can't start ([devicekit-ios#94](https://github.com/mobile-next/devicekit-ios/pull/94))
+* Feat(iOS): `DEVICEKIT_LISTEN_HOST` accepts multiple addresses, including IPv6 ([devicekit-ios#92](https://github.com/mobile-next/devicekit-ios/pull/92)), thanks to [@hillct](https://github.com/hillct)
+* Fix(Android): `mobile_open_url` keeps the whole URL, values after `&` were missing ([mobilecli#472](https://github.com/mobile-next/mobilecli/pull/472))
+* Fix(Android): Stop the device server when idle or when the daemon exits, freeing uiautomator ([mobilecli#476](https://github.com/mobile-next/mobilecli/pull/476))
+* Fix(Android): Quote package names passed to adb shell, preventing injection ([mobilecli#471](https://github.com/mobile-next/mobilecli/pull/471))
+
 ## [1.0.6](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.6) (2026-09-30)
 * Feat: `mobile_fold_device` folds and unfolds foldable devices by posture (`folded`, `half-open`, `open`) or hinge angle; supports iPhone Duo simulators and foldable Android emulators ([#458](https://github.com/mobile-next/mobile-mcp/pull/458))
 
