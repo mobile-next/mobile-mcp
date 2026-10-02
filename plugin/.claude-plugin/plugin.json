@@ -1,0 +1,21 @@
+{
+	"name": "mobile-mcp",
+	"version": "1.0.7",
+	"description": "Mobile automation for Claude Code: the mobile-mcp server, and /mobile-mirror, a live, clickable device screen in a pane.",
+	"author": {
+		"name": "Mobile Next",
+		"url": "https://mobilenext.ai"
+	},
+	"homepage": "https://mobilenext.ai/docs",
+	"repository": "https://github.com/mobile-next/mobile-mcp",
+	"license": "Apache-2.0",
+	"keywords": ["mobile", "android", "ios", "automation", "testing", "mcp", "mirror"],
+	"mcpServers": {
+		"mobile-mcp": {
+			"type": "stdio",
+			"command": "npx",
+			"args": ["-y", "@mobilenext/mobile-mcp@latest"]
+		}
+	},
+	"types": "./types/index.d.ts"
+}

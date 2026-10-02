@@ -58,6 +58,11 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 - 🧠 **プラットフォームの専門知識は不要**: XCUITest も Espresso もプラットフォームごとのつなぎコードも不要です。目的を伝えればエージェントが実行します。
 - 🧰 **完全なデバイス制御**: タップ、スワイプ、ジェスチャー、アプリのインストール / 起動 / 終了、画面録画、ハードウェアボタン、ディープリンク、画面の向き。
 - 📊 **構造化された決定的な出力**: 実際の UI 要素を読み取って構造化データを抽出し、スクリーンショットのみのアプローチにありがちな曖昧さを削減します。
+- 🪞 **Claude Code でのデバイスミラーリング**: Ghostty または kitty で動作する Claude Code 向けです。プラグインをインストールして `/mobile-mirror` を実行すると、デバイスのライブ画面がサイドペインに表示され、ターミナルを離れずにタップ、文字入力、Home/Back の操作ができます。
+
+<p align="center">
+    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="docs/screenshots/mobile-mirror.png" width="800" />
+</p>
 
 ### 🎯 対応プラットフォーム
 
@@ -208,7 +213,16 @@ Cline をセットアップするには、上記の json を MCP 設定ファイ
 <details>
 <summary>Claude Code</summary>
 
-Claude Code CLI を使って Mobile MCP サーバーを追加します:
+Claude Code 内でプラグインをインストールします。Mobile MCP サーバーと `/mobile-mirror` が追加されます:
+
+```
+/plugin marketplace add mobile-next/mobile-mcp
+/plugin install mobile-mcp@mobile-mcp
+```
+
+`/mobile-mirror [device-id]` を実行すると、デバイスのライブ画面を表示するペインが開きます。画像をクリックするとタップ、キー入力でキーを送信でき、上部の Home、Back、App Switch、URL ボタンも使えます。画像の表示には kitty や Ghostty など、kitty グラフィックスプロトコルに対応したターミナルが必要です。
+
+プラグインを使えない場合は、Claude Code CLI で MCP サーバーのみを追加します:
 
 ```bash
 claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest

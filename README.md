@@ -58,6 +58,11 @@ How we help to scale mobile automation:
 - 🧠 **No platform expertise required**: no XCUITest, no Espresso, no per-platform glue — describe the goal and the agent does it.
 - 🧰 **Full device control**: taps, swipes, and gestures; app install/launch/terminate; screen recording; hardware buttons; deep links; orientation.
 - 📊 **Structured, deterministic output**: reads real UI elements and extracts structured data, cutting the ambiguity of screenshot-only approaches.
+- 🪞 **Device mirroring in Claude Code**: for Claude Code running in Ghostty or kitty. Install the plugin and run `/mobile-mirror` to see the device's live screen in a side pane, then tap, type and press Home/Back without leaving the terminal.
+
+<p align="center">
+    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="docs/screenshots/mobile-mirror.png" width="800" />
+</p>
 
 ### 🎯 Platform Support
 
@@ -209,7 +214,16 @@ To setup Cline, just add the json above to your MCP settings file.
 <details>
 <summary>Claude Code</summary>
 
-Use the Claude Code CLI to add the Mobile MCP server:
+Install the plugin from inside Claude Code. It adds the Mobile MCP server and `/mobile-mirror`:
+
+```
+/plugin marketplace add mobile-next/mobile-mcp
+/plugin install mobile-mcp@mobile-mcp
+```
+
+`/mobile-mirror [device-id]` opens a pane with the device's live screen. Click the picture to tap, type to send keys, and use the Home, Back, App Switch and URL buttons above it. The picture needs a terminal with the kitty graphics protocol, such as kitty or Ghostty.
+
+If you can't use plugins, add only the MCP server with the Claude Code CLI:
 
 ```bash
 claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest

@@ -1,0 +1,14 @@
+{
+	"name": "mobile-mcp",
+	"description": "Mobile automation for AI agents on Android and iOS",
+	"owner": {
+		"name": "Mobile Next",
+		"url": "https://mobilenext.ai"
+	},
+	"plugins": [
+		{
+			"name": "mobile-mcp",
+			"source": "./plugin"
+		}
+	]
+}
