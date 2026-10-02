@@ -109,8 +109,7 @@ export const register: Register = on => {
 			screenHeight: Number(match[2]),
 		}));
 		await update($, isAskingUrl, () => false);
-		await update($, streamId, n => n + 1);
-		const id = await read($, streamId);
+		const id = await update($, streamId, n => n + 1);
 
 		const captureFrame = async (generation: number): Promise<boolean> => {
 			const file = frameFile(generation);

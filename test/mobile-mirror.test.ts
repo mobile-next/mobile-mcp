@@ -30,6 +30,11 @@ test.describe("mobile-mirror picture sizing", () => {
 		const columns = Math.floor((255 * 100 * CELL_ASPECT) / 1000);
 		expect(fitInside(300, 1000, 100, 1000)).toEqual({ columns, rows: 255 });
 	});
+
+	test("a picture with no width or height fills the box instead of dividing by zero", () => {
+		expect(fitInside(40, 20, 0, 800)).toEqual({ columns: 40, rows: 20 });
+		expect(fitInside(40, 20, 400, 0)).toEqual({ columns: 40, rows: 20 });
+	});
 });
 
 test.describe("mobile-mirror keys", () => {

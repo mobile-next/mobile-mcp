@@ -17,6 +17,11 @@ function clampCells(n: number): number {
 export function fitInside(columnsLimit: number, rowsLimit: number, width: number, height: number): { columns: number; rows: number } {
 	const maxColumns = clampCells(columnsLimit);
 	const maxRows = clampCells(rowsLimit);
+	// a broken PNG header can report zero; without an aspect to keep, fill the box instead of dividing by zero
+	if (width <= 0 || height <= 0) {
+		return { columns: maxColumns, rows: maxRows };
+	}
+
 	const rowsAtFullWidth = (maxColumns * height) / width / CELL_ASPECT;
 	if (rowsAtFullWidth <= maxRows) {
 		return { columns: clampCells(maxColumns), rows: clampCells(rowsAtFullWidth) };
