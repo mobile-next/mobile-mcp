@@ -58,6 +58,11 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 - 🧠 **无需平台专业知识**: 不需要 XCUITest，不需要 Espresso，也不需要各平台的胶水代码 —— 描述目标，智能体来完成。
 - 🧰 **完整的设备控制**: 点击、滑动与手势；应用安装/启动/终止；屏幕录制；硬件按键；深度链接；屏幕方向。
 - 📊 **结构化、确定性的输出**: 读取真实的 UI 元素并提取结构化数据，减少纯截图方案带来的歧义。
+- 🪞 **在 Claude Code 中镜像设备**: 适用于在 Ghostty 或 kitty 中运行的 Claude Code。安装插件后运行 `/mobile-mirror`，即可在侧边窗格中查看设备的实时画面，并且无需离开终端就能点按、输入文字以及按 Home/Back。
+
+<p align="center">
+    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="mobile-mirror.png" width="800" />
+</p>
 
 ### 🎯 平台支持
 
@@ -213,6 +218,15 @@ Antigravity 没有添加 MCP 服务器的 CLI 命令，因此需要手动添加�
 ```bash
 claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
+
+也可以作为插件安装，这样还会获得 `/mobile-mirror`:
+
+```
+/plugin marketplace add mobile-next/mobile-mcp
+/plugin install mobile-mcp@mobile-mcp
+```
+
+`/mobile-mirror [device-id]` 会打开一个显示设备实时画面的窗格。点击画面即可点按设备，输入文字即可发送按键，上方还有 Home、Back、App Switch 和 URL 按钮。显示画面需要支持 kitty 图形协议的终端，例如 kitty 或 Ghostty。
 </details>
 
 <details>
