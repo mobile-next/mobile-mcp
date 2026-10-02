@@ -1,3 +1,6 @@
+## [1.0.8](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.8) (2026-10-02)
+* Feat: mobile-mcp is now a Claude Code plugin, and it brings `/mobile-mirror`: the device's live screen in a pane, where you can tap, type, and press Home/Back/App Switch, or open a URL (Claude Code in Ghostty or kitty). See the [README](https://github.com/mobile-next/mobile-mcp#installation-and-configuration) for plugin installation instructions ([#468](https://github.com/mobile-next/mobile-mcp/pull/468))
+
 ## [1.0.7](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.7) (2026-10-01)
 * Fix: `server/discover` is answered for protocol revision 2026-07-28 instead of `Method not found` ([#451](https://github.com/mobile-next/mobile-mcp/pull/451), [#463](https://github.com/mobile-next/mobile-mcp/pull/463)), thanks to [@rahul05ranjan](https://github.com/rahul05ranjan)
 * Fix: `mobile_list_elements_on_screen` raises an actionable error instead of a raw `TypeError` when the screen has no elements, e.g. an Android device with its screen off ([#457](https://github.com/mobile-next/mobile-mcp/pull/457)), thanks to [@Yi-111-a](https://github.com/Yi-111-a)
