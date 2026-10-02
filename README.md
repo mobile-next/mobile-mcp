@@ -58,6 +58,11 @@ How we help to scale mobile automation:
 - 🧠 **No platform expertise required**: no XCUITest, no Espresso, no per-platform glue — describe the goal and the agent does it.
 - 🧰 **Full device control**: taps, swipes, and gestures; app install/launch/terminate; screen recording; hardware buttons; deep links; orientation.
 - 📊 **Structured, deterministic output**: reads real UI elements and extracts structured data, cutting the ambiguity of screenshot-only approaches.
+- 🪞 **Device mirroring in Claude Code**: for Claude Code running in Ghostty or kitty. Install the plugin and run `/mobile-mirror` to see the device's live screen in a side pane, then tap, type and press Home/Back without leaving the terminal.
+
+<p align="center">
+    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="mobile-mirror.png" width="800" />
+</p>
 
 ### 🎯 Platform Support
 
