@@ -214,6 +214,15 @@ Use the Claude Code CLI to add the Mobile MCP server:
 ```bash
 claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
+
+Or install it as a plugin, which also brings the `mobile-automation` skill and `/mobile-mirror`:
+
+```
+/plugin marketplace add mobile-next/mobile-mcp
+/plugin install mobile-mcp@mobile-mcp
+```
+
+`/mobile-mirror [device-id]` opens a pane with the device's live screen. Click the picture to tap, type to send keys, and use the Home, Back, App Switch and URL buttons above it. The picture needs a terminal with the kitty graphics protocol, such as kitty or Ghostty.
 </details>
 
 <details>
