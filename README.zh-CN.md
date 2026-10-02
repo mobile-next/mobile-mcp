@@ -61,7 +61,7 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 - 🪞 **在 Claude Code 中镜像设备**: 适用于在 Ghostty 或 kitty 中运行的 Claude Code。安装插件后运行 `/mobile-mirror`，即可在侧边窗格中查看设备的实时画面，并且无需离开终端就能点按、输入文字以及按 Home/Back。
 
 <p align="center">
-    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="mobile-mirror.png" width="800" />
+    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="docs/screenshots/mobile-mirror.png" width="800" />
 </p>
 
 ### 🎯 平台支持

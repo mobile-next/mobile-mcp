@@ -61,7 +61,7 @@ How we help to scale mobile automation:
 - 🪞 **Device mirroring in Claude Code**: for Claude Code running in Ghostty or kitty. Install the plugin and run `/mobile-mirror` to see the device's live screen in a side pane, then tap, type and press Home/Back without leaving the terminal.
 
 <p align="center">
-    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="mobile-mirror.png" width="800" />
+    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="docs/screenshots/mobile-mirror.png" width="800" />
 </p>
 
 ### 🎯 Platform Support

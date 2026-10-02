@@ -61,7 +61,7 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 - 🪞 **Claude Code でのデバイスミラーリング**: Ghostty または kitty で動作する Claude Code 向けです。プラグインをインストールして `/mobile-mirror` を実行すると、デバイスのライブ画面がサイドペインに表示され、ターミナルを離れずにタップ、文字入力、Home/Back の操作ができます。
 
 <p align="center">
-    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="mobile-mirror.png" width="800" />
+    <img alt="/mobile-mirror showing an iOS simulator beside a Claude Code session" src="docs/screenshots/mobile-mirror.png" width="800" />
 </p>
 
 ### 🎯 対応プラットフォーム
