@@ -213,13 +213,7 @@ Antigravity 没有添加 MCP 服务器的 CLI 命令，因此需要手动添加�
 <details>
 <summary>Claude Code</summary>
 
-使用 Claude Code CLI 添加 Mobile MCP 服务器:
-
-```bash
-claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
-```
-
-也可以作为插件安装，这样还会获得 `/mobile-mirror`:
+在 Claude Code 中安装插件，它会添加 Mobile MCP 服务器和 `/mobile-mirror`:
 
 ```
 /plugin marketplace add mobile-next/mobile-mcp
@@ -227,6 +221,12 @@ claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
 `/mobile-mirror [device-id]` 会打开一个显示设备实时画面的窗格。点击画面即可点按设备，输入文字即可发送按键，上方还有 Home、Back、App Switch 和 URL 按钮。显示画面需要支持 kitty 图形协议的终端，例如 kitty 或 Ghostty。
+
+如果无法使用插件，可以用 Claude Code CLI 只添加 MCP 服务器:
+
+```bash
+claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
+```
 </details>
 
 <details>

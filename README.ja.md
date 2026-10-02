@@ -213,13 +213,7 @@ Cline をセットアップするには、上記の json を MCP 設定ファイ
 <details>
 <summary>Claude Code</summary>
 
-Claude Code CLI を使って Mobile MCP サーバーを追加します:
-
-```bash
-claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
-```
-
-プラグインとしてインストールすることもできます。この場合は `/mobile-mirror` も使えるようになります:
+Claude Code 内でプラグインをインストールします。Mobile MCP サーバーと `/mobile-mirror` が追加されます:
 
 ```
 /plugin marketplace add mobile-next/mobile-mcp
@@ -227,6 +221,12 @@ claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
 `/mobile-mirror [device-id]` を実行すると、デバイスのライブ画面を表示するペインが開きます。画像をクリックするとタップ、キー入力でキーを送信でき、上部の Home、Back、App Switch、URL ボタンも使えます。画像の表示には kitty や Ghostty など、kitty グラフィックスプロトコルに対応したターミナルが必要です。
+
+プラグインを使えない場合は、Claude Code CLI で MCP サーバーのみを追加します:
+
+```bash
+claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
+```
 </details>
 
 <details>
