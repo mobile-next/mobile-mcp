@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import { CELL_ASPECT, fitInside, pngSize } from "../hooks/png";
-import { keysToActions } from "../hooks/keys";
+import { CELL_ASPECT, fitInside, pngSize } from "../plugin/hooks/png";
+import { keysToActions } from "../plugin/hooks/keys";
 
 function pngHeaderOfSize(width: number, height: number): Uint8Array {
 	const bytes = new Uint8Array(24);

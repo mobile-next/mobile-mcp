@@ -215,7 +215,7 @@ Use the Claude Code CLI to add the Mobile MCP server:
 claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
 ```
 
-Or install it as a plugin, which also brings the `mobile-automation` skill and `/mobile-mirror`:
+Or install it as a plugin, which also brings `/mobile-mirror`:
 
 ```
 /plugin marketplace add mobile-next/mobile-mcp
