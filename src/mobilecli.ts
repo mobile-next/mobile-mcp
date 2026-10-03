@@ -67,6 +67,7 @@ export interface MobilecliDevicesResponse {
 
 const TIMEOUT = 30000;
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
+const SCREEN_RECORDING_STARTED = "Screen recording has started";
 const DEFAULT_ALLOCATE_TIMEOUT_SECONDS = 900; // matches mobilecli's own "remote allocate --wait" default
 
 export class Mobilecli {
@@ -95,6 +96,60 @@ export class Mobilecli {
 		const binaryPath = this.getPath();
 		return spawn(binaryPath, args, {
 			stdio: ["ignore", captureOutput ? "pipe" : "ignore", captureOutput ? "pipe" : "ignore"],
+		});
+	}
+
+	/**
+	 * Spawns `mobilecli screenrecord` and resolves only once mobilecli reports that
+	 * recording has started. Rejects on spawn error, early exit, or startup timeout.
+	 */
+	public startScreenRecording(args: string[]): Promise<ChildProcess> {
+		const child = this.spawnCommand(args, true);
+		const stdout = child.stdout!;
+		const stderr = child.stderr!;
+
+		return new Promise((resolve, reject) => {
+			let output = "";
+			let settled = false;
+
+			const finish = () => {
+				settled = true;
+				clearTimeout(timer);
+				stdout.off("data", onData);
+				stderr.off("data", onData);
+				stdout.resume();
+				stderr.resume();
+			};
+
+			const fail = (error: Error) => {
+				if (settled) {
+					return;
+				}
+
+				finish();
+				reject(error);
+			};
+
+			const onData = (chunk: Buffer) => {
+				output = (output + chunk.toString()).slice(-MAX_BUFFER_SIZE);
+				if (!settled && output.includes(SCREEN_RECORDING_STARTED)) {
+					finish();
+					resolve(child);
+				}
+			};
+
+			const timer = setTimeout(() => {
+				child.kill();
+				fail(new Error("Timed out waiting for mobilecli to start screen recording"));
+			}, TIMEOUT);
+
+			stdout.on("data", onData);
+			stderr.on("data", onData);
+			child.once("error", fail);
+			child.once("exit", (code, signal) => {
+				const status = signal ? `signal ${signal}` : `code ${code ?? "unknown"}`;
+				fail(new Error(output.trim() || `mobilecli exited before screen recording started (${status})`));
+			});
 		});
 	}
 
