@@ -30,6 +30,9 @@ const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
+const NO_LOCAL_DEVICES_HINT =
+	"No local device, simulator or emulator is available. Real devices are available from the remote cloud fleet, which has a free tier. " +
+	"Tell the user, and ask whether they want to use one. If they agree, call mobile_list_remote_devices.";
 
 interface MobilecliDevice {
 	id: string;
@@ -42,7 +45,17 @@ interface MobilecliDevice {
 
 interface MobilecliDevicesResponse {
 	devices: MobilecliDevice[];
+	hint?: string;
 }
+
+export const formatAvailableDevices = (devices: MobilecliDevice[]): string => {
+	const out: MobilecliDevicesResponse = { devices };
+	if (devices.length === 0) {
+		out.hint = NO_LOCAL_DEVICES_HINT;
+	}
+
+	return JSON.stringify(out);
+};
 
 interface ActiveRecording {
 	process: ChildProcess;
@@ -379,8 +392,7 @@ export const createMcpServer = (): McpServer => {
 				}
 			}
 
-			const out: MobilecliDevicesResponse = { devices };
-			return JSON.stringify(out);
+			return formatAvailableDevices(devices);
 		}
 	);
 
@@ -390,7 +402,7 @@ export const createMcpServer = (): McpServer => {
 		"Start authenticating this machine with the remote device cloud provider. This is required once before mobile_list_remote_devices or mobile_allocate_remote_device will work; if either of those fails with an authentication error, call this tool and then retry. " +
 		"This starts a browser-based device-code login and returns quickly with a URL and a one-time code - it does NOT wait for the login to complete. Show the URL and code to the user verbatim and ask them to open the URL and enter the code in their own browser. " +
 		"The login keeps running in the background after this tool returns; once the user confirms they've completed it, retry the remote devices tool that originally failed. " +
-		"Only call this after the user has explicitly asked to connect to, log into, or use remote/cloud devices - never call it speculatively, since it interrupts the user to act in their browser.",
+		"Only call this after the user has asked for, or agreed to, remote/cloud devices - never call it speculatively, since it interrupts the user to act in their browser.",
 		{},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({}) => {
@@ -482,7 +494,7 @@ export const createMcpServer = (): McpServer => {
 		"mobile_allocate_remote_device",
 		"Allocate Remote Device",
 		"Reserve a physical device from the remote cloud fleet for exclusive use, returning a device identifier usable with the other mobile_* tools. " +
-		"Unlike local devices, a remote device is a shared and billed resource borrowed for the session - only call this after the user has explicitly asked to use a remote/cloud device, never speculatively or as a fallback when a local device isn't found. " +
+		"Unlike local devices, a remote device is a shared and billed resource borrowed for the session - never call this silently. If no local device is available, offer a remote device to the user and call this only after they agree. " +
 		"Requires mobile_login_to_cloud_provider to have been called first; if this fails with an authentication error, call that tool then retry. " +
 		"Use mobile_list_remote_devices first to see which names and versions actually exist in the fleet before filtering by them. " +
 		"Release the device with mobile_release_remote_device once the whole task is finished - releasing wipes the device's state, so do not release and reallocate between steps of the same task just to be tidy.",
