@@ -59,6 +59,39 @@ test.describe("MobileDevice", () => {
 		});
 	});
 
+	test.describe("gestures by element ref", () => {
+
+		test("longPressByRef should pass the element ref to mobilecli io longpress", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.longPressByRef("@e5", 800);
+
+			expect(calls[0]).toEqual(["io", "longpress", "@e5", "--duration", "800", "--device", "test-device"]);
+		});
+
+		test("doubleTapByRef should resolve the ref once and tap the element center twice", async () => {
+			const dump = { status: "ok", data: { elements: [
+				{ ref: "@e1", type: "Button", label: "+", rect: { x: 100, y: 200, width: 40, height: 60 } },
+			] } };
+			const { device, calls } = createMockMobileDevice(JSON.stringify(dump));
+			await device.doubleTapByRef("@e1");
+
+			expect(calls).toEqual([
+				["dump", "ui", "--device", "test-device"],
+				["io", "tap", "120,230", "--device", "test-device"],
+				["io", "tap", "120,230", "--device", "test-device"],
+			]);
+		});
+
+		test("doubleTapByRef should raise an actionable error for a ref that is not on screen", async () => {
+			const { device, calls } = createMockMobileDevice(JSON.stringify({ status: "ok", data: { elements: [] } }));
+			const pending = device.doubleTapByRef("@e9");
+
+			await expect(pending).rejects.toThrow(ActionableError);
+			await expect(pending).rejects.toThrow(/@e9 was not found on the current screen/);
+			expect(calls).toEqual([["dump", "ui", "--device", "test-device"]]);
+		});
+	});
+
 	test.describe("element state", () => {
 
 		test("getElementsOnScreen should keep ref, selected, checked and enabled from dump ui", async () => {
