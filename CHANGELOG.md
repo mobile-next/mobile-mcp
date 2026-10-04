@@ -1,3 +1,6 @@
+## Unreleased
+* Feat: `mobile_list_available_devices` points to the remote cloud fleet when no local device is available, and the agent asks before using one
+
 ## [1.0.8](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.8) (2026-10-02)
 * Feat: mobile-mcp is now a Claude Code plugin, and it brings `/mobile-mirror`: the device's live screen in a pane, where you can tap, type, and press Home/Back/App Switch, or open a URL (Claude Code in Ghostty or kitty). See the [README](https://github.com/mobile-next/mobile-mcp#installation-and-configuration) for plugin installation instructions ([#468](https://github.com/mobile-next/mobile-mcp/pull/468))
 
