@@ -179,12 +179,22 @@ export interface Robot {
 	doubleTap(x: number, y: number): Promise<void>;
 
 	/**
+	 * Double tap on the center of an element by its ref from the latest getElementsOnScreen (e.g. "@e5"). mobilecli only.
+	 */
+	doubleTapByRef?(ref: string): Promise<void>;
+
+	/**
 	 * Long press on a specific coordinate on the screen.
 	 * @param x - The x coordinate to long press
 	 * @param y - The y coordinate to long press
 	 * @param duration - Duration of the long press in milliseconds
 	 */
 	longPress(x: number, y: number, duration: number): Promise<void>;
+
+	/**
+	 * Long press on the center of an element by its ref from the latest getElementsOnScreen (e.g. "@e5"). mobilecli only.
+	 */
+	longPressByRef?(ref: string, duration: number): Promise<void>;
 
 	/**
 	 * Get all elements on the screen. Works only on native apps (not webviews). Will

@@ -271,8 +271,24 @@ export class MobileDevice implements Robot {
 		await this.tap(x, y);
 	}
 
+	public async doubleTapByRef(ref: string): Promise<void> {
+		// resolve the ref once: two "io tap @ref" calls would each dump the ui again and miss the double-tap window
+		const elements = await this.getElementsOnScreen();
+		const element = elements.find(candidate => candidate.ref === ref);
+		if (!element) {
+			throw new ActionableError(`Element ${ref} was not found on the current screen. Call mobile_list_elements_on_screen again to get fresh refs`);
+		}
+
+		const { x, y, width, height } = element.rect;
+		await this.doubleTap(x + width / 2, y + height / 2);
+	}
+
 	public async longPress(x: number, y: number, duration: number): Promise<void> {
 		this.runCommand(["io", "longpress", `${Math.round(x)},${Math.round(y)}`, "--duration", `${duration}`]);
+	}
+
+	public async longPressByRef(ref: string, duration: number): Promise<void> {
+		this.runCommand(["io", "longpress", ref, "--duration", `${duration}`]);
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {
