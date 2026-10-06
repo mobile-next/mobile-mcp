@@ -102,3 +102,25 @@ test("says mobile_open_url only opens http and https urls by default", async () 
 	expect(openUrl.description).toContain("http:// or https://");
 	expect(openUrl.description).toContain("MOBILEMCP_ALLOW_UNSAFE_URLS=1");
 });
+
+// the buttons mobilecli accepts: AndroidDevice.PressButton and DeviceKitClient.PressButton
+const ANDROID_BUTTONS = ["HOME", "BACK", "VOLUME_UP", "VOLUME_DOWN", "ENTER", "BACKSPACE", "APP_SWITCH", "POWER", "DPAD_CENTER", "DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT"];
+const IOS_BUTTONS = ["HOME", "VOLUME_UP", "VOLUME_DOWN", "ENTER", "LOCK"];
+
+const buttonDescription = async (): Promise<string> => {
+	const tools = await listToolDefinitions();
+	return findTool(tools, "mobile_press_button").inputSchema.properties!.button.description ?? "";
+};
+
+const buttonsListedFor = (description: string, platform: string): string[] => {
+	const line = description.split("\n").find(candidate => candidate.startsWith(`${platform}:`)) ?? "";
+	return line.slice(platform.length + 1).split(",").map(name => name.trim()).filter(name => name !== "");
+};
+
+test("lists every button mobile_press_button accepts on android", async () => {
+	expect(buttonsListedFor(await buttonDescription(), "Android").sort()).toEqual([...ANDROID_BUTTONS].sort());
+});
+
+test("lists every button mobile_press_button accepts on ios", async () => {
+	expect(buttonsListedFor(await buttonDescription(), "iOS").sort()).toEqual([...IOS_BUTTONS].sort());
+});

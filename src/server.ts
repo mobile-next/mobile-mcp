@@ -769,7 +769,12 @@ export const createMcpServer = (): McpServer => {
 		"Press a button on device",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
+			button: z.string().describe([
+				"The button to press, in upper case. Supported buttons:",
+				"Android: HOME, BACK, VOLUME_UP, VOLUME_DOWN, ENTER, BACKSPACE, APP_SWITCH, POWER, DPAD_CENTER, DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT",
+				"iOS: HOME, VOLUME_UP, VOLUME_DOWN, ENTER, LOCK",
+				"BACKSPACE deletes the character before the cursor, APP_SWITCH opens the recent apps, POWER turns the screen on or off, LOCK locks the screen, and the DPAD buttons move focus on Android TV.",
+			].join("\n")),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, button }) => {
