@@ -15,7 +15,7 @@ import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension } from "./utils";
+import { validateOutputPath, validateFileExtension, withLowercaseScheme } from "./utils";
 import { formatElements } from "./format-elements";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
@@ -790,12 +790,13 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, url }) => {
 			const allowUnsafeUrls = process.env.MOBILEMCP_ALLOW_UNSAFE_URLS === "1";
-			if (!allowUnsafeUrls && !url.startsWith("http://") && !url.startsWith("https://")) {
+			const normalizedUrl = withLowercaseScheme(url);
+			if (!allowUnsafeUrls && !normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
 				throw new ActionableError("Only http:// and https:// URLs are allowed. Set MOBILEMCP_ALLOW_UNSAFE_URLS=1 to allow other URL schemes.");
 			}
 
 			const robot = getRobotFromDevice(device);
-			await robot.openUrl(url);
+			await robot.openUrl(normalizedUrl);
 			return `Opened URL: ${url}`;
 		}
 	);
