@@ -807,12 +807,16 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
-			x: z.coerce.number().min(0).optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			y: z.coerce.number().min(0).optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
+			x: z.coerce.number().min(0).optional().describe("The x coordinate to start the swipe from, in pixels. Give both x and y, or neither to start from the center of screen"),
+			y: z.coerce.number().min(0).optional().describe("The y coordinate to start the swipe from, in pixels. Give both x and y, or neither to start from the center of screen"),
 			distance: z.coerce.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, direction, x, y, distance }) => {
+			if ((x === undefined) !== (y === undefined)) {
+				throw new ActionableError("Provide both x and y to start the swipe from a point, or neither to start from the center of the screen");
+			}
+
 			const robot = getRobotFromDevice(device);
 
 			if (x !== undefined && y !== undefined) {
