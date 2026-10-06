@@ -18,6 +18,15 @@ export function validateLocale(locale: string): void {
 	}
 }
 
+// a url scheme per RFC 3986 section 3.1: a letter, then letters, digits, "+", "-" or "."
+const URL_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+
+// url schemes are case-insensitive, but android matches an intent's scheme
+// case-sensitively, so HTTPS://example.com would find no browser
+export function withLowercaseScheme(url: string): string {
+	return url.replace(URL_SCHEME, scheme => scheme.toLowerCase());
+}
+
 function resolveRoot(root: string): string {
 	const resolved = path.resolve(root);
 
