@@ -102,3 +102,11 @@ export function validateOutputPath(filePath: string): void {
 		);
 	}
 }
+
+// checks that filePath may be written to and returns it as an absolute path. a
+// relative path is resolved against the server's working directory, which the
+// caller cannot see, so tools write to and report this absolute path.
+export function resolveOutputPath(filePath: string): string {
+	validateOutputPath(filePath);
+	return path.resolve(filePath);
+}
