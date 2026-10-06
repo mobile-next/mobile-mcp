@@ -15,7 +15,7 @@ import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension } from "./utils";
+import { resolveOutputPath, validateFileExtension } from "./utils";
 import { formatElements } from "./format-elements";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
@@ -856,14 +856,14 @@ export const createMcpServer = (): McpServer => {
 		"Save a screenshot of the mobile device to a file",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			saveTo: z.string().describe("The path to save the screenshot to. Filename must end with .png, .jpg, or .jpeg"),
+			saveTo: z.string().describe("The path to save the screenshot to. Filename must end with .png, .jpg, or .jpeg. A relative path is resolved against the server's working directory; the result gives the absolute path"),
 			maxSize: z.number().int().positive().optional().describe("Maximum width/height in pixels, keeping aspect ratio. Omit for full size."),
 			scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-		async ({ device, saveTo, maxSize, scale }) => {
-			validateFileExtension(saveTo, ALLOWED_SCREENSHOT_EXTENSIONS, "save_screenshot");
-			validateOutputPath(saveTo);
+		async ({ device, saveTo: requestedPath, maxSize, scale }) => {
+			validateFileExtension(requestedPath, ALLOWED_SCREENSHOT_EXTENSIONS, "save_screenshot");
+			const saveTo = resolveOutputPath(requestedPath);
 
 			const robot = getRobotFromDevice(device);
 
@@ -1072,13 +1072,14 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			limit: z.number().int().min(1).max(MAX_DEVICE_LOG_ENTRIES).default(DEFAULT_DEVICE_LOG_ENTRIES).describe("Stop after this many log entries"),
 			filter: z.array(z.string().regex(DEVICE_LOG_FILTER_PATTERN, "Filter must be key=value or key!=value with key in: pid, process, tag, level, subsystem, category, message")).default([]).describe("Filters, ANDed together. key=value includes, key!=value excludes. Keys: pid, process, tag, level, subsystem, category, message. Example: [\"tag=ActivityManager\", \"level=Error\", \"process!=SpringBoard\"]"),
-			saveTo: z.string().optional().describe("Path to write the logs to instead of returning them. Filename must end with .log, .txt, or .jsonl"),
+			saveTo: z.string().optional().describe("Path to write the logs to instead of returning them. Filename must end with .log, .txt, or .jsonl. A relative path is resolved against the server's working directory; the result gives the absolute path"),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
-		async ({ device, limit, filter, saveTo }) => {
-			if (saveTo) {
-				validateFileExtension(saveTo, ALLOWED_LOG_EXTENSIONS, "get_device_logs");
-				validateOutputPath(saveTo);
+		async ({ device, limit, filter, saveTo: requestedPath }) => {
+			let saveTo: string | undefined;
+			if (requestedPath) {
+				validateFileExtension(requestedPath, ALLOWED_LOG_EXTENSIONS, "get_device_logs");
+				saveTo = resolveOutputPath(requestedPath);
 			}
 
 			const robot = getRobotFromDevice(device);
@@ -1118,14 +1119,15 @@ export const createMcpServer = (): McpServer => {
 		"Start recording the screen of a mobile device. The recording runs in the background until stopped with mobile_stop_screen_recording. Returns the path where the recording will be saved.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			output: z.string().optional().describe("The file path to save the recording to. Filename must end with .mp4. If not provided, a temporary path will be used."),
+			output: z.string().optional().describe("The file path to save the recording to. Filename must end with .mp4. A relative path is resolved against the server's working directory; the result gives the absolute path. If not provided, a temporary path will be used."),
 			timeLimit: z.coerce.number().optional().describe("Maximum recording duration in seconds. The recording will stop automatically after this time."),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, output, timeLimit }) => {
+			let requestedOutputPath: string | undefined;
 			if (output) {
 				validateFileExtension(output, ALLOWED_RECORDING_EXTENSIONS, "start_screen_recording");
-				validateOutputPath(output);
+				requestedOutputPath = resolveOutputPath(output);
 			}
 
 			getRobotFromDevice(device);
@@ -1134,7 +1136,7 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError(`Device "${device}" is already being recorded. Stop the current recording first with mobile_stop_screen_recording.`);
 			}
 
-			const outputPath = output || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
+			const outputPath = requestedOutputPath || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
 
 			const args = ["screenrecord", "--device", device, "--output", outputPath, "--silent"];
 			if (timeLimit !== undefined) {
