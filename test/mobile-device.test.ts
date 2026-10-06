@@ -36,6 +36,21 @@ test.describe("MobileDevice", () => {
 			expect(calls[0]).toEqual(["io", "longpress", "100,201", "--duration", "500", "--device", "test-device"]);
 		});
 
+		// mobilecli parses --duration as an integer and rejects "250.5"
+		test("longPress should round a fractional duration before calling mobilecli", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.longPress(100, 200, 250.5);
+
+			expect(calls[0]).toEqual(["io", "longpress", "100,200", "--duration", "251", "--device", "test-device"]);
+		});
+
+		test("longPressByRef should round a fractional duration before calling mobilecli", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.longPressByRef("@e5", 799.4);
+
+			expect(calls[0]).toEqual(["io", "longpress", "@e5", "--duration", "799", "--device", "test-device"]);
+		});
+
 		test("swipeFromCoordinate should round fractional coordinates before calling mobilecli", async () => {
 			const { device, calls } = createMockMobileDevice("");
 			await device.swipeFromCoordinate(100.5, 300.2, "up", 400);
