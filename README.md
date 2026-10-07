@@ -31,6 +31,15 @@ Run it against devices on your own machine, or against real iOS and Android devi
   </a>
 </h4>
 
+<p align="center">
+ <a href="https://www.star-history.com/?repos=mobile-next%2Fmobile-mcp">
+  <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=mobile-next/mobile-mcp&type=trending&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=mobile-next/mobile-mcp&type=trending" />
+   <img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=mobile-next/mobile-mcp&type=trending" />
+  </picture>
+ </a>
+</p>
 
 https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
