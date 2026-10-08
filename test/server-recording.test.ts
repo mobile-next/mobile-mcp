@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { spawn } from "node:child_process";
+import { ChildProcess, spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
@@ -9,7 +9,6 @@ import { Mobilecli } from "../src/mobilecli";
 const DEVICE_ID = "emulator-5554";
 
 const createConnectedClient = async () => {
-	process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
 	const server = createMcpServer();
 	const client = new Client({ name: "recording-test", version: "1.0.0" });
 	const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -29,7 +28,13 @@ const original = {
 	spawnCommand: Mobilecli.prototype.spawnCommand,
 };
 
+const children: ChildProcess[] = [];
+let savedTelemetryEnv: string | undefined;
+
 test.beforeEach(() => {
+	savedTelemetryEnv = process.env.MOBILEMCP_DISABLE_TELEMETRY;
+	process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
+
 	Mobilecli.prototype.getVersion = () => "mobilecli version 0.0.0";
 	Mobilecli.prototype.getDevices = () => ({
 		status: "ok",
@@ -39,11 +44,27 @@ test.beforeEach(() => {
 	});
 
 	// a long-running stand-in for "mobilecli screenrecord" that exits on SIGINT
-	Mobilecli.prototype.spawnCommand = () => spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: "ignore" });
+	Mobilecli.prototype.spawnCommand = () => {
+		const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: "ignore" });
+		children.push(child);
+		return child;
+	};
 });
 
 test.afterEach(() => {
+	// a failed assertion or stop call must not leave the stand-in running
+	for (const child of children.splice(0)) {
+		if (child.exitCode === null && child.signalCode === null) {
+			child.kill("SIGKILL");
+		}
+	}
+
 	Object.assign(Mobilecli.prototype, original);
+	if (savedTelemetryEnv === undefined) {
+		delete process.env.MOBILEMCP_DISABLE_TELEMETRY;
+	} else {
+		process.env.MOBILEMCP_DISABLE_TELEMETRY = savedTelemetryEnv;
+	}
 });
 
 test("stops a recording that was started from another server instance", async () => {
