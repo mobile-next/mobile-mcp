@@ -4,7 +4,7 @@ import { AddressInfo } from "node:net";
 
 import { IosRobot } from "../src/ios";
 
-// minimal WebDriverAgent stand-in: just enough endpoints for getScreenSize()
+// minimal WebDriverAgent stand-in: just enough endpoints for getScreenSize() and getElementsOnScreen()
 const startFakeWda = async (): Promise<{ server: Server; port: number; requests: string[] }> => {
 	const requests: string[] = [];
 	const server = createServer((req, res) => {
@@ -16,6 +16,10 @@ const startFakeWda = async (): Promise<{ server: Server; port: number; requests:
 			res.end(JSON.stringify({ value: { sessionId: "fake-session" } }));
 		} else if (req.method === "GET" && req.url === "/session/fake-session/wda/screen") {
 			res.end(JSON.stringify({ value: { screenSize: { width: 390, height: 844 }, scale: 3 } }));
+		} else if (req.method === "GET" && req.url === "/source?format=json") {
+			res.end(JSON.stringify({ value: { type: "Application", isVisible: "1", label: null, name: null, rawIdentifier: null, rect: { x: 0, y: 0, width: 390, height: 844 }, children: [
+				{ type: "Button", isVisible: "1", label: "Continue", name: "Continue", rawIdentifier: null, value: null, rect: { x: 20, y: 700, width: 350, height: 44 } },
+			] } }));
 		} else if (req.method === "DELETE" && req.url === "/session/fake-session") {
 			res.end(JSON.stringify({ value: null }));
 		} else {
@@ -30,14 +34,23 @@ const startFakeWda = async (): Promise<{ server: Server; port: number; requests:
 
 test.describe("ios MOBILEMCP_WDA_URL", () => {
 
+	const savedEnv: Record<string, string | undefined> = {};
+
 	test.beforeEach(() => {
+		savedEnv.MOBILEMCP_WDA_URL = process.env.MOBILEMCP_WDA_URL;
+		savedEnv.GO_IOS_PATH = process.env.GO_IOS_PATH;
 		// any go-ios call (tunnel check) would fail loudly with this path
 		process.env.GO_IOS_PATH = "/nonexistent/go-ios";
 	});
 
 	test.afterEach(() => {
-		delete process.env.MOBILEMCP_WDA_URL;
-		delete process.env.GO_IOS_PATH;
+		for (const [key, value] of Object.entries(savedEnv)) {
+			if (value === undefined) {
+				delete process.env[key];
+			} else {
+				process.env[key] = value;
+			}
+		}
 	});
 
 	test("should use the WDA URL and skip tunnel checks", async () => {
@@ -48,6 +61,19 @@ test.describe("ios MOBILEMCP_WDA_URL", () => {
 			const screenSize = await robot.getScreenSize();
 			expect(screenSize).toEqual({ width: 390, height: 844, scale: 3 });
 			expect(requests).toContain("GET /status");
+		} finally {
+			server.close();
+		}
+	});
+
+	test("should list elements from /source without a trailing slash", async () => {
+		const { server, port, requests } = await startFakeWda();
+		try {
+			process.env.MOBILEMCP_WDA_URL = `http://127.0.0.1:${port}`;
+			const robot = new IosRobot("00000000-0000000000000000");
+			const elements = await robot.getElementsOnScreen();
+			expect(elements.map(e => e.label)).toEqual(["Continue"]);
+			expect(requests).toContain("GET /source?format=json");
 		} finally {
 			server.close();
 		}
