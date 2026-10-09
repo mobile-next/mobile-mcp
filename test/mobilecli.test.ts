@@ -116,4 +116,37 @@ test.describe("mobilecli", () => {
 			expect(calls[0].args).toEqual(["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
 		});
 	});
+
+	test.describe("agentStatus", () => {
+		const failPayload = JSON.stringify({ status: "fail", data: { message: "agent not installed" } });
+
+		test("should call executeCommand with agent status arguments", () => {
+			const { mobilecli, calls } = createMockMobilecli(failPayload);
+			const status = mobilecli.agentStatus("device1");
+
+			expect(calls.length).toBe(1);
+			expect(calls[0].args).toEqual(["agent", "status", "--device", "device1"]);
+			expect(status.status).toBe("fail");
+		});
+
+		test("should return the fail payload when mobilecli exits non-zero", () => {
+			const { mobilecli } = createMockMobilecli("");
+			mobilecli.executeCommand = (): string => {
+				const error = new Error("Command failed: mobilecli agent status") as Error & { stdout?: string };
+				error.stdout = failPayload;
+				throw error;
+			};
+
+			expect(mobilecli.agentStatus("device1").status).toBe("fail");
+		});
+
+		test("should rethrow a non-zero exit that carries no payload", () => {
+			const { mobilecli } = createMockMobilecli("");
+			mobilecli.executeCommand = (): string => {
+				throw new Error("mobilecli is not available");
+			};
+
+			expect(() => mobilecli.agentStatus("device1")).toThrow("mobilecli is not available");
+		});
+	});
 });

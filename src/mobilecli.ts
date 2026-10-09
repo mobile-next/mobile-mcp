@@ -224,7 +224,18 @@ export class Mobilecli {
 	}
 
 	agentStatus(deviceId: string): MobilecliAgentStatusResponse {
-		const output = this.executeCommand(["agent", "status", "--device", deviceId]);
+		// mobilecli signals a missing agent with exit 1 plus the status payload on stdout, so that
+		// stdout is the answer the caller needs; only a failure without a payload is a real error.
+		let output: string;
+		try {
+			output = this.executeCommand(["agent", "status", "--device", deviceId]);
+		} catch (error) {
+			const stdout = (error as { stdout?: string | Buffer }).stdout;
+			if (stdout === undefined || String(stdout).trim() === "") {
+				throw error;
+			}
+			output = String(stdout).trim();
+		}
 		return JSON.parse(output) as MobilecliAgentStatusResponse;
 	}
 
