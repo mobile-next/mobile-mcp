@@ -1,5 +1,15 @@
-## Unreleased
-* Feat: `mobile_list_available_devices` points to the remote cloud fleet when no local device is available, and the agent asks before using one
+## [1.0.9](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.9) (2026-10-09)
+* Feat: `mobile_list_available_devices` points to the remote cloud fleet when no local device is available, and the agent asks before using one ([#472](https://github.com/mobile-next/mobile-mcp/pull/472))
+* Feat: `mobile_double_tap_on_screen` and `mobile_long_press_on_screen_at_coordinates` accept `ref`, like `mobile_click_on_screen_at_coordinates` ([#471](https://github.com/mobile-next/mobile-mcp/pull/471))
+* Fix: `mobile_uninstall_app` takes `packageName` instead of `bundle_id`, matching `mobile_launch_app` and `mobile_terminate_app` ([#471](https://github.com/mobile-next/mobile-mcp/pull/471))
+* Fix: `mobile_type_keys` no longer requires `submit`, it defaults to `false` ([#471](https://github.com/mobile-next/mobile-mcp/pull/471))
+* Fix: Tool descriptions no longer name tools that do not exist, and `mobile_batch_commands` lists the tools it accepts as steps ([#471](https://github.com/mobile-next/mobile-mcp/pull/471))
+* Fix: `mobile_get_device_logs` matches filters case-insensitively, and the message as a substring ([mobilecli#483](https://github.com/mobile-next/mobilecli/pull/483))
+* Fix: `mobile_press_button` accepts button names case-insensitively ([mobilecli#479](https://github.com/mobile-next/mobilecli/pull/479))
+* Fix(iOS): `mobile_terminate_app` on a simulator reports "process not found" or "not installed" instead of a simctl exit status ([mobilecli#493](https://github.com/mobile-next/mobilecli/pull/493))
+* Fix(iOS): `mobile_list_crashes` lists only the simulator's own crash reports, not the host's ([mobilecli#482](https://github.com/mobile-next/mobilecli/pull/482))
+* Fix(Android): The device stays in touch mode while typing text ([mobilecli#492](https://github.com/mobile-next/mobilecli/pull/492))
+* Chore: Upgrade mobilewright to 0.0.64, which bundles mobilecli 1.0.18 ([#475](https://github.com/mobile-next/mobile-mcp/pull/475))
 
 ## [1.0.8](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.8) (2026-10-02)
 * Feat: mobile-mcp is now a Claude Code plugin, and it brings `/mobile-mirror`: the device's live screen in a pane, where you can tap, type, and press Home/Back/App Switch, or open a URL (Claude Code in Ghostty or kitty). See the [README](https://github.com/mobile-next/mobile-mcp#installation-and-configuration) for plugin installation instructions ([#468](https://github.com/mobile-next/mobile-mcp/pull/468))
