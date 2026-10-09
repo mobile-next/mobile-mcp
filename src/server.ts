@@ -809,7 +809,7 @@ export const createMcpServer = (): McpServer => {
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
 			x: z.coerce.number().min(0).optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			y: z.coerce.number().min(0).optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			distance: z.coerce.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
+			distance: z.coerce.number().min(1).optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, direction, x, y, distance }) => {
