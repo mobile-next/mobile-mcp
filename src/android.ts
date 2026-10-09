@@ -409,7 +409,9 @@ export class AndroidRobot implements Robot {
 
 	private escapeShellText(text: string): string {
 		// escape all shell special characters that could be used for injection
-		return text.replace(/[\\'"` \t\n\r|&;()<>{}[\]$*?]/g, "\\$&");
+		// # and ~ are also escaped: they start a comment / a home-path expansion
+		// when they open a word, and a backslash before them is inert elsewhere.
+		return text.replace(/[\\'"` \t\n\r|&;()<>{}[\]$*?#~]/g, "\\$&");
 	}
 
 	private async isDeviceKitInstalled(): Promise<boolean> {
