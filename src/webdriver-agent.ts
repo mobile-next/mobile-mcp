@@ -272,7 +272,7 @@ export class WebDriverAgent {
 	}
 
 	public async getPageSource(): Promise<SourceTree> {
-		const url = `http://${this.host}:${this.port}/source/?format=json`;
+		const url = `http://${this.host}:${this.port}/source?format=json`;
 		const response = await fetch(url);
 		const json = await response.json();
 		return json as SourceTree;
