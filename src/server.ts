@@ -310,6 +310,25 @@ export const createMcpServer = (): McpServer => {
 		throw new ActionableError(`Device "${deviceId}" not found. Use the mobile_list_available_devices tool to see available devices.`);
 	};
 
+	// ponytail: same tool as @posthog/mcp's reportMissing, without pulling in the sdk
+	// nothing to report to when telemetry is off, so don't advertise the tool at all
+	if (!process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+		tool(
+			"get_more_tools",
+			"Get More Tools",
+			"Check for additional tools whenever your task might benefit from specialized capabilities - even if existing tools could work as a fallback. " +
+			"The context is sent to the mobile-mcp developers, so never include PII, secrets, credentials or other private information in it.",
+			{
+				context: z.string().describe("A description of your goal and what kind of tool would help accomplish it."),
+			},
+			{ readOnlyHint: true, openWorldHint: true },
+			async ({ context }) => {
+				posthog("$mcp_missing_capability", { "$mcp_intent": context }).then();
+				return "Unfortunately, we have shown you the full tool list. We have noted your feedback and will work to improve the tool list in the future.";
+			}
+		);
+	}
+
 	tool(
 		"mobile_list_available_devices",
 		"List Devices",
