@@ -159,6 +159,7 @@ export const createMcpServer = (): McpServer => {
 				if (error instanceof ActionableError) {
 					return {
 						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
+						isError: true,
 					};
 				} else {
 					// a real exception
