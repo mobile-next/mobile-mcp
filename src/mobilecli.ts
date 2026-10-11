@@ -66,6 +66,7 @@ export interface MobilecliDevicesResponse {
 }
 
 const TIMEOUT = 30000;
+const AGENT_INSTALL_TIMEOUT = 300000; // installing the device agent can take several minutes
 const MAX_BUFFER_SIZE = 1024 * 1024 * 8;
 const DEFAULT_ALLOCATE_TIMEOUT_SECONDS = 900; // matches mobilecli's own "remote allocate --wait" default
 
@@ -81,12 +82,12 @@ export class Mobilecli {
 		return this.path;
 	}
 
-	public executeCommand(args: string[], timeoutMs?: number): string {
+	// Every mobilecli invocation must be time-bounded: execFileSync blocks the
+	// whole event loop, so a single hung subprocess would otherwise make the
+	// server unresponsive to every request.
+	public executeCommand(args: string[], timeoutMs: number = TIMEOUT): string {
 		const path = this.getPath();
-		const options: { encoding: "utf8"; timeout?: number } = { encoding: "utf8" };
-		if (timeoutMs !== undefined) {
-			options.timeout = timeoutMs;
-		}
+		const options: { encoding: "utf8"; timeout: number } = { encoding: "utf8", timeout: timeoutMs };
 
 		return execFileSync(path, args, options).toString().trim();
 	}
@@ -229,7 +230,7 @@ export class Mobilecli {
 	}
 
 	agentInstall(deviceId: string): void {
-		this.executeCommand(["agent", "install", "--device", deviceId]);
+		this.executeCommand(["agent", "install", "--device", deviceId], AGENT_INSTALL_TIMEOUT);
 	}
 
 	getDevices(options?: MobilecliDevicesOptions): MobilecliDevicesResponse {
