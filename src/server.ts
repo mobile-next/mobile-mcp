@@ -101,17 +101,6 @@ over navigating through the UI. mobile_open_url only accepts http:// and
 https:// URLs unless the server was started with MOBILEMCP_ALLOW_UNSAFE_URLS=1,
 so do not rely on it for app deep links.`;
 
-/**
- * Result returned to the MCP client when a tool call throws an ActionableError.
- * Per the MCP tools spec, an individual tool failure must be reported with
- * `isError: true` (the transport itself stays successful), so a caller does not
- * mistake a failed operation for a successful one.
- */
-export const actionableErrorToolResult = (error: ActionableError) => ({
-	content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
-	isError: true,
-});
-
 export const createMcpServer = (): McpServer => {
 
 	const server = new McpServer({
@@ -168,7 +157,10 @@ export const createMcpServer = (): McpServer => {
 			} catch (error: any) {
 				posthog("tool_failed", { "ToolName": name }).then();
 				if (error instanceof ActionableError) {
-					return actionableErrorToolResult(error);
+					return {
+						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
+						isError: true,
+					};
 				} else {
 					// a real exception
 					trace(`Tool '${description}' failed: ${error.message} stack: ${error.stack}`);
