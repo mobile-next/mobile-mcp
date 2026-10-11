@@ -1,3 +1,10 @@
+## [1.0.10](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.10) (2026-10-11)
+* Feat: Add `get_more_tools`, so an agent can report a capability mobile-mcp is missing ([#491](https://github.com/mobile-next/mobile-mcp/pull/491))
+* Fix: A tool that fails with an actionable error now returns `isError: true`, instead of looking like a success ([#495](https://github.com/mobile-next/mobile-mcp/pull/495)), thanks to [@ppjsw](https://github.com/ppjsw)
+* Fix: `mobile_long_press_on_screen_at_coordinates` accepts a fractional `duration`, rounding it instead of failing ([#476](https://github.com/mobile-next/mobile-mcp/pull/476))
+* Fix(iOS): `mobile_list_elements_on_screen` returns elements again in legacy robot mode with current WebDriverAgent ([#496](https://github.com/mobile-next/mobile-mcp/pull/496)), thanks to [@tripleyoung](https://github.com/tripleyoung)
+* Chore: Upgrade mobilewright to 0.0.65, which bundles mobilecli 1.0.19 ([#493](https://github.com/mobile-next/mobile-mcp/pull/493))
+
 ## [1.0.9](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.9) (2026-10-09)
 * Feat: `mobile_list_available_devices` points to the remote cloud fleet when no local device is available, and the agent asks before using one ([#472](https://github.com/mobile-next/mobile-mcp/pull/472))
 * Feat: `mobile_double_tap_on_screen` and `mobile_long_press_on_screen_at_coordinates` accept `ref`, like `mobile_click_on_screen_at_coordinates` ([#471](https://github.com/mobile-next/mobile-mcp/pull/471))
