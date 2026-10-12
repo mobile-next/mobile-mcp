@@ -107,6 +107,14 @@ How we help to scale mobile automation:
 - **`mobile_install_app`** - Install an app from file (.apk, .ipa, .app, .zip)
 - **`mobile_uninstall_app`** - Uninstall an app by its package name or bundle ID
 
+### Files
+- **`mobile_list_files`** - List files on the device, or inside an app's container when a bundle ID is given
+- **`mobile_get_app_container_path`** - Get the absolute path of an app's container on the device
+- **`mobile_create_directory`** - Create a directory on the device or in an app's container
+- **`mobile_remove_file`** - Remove a file or directory on the device or in an app's container
+- **`mobile_pull_file`** - Copy a file from the device or an app's container to a new local file (inside the current or temp directory)
+- **`mobile_push_file`** - Copy a local file (from the current or temp directory) to the device or into an app's container
+
 ### Screen Interaction
 - **`mobile_take_screenshot`** - Take a screenshot to understand what's on screen
 - **`mobile_save_screenshot`** - Save a screenshot to a file
