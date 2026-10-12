@@ -224,8 +224,17 @@ export class Mobilecli {
 	}
 
 	agentStatus(deviceId: string): MobilecliAgentStatusResponse {
-		const output = this.executeCommand(["agent", "status", "--device", deviceId]);
-		return JSON.parse(output) as MobilecliAgentStatusResponse;
+		try {
+			const output = this.executeCommand(["agent", "status", "--device", deviceId]);
+			return JSON.parse(output) as MobilecliAgentStatusResponse;
+		} catch (error: any) {
+			// mobilecli exits 1 when the agent is missing, but still prints the json status
+			if (!error.stdout) {
+				throw error;
+			}
+
+			return JSON.parse(error.stdout.toString()) as MobilecliAgentStatusResponse;
+		}
 	}
 
 	agentInstall(deviceId: string): void {
