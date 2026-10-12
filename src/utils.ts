@@ -6,8 +6,9 @@ import { ActionableError } from "./robot";
 export function validatePackageName(packageName: string): void {
 	// iOS bundle identifiers (which flow through this same "packageName" parameter
 	// for launch/terminate) are allowed to contain hyphens per Apple's CFBundleIdentifier
-	// format, e.g. "com.some-company.app".
-	if (!/^[a-zA-Z0-9._-]+$/.test(packageName)) {
+	// format, e.g. "com.some-company.app". the first character must not be "-" so the
+	// name is never read as a command-line flag (e.g. "-r") by adb or mobilecli.
+	if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(packageName)) {
 		throw new ActionableError(`Invalid package name: "${packageName}"`);
 	}
 }
@@ -91,23 +92,97 @@ function resolveWithSymlinks(filePath: string): string {
 	}
 }
 
-export function validateOutputPath(filePath: string): void {
-	const resolved = resolveWithSymlinks(filePath);
-	const allowedRoots = getAllowedRoots();
+function findAllowedRoot(resolved: string): string | undefined {
 	const isWindows = process.platform === "win32";
 
-	const isAllowed = allowedRoots.some(root => {
+	return getAllowedRoots().find(root => {
 		if (isWindows) {
 			return isPathUnderRoot(resolved.toLowerCase(), root.toLowerCase());
 		}
 
 		return isPathUnderRoot(resolved, root);
 	});
+}
 
-	if (!isAllowed) {
+function assertAllowedRoot(resolved: string): string {
+	const root = findAllowedRoot(resolved);
+	if (!root) {
 		const dir = path.dirname(resolved);
 		throw new ActionableError(
 			`"${dir}" is not in the list of allowed directories. Allowed directories include the current directory and the temp directory on this host.`
 		);
 	}
+
+	return root;
+}
+
+export function validateOutputPath(filePath: string): void {
+	assertAllowedRoot(resolveWithSymlinks(filePath));
+}
+
+// dotfiles and dot-directories hold secrets (.env, .ssh, .aws) and things that run
+// code (.git/hooks, .husky, .envrc, .vscode/tasks.json), so file transfer never touches them
+function assertNoHiddenComponent(resolved: string, root: string): void {
+	const components = path.relative(root, resolved).split(path.sep);
+	if (components.some(component => component.startsWith("."))) {
+		throw new ActionableError(`"${resolved}" is a hidden file or inside a hidden directory, which file transfer does not allow`);
+	}
+}
+
+const SECRET_FILE_EXTENSIONS = [".pem", ".key", ".p12", ".pfx", ".keystore", ".jks", ".mobileprovision"];
+
+// the source of a push is read and sent to the device, which may be a remote cloud
+// device, so it is fully resolved (symlinked leaf included) before being checked
+export function validatePushSource(filePath: string): string {
+	let resolved: string;
+	try {
+		resolved = fs.realpathSync(path.resolve(filePath));
+	} catch {
+		throw new ActionableError(`Local file "${filePath}" does not exist`);
+	}
+
+	const root = assertAllowedRoot(resolved);
+	assertNoHiddenComponent(resolved, root);
+
+	if (SECRET_FILE_EXTENSIONS.includes(path.extname(resolved).toLowerCase())) {
+		throw new ActionableError(`"${resolved}" looks like a key or certificate, which file transfer does not allow`);
+	}
+
+	if (!fs.statSync(resolved).isFile()) {
+		throw new ActionableError(`"${resolved}" is not a regular file`);
+	}
+
+	return resolved;
+}
+
+// a pull never overwrites: an existing target could be a symlink pointing outside the
+// allowed roots, or a file like package.json whose replacement runs code later.
+// ponytail: check-then-write race remains in shared /tmp, mobilecli would need O_EXCL to close it
+export function validatePullDestination(filePath: string): void {
+	const resolved = resolveWithSymlinks(filePath);
+	const root = assertAllowedRoot(resolved);
+	assertNoHiddenComponent(resolved, root);
+
+	let exists = true;
+	try {
+		fs.lstatSync(resolved);
+	} catch {
+		exists = false;
+	}
+
+	if (exists) {
+		throw new ActionableError(`"${resolved}" already exists, pull to a new file name`);
+	}
+}
+
+// joins a path the agent gave relative to an app's container onto that container,
+// refusing "../" escapes. symlinks inside the container are checked by mobilecli on the device side.
+export function joinContainerPath(container: string, relativePath: string): string {
+	const base = path.posix.normalize(container).replace(/\/+$/, "");
+	const joined = path.posix.join(base, relativePath).replace(/\/+$/, "");
+	if (joined !== base && !joined.startsWith(base + "/")) {
+		throw new ActionableError(`"${relativePath}" is outside the app's container`);
+	}
+
+	return joined;
 }

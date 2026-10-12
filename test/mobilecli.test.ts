@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { Mobilecli } from "../src/mobilecli";
+import { ActionableError } from "../src/robot";
 
 type ExecuteCommandCall = {
 	args: string[];
@@ -128,6 +129,84 @@ test.describe("mobilecli", () => {
 			const status = mobilecli.agentStatus("SIM-ID");
 
 			expect(status.status).toBe("fail");
+		});
+	});
+
+	test.describe("filesystem commands", () => {
+		const okResponse = JSON.stringify({ status: "ok" });
+
+		test("pull passes paths after -- so they are never parsed as flags", () => {
+			const { mobilecli, calls } = createMockMobilecli(okResponse);
+			mobilecli.fsPull("device1", "/data/remote.txt", "/tmp/local.txt");
+			expect(calls[0].args).toEqual(["fs", "pull", "--device", "device1", "--", "/data/remote.txt", "/tmp/local.txt"]);
+		});
+
+		test("push passes paths after --", () => {
+			const { mobilecli, calls } = createMockMobilecli(okResponse);
+			mobilecli.fsPush("device1", "/tmp/local.txt", "/data/remote.txt");
+			expect(calls[0].args).toEqual(["fs", "push", "--device", "device1", "--", "/tmp/local.txt", "/data/remote.txt"]);
+		});
+
+		test("mkdir puts -p before --", () => {
+			const { mobilecli, calls } = createMockMobilecli(okResponse);
+			mobilecli.fsMkdir("device1", "/data/a/b/c", true);
+			expect(calls[0].args).toEqual(["fs", "mkdir", "-p", "--device", "device1", "--", "/data/a/b/c"]);
+		});
+
+		test("rm is only recursive when asked, even if the path looks like -r", () => {
+			const { mobilecli, calls } = createMockMobilecli(okResponse);
+			mobilecli.fsRm("device1", "-r");
+			expect(calls[0].args).toEqual(["fs", "rm", "--device", "device1", "--", "-r"]);
+		});
+
+		test("rm puts -r before -- when recursive", () => {
+			const { mobilecli, calls } = createMockMobilecli(okResponse);
+			mobilecli.fsRm("device1", "/data/mydir", true);
+			expect(calls[0].args).toEqual(["fs", "rm", "-r", "--device", "device1", "--", "/data/mydir"]);
+		});
+
+		test("apps path passes the bundle id after --", () => {
+			const { mobilecli, calls } = createMockMobilecli(JSON.stringify({ status: "ok", data: { path: "/containers/app" } }));
+			const result = mobilecli.appsPath("device1", "com.example.app");
+			expect(calls[0].args).toEqual(["apps", "path", "--device", "device1", "--", "com.example.app"]);
+			expect(result.data.path).toBe("/containers/app");
+		});
+
+		test("ls without a path lists the device root", () => {
+			const { mobilecli, calls } = createMockMobilecli(JSON.stringify({ status: "ok", data: [] }));
+			mobilecli.fsList("device1");
+			expect(calls[0].args).toEqual(["fs", "ls", "--device", "device1", "--"]);
+		});
+
+		test("ls parses the file list", () => {
+			const files = [
+				{ name: "Documents", path: "/Documents", size: 0, modTime: "2026-01-01T00:00:00Z", isDir: true },
+				{ name: "config.json", path: "/config.json", size: 512, modTime: "2026-01-01T00:00:00Z", isDir: false },
+			];
+			const { mobilecli, calls } = createMockMobilecli(JSON.stringify({ status: "ok", data: files }));
+			const result = mobilecli.fsList("device1", "/data");
+			expect(calls[0].args).toEqual(["fs", "ls", "--device", "device1", "--", "/data"]);
+			expect(result.data.map(entry => entry.name)).toEqual(["Documents", "config.json"]);
+		});
+
+		test("surfaces mobilecli's error message when it exits non-zero", () => {
+			const mobilecli = new Mobilecli();
+			const outsideResponse = JSON.stringify({ status: "error", error: "path '/etc' is outside the simulator device directory" });
+			mobilecli.executeCommand = function(): string {
+				throw Object.assign(new Error("Command failed"), { status: 1, stdout: outsideResponse });
+			};
+
+			expect(() => mobilecli.fsRm("device1", "/etc")).toThrow(ActionableError);
+			expect(() => mobilecli.fsRm("device1", "/etc")).toThrow("path '/etc' is outside the simulator device directory");
+		});
+
+		test("rethrows the original error when mobilecli prints no json", () => {
+			const mobilecli = new Mobilecli();
+			mobilecli.executeCommand = function(): string {
+				throw new Error("spawn ENOENT");
+			};
+
+			expect(() => mobilecli.fsList("device1")).toThrow("spawn ENOENT");
 		});
 	});
 });

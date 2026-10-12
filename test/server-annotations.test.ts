@@ -38,6 +38,12 @@ const expectedAnnotations: ToolAnnotationMatrix = {
 	mobile_list_crashes: { readOnlyHint: true, openWorldHint: true },
 	mobile_get_crash: { readOnlyHint: true, openWorldHint: true },
 	mobile_batch_commands: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+	mobile_list_files: { readOnlyHint: true, openWorldHint: false },
+	mobile_get_app_container_path: { readOnlyHint: true, openWorldHint: false },
+	mobile_create_directory: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+	mobile_remove_file: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+	mobile_pull_file: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+	mobile_push_file: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
 };
 
 test("describes every tool's side effects and interaction domain", async () => {

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { execFileSync, spawn, ChildProcess } from "node:child_process";
+import { ActionableError } from "./robot";
 
 export interface MobilecliCrashEntry {
 	processName: string;
@@ -62,6 +63,26 @@ export interface MobilecliDevicesResponse {
 	status: "ok";
 	data: {
 		devices: MobilecliDevice[];
+	};
+}
+
+export interface MobilecliFileEntry {
+	name: string;
+	path: string;
+	size: number;
+	modTime: string;
+	isDir: boolean;
+}
+
+export interface MobilecliFilesListResponse {
+	status: "ok";
+	data: MobilecliFileEntry[];
+}
+
+export interface MobilecliAppContainerPathResponse {
+	status: "ok";
+	data: {
+		path: string;
 	};
 }
 
@@ -268,5 +289,55 @@ export class Mobilecli {
 
 		const mobilecliOutput = this.executeCommand(args);
 		return JSON.parse(mobilecliOutput) as MobilecliDevicesResponse;
+	}
+
+	appsPath(deviceId: string, bundleId: string): MobilecliAppContainerPathResponse {
+		const output = this.runFsCommand(["apps", "path", "--device", deviceId, "--", bundleId]);
+		return JSON.parse(output) as MobilecliAppContainerPathResponse;
+	}
+
+	fsMkdir(deviceId: string, remotePath: string, parents?: boolean): void {
+		const flags = parents ? ["-p"] : [];
+		this.runFsCommand(["fs", "mkdir", ...flags, "--device", deviceId, "--", remotePath]);
+	}
+
+	fsRm(deviceId: string, remotePath: string, recursive?: boolean): void {
+		const flags = recursive ? ["-r"] : [];
+		this.runFsCommand(["fs", "rm", ...flags, "--device", deviceId, "--", remotePath]);
+	}
+
+	fsPull(deviceId: string, remotePath: string, localPath: string): void {
+		this.runFsCommand(["fs", "pull", "--device", deviceId, "--", remotePath, localPath]);
+	}
+
+	fsPush(deviceId: string, localPath: string, remotePath: string): void {
+		this.runFsCommand(["fs", "push", "--device", deviceId, "--", localPath, remotePath]);
+	}
+
+	fsList(deviceId: string, remotePath?: string): MobilecliFilesListResponse {
+		const paths = remotePath ? [remotePath] : [];
+		const output = this.runFsCommand(["fs", "ls", "--device", deviceId, "--", ...paths]);
+		return JSON.parse(output) as MobilecliFilesListResponse;
+	}
+
+	// flags go before "--" so a path or bundle id starting with "-" is never parsed as a flag.
+	// mobilecli exits non-zero on failure but explains why in json on stdout, pass that on.
+	private runFsCommand(args: string[]): string {
+		try {
+			return this.executeCommand(args);
+		} catch (error: any) {
+			let message: string | undefined;
+			try {
+				message = JSON.parse(error.stdout?.toString() ?? "").error;
+			} catch {
+				message = undefined;
+			}
+
+			if (!message) {
+				throw error;
+			}
+
+			throw new ActionableError(message);
+		}
 	}
 }
