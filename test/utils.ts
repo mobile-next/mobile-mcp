@@ -6,9 +6,34 @@ import {
 	validateLocale,
 	validateFileExtension,
 	validateOutputPath,
+	withLowercaseScheme,
 } from "../src/utils";
 
 test.describe("utils", () => {
+
+	// android resolves an intent's scheme case-sensitively, so HTTPS://example.com
+	// finds no browser, although url schemes are case-insensitive
+	test.describe("withLowercaseScheme", () => {
+		test("should lowercase an upper-case scheme", () => {
+			expect(withLowercaseScheme("HTTPS://EXAMPLE.COM")).toBe("https://EXAMPLE.COM");
+		});
+
+		test("should lowercase a mixed-case scheme and keep the case of the path", () => {
+			expect(withLowercaseScheme("Http://example.com/Path?Q=A")).toBe("http://example.com/Path?Q=A");
+		});
+
+		test("should lowercase a custom scheme", () => {
+			expect(withLowercaseScheme("MyApp://Screen/Two")).toBe("myapp://Screen/Two");
+		});
+
+		test("should leave a lower-case url unchanged", () => {
+			expect(withLowercaseScheme("https://example.com/A")).toBe("https://example.com/A");
+		});
+
+		test("should leave a string without a scheme unchanged", () => {
+			expect(withLowercaseScheme("Example.com/Path")).toBe("Example.com/Path");
+		});
+	});
 
 	test.describe("validatePackageName", () => {
 		test("should accept a standard android package name", () => {
