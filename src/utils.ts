@@ -84,11 +84,35 @@ function resolveWithSymlinks(filePath: string): string {
 	const dir = path.dirname(resolved);
 	const filename = path.basename(resolved);
 
+	// resolve the parent directory (it may be a symlink itself, e.g. /tmp and /var
+	// on macOS) so it lines up with the allowed roots
+	let realDir: string;
 	try {
-		return path.join(fs.realpathSync(dir), filename);
+		realDir = fs.realpathSync(dir);
 	} catch {
-		return resolved;
+		realDir = dir;
 	}
+
+	const candidate = path.join(realDir, filename);
+
+	// a symlink as the final component (even a dangling one, whose target a write
+	// would create) redirects the write, so follow it too instead of trusting the
+	// name we were handed. Without this, a symlink inside an allowed directory
+	// writes outside it.
+	try {
+		if (fs.lstatSync(candidate).isSymbolicLink()) {
+			const target = path.resolve(realDir, fs.readlinkSync(candidate));
+			try {
+				return fs.realpathSync(target);
+			} catch {
+				return target;
+			}
+		}
+	} catch {
+		// no file there yet, it will be created at `candidate`
+	}
+
+	return candidate;
 }
 
 export function validateOutputPath(filePath: string): void {
