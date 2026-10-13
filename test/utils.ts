@@ -128,8 +128,9 @@ test.describe("utils", () => {
 	// a symlink as the final path component would redirect a write, so it must be
 	// resolved too, not just the parent directory (see issue #412)
 	test.describe("validateOutputPath symlinks", () => {
+		let nameCounter = 0;
 		const createSymlink = (target: string): string => {
-			const link = path.join(process.cwd(), `mobile-mcp-symlink-${process.pid}-${Date.now()}.png`);
+			const link = path.join(process.cwd(), `mobile-mcp-symlink-${process.pid}-${Date.now()}-${nameCounter++}.png`);
 			fs.rmSync(link, { force: true });
 			fs.symlinkSync(target, link);
 			return link;
@@ -154,6 +155,35 @@ test.describe("utils", () => {
 				expect(() => validateOutputPath(link)).not.toThrow();
 			} finally {
 				fs.rmSync(link, { force: true });
+			}
+		});
+
+		// a single link is not enough: the target of the first link can itself be a
+		// link inside an allowed root that bottoms out somewhere outside it, so the
+		// whole chain has to be followed - stopping at the first hop accepts an
+		// in-root name while the write lands outside it
+		test("should reject a symlink chain whose dangling target is outside the allowed directories", () => {
+			const outside = path.join(path.sep, "mobile-mcp-outside", "escaped.png");
+			const first = createSymlink(outside);
+			const second = createSymlink(path.basename(first));
+			try {
+				expect(() => validateOutputPath(first)).toThrow();
+				expect(() => validateOutputPath(second)).toThrow();
+			} finally {
+				fs.rmSync(second, { force: true });
+				fs.rmSync(first, { force: true });
+			}
+		});
+
+		test("should still accept a symlink chain whose target stays inside an allowed directory", () => {
+			const first = createSymlink(path.join(os.tmpdir(), "mobile-mcp-chain-inside.png"));
+			const second = createSymlink(path.basename(first));
+			try {
+				expect(() => validateOutputPath(first)).not.toThrow();
+				expect(() => validateOutputPath(second)).not.toThrow();
+			} finally {
+				fs.rmSync(second, { force: true });
+				fs.rmSync(first, { force: true });
 			}
 		});
 	});

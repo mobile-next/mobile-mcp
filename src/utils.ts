@@ -79,40 +79,52 @@ export function validateFileExtension(filePath: string, allowedExtensions: strin
 	}
 }
 
+// Walk `filePath` to the real location a write would land on, following a
+// symlink in EVERY component - not just the parent directory. Resolving only the
+// parent let a symlink at, or before, the final component redirect the write
+// while the check still saw an in-root path: a single final-component link was
+// covered, but a chain whose intermediate link sits inside an allowed root and
+// whose final target is dangling (the file a write would create) was not, so the
+// write escaped. Follow each hop to its target until a component that either
+// exists as a real file or does not exist at all, and hand that to the root check.
 function resolveWithSymlinks(filePath: string): string {
-	const resolved = path.resolve(filePath);
-	const dir = path.dirname(resolved);
-	const filename = path.basename(resolved);
+	let current = path.resolve(filePath);
 
-	// resolve the parent directory (it may be a symlink itself, e.g. /tmp and /var
-	// on macOS) so it lines up with the allowed roots
-	let realDir: string;
-	try {
-		realDir = fs.realpathSync(dir);
-	} catch {
-		realDir = dir;
-	}
+	// bound the walk so a symlink cycle cannot spin forever; a cycle makes the
+	// eventual write fail with ELOOP, so it is not an escape
+	for (let hops = 0; hops < 40; hops++) {
+		const dir = path.dirname(current);
+		const filename = path.basename(current);
 
-	const candidate = path.join(realDir, filename);
-
-	// a symlink as the final component (even a dangling one, whose target a write
-	// would create) redirects the write, so follow it too instead of trusting the
-	// name we were handed. Without this, a symlink inside an allowed directory
-	// writes outside it.
-	try {
-		if (fs.lstatSync(candidate).isSymbolicLink()) {
-			const target = path.resolve(realDir, fs.readlinkSync(candidate));
-			try {
-				return fs.realpathSync(target);
-			} catch {
-				return target;
-			}
+		// resolve the containing directory first (it may be a symlink itself,
+		// e.g. /tmp and /var on macOS) so it lines up with the allowed roots
+		let realDir: string;
+		try {
+			realDir = fs.realpathSync(dir);
+		} catch {
+			realDir = dir;
 		}
-	} catch {
-		// no file there yet, it will be created at `candidate`
+
+		const candidate = path.join(realDir, filename);
+
+		let stat: fs.Stats;
+		try {
+			stat = fs.lstatSync(candidate);
+		} catch {
+			// nothing there yet, it will be created at `candidate`
+			return candidate;
+		}
+
+		if (!stat.isSymbolicLink()) {
+			return candidate;
+		}
+
+		// follow the link to its target - which may itself be a link, or may not
+		// exist yet (exactly where a write would create the file) - and resolve again
+		current = path.resolve(realDir, fs.readlinkSync(candidate));
 	}
 
-	return candidate;
+	return current;
 }
 
 export function validateOutputPath(filePath: string): void {
