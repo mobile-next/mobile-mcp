@@ -75,11 +75,14 @@ test("stops a recording that was started from another server instance", async ()
 
 	const started = await callTool(startClient, "mobile_start_screen_recording", { device: DEVICE_ID, output });
 	expect(started).toContain(output);
+	const recordingChild = children[children.length - 1];
 
 	const stopped = await callTool(stopClient, "mobile_stop_screen_recording", { device: DEVICE_ID });
 	expect(stopped).not.toContain("No active recording found");
 	expect(stopped).toContain("Recording stopped");
 	expect(stopped).toContain(output);
+	// stop must end the recording process, not only forget it
+	expect(recordingChild.exitCode !== null || recordingChild.signalCode !== null).toBe(true);
 
 	const again = await callTool(stopClient, "mobile_stop_screen_recording", { device: DEVICE_ID });
 	expect(again).toContain("No active recording found");
