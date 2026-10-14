@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import {
@@ -121,6 +122,69 @@ test.describe("utils", () => {
 			const escape = new Array(32).fill("..").join(path.sep);
 			const target = path.join(process.cwd(), escape, "mobile-mcp-test-output.png");
 			expect(() => validateOutputPath(target)).toThrow();
+		});
+	});
+
+	// a symlink as the final path component would redirect a write, so it must be
+	// resolved too, not just the parent directory (see issue #412)
+	test.describe("validateOutputPath symlinks", () => {
+		let nameCounter = 0;
+		const createSymlink = (target: string): string => {
+			const link = path.join(process.cwd(), `mobile-mcp-symlink-${process.pid}-${Date.now()}-${nameCounter++}.png`);
+			fs.rmSync(link, { force: true });
+			fs.symlinkSync(target, link);
+			return link;
+		};
+
+		// windows needs privileges to create a symlink, so this only runs where the
+		// behaviour it guards can be exercised
+		test.skip(process.platform === "win32", "creating a symlink needs elevated rights on windows");
+
+		test("should reject a final-component symlink whose target is outside the allowed directories", () => {
+			const link = createSymlink(path.join(path.sep, "mobile-mcp-outside", "escaped.png"));
+			try {
+				expect(() => validateOutputPath(link)).toThrow();
+			} finally {
+				fs.rmSync(link, { force: true });
+			}
+		});
+
+		test("should still accept a final-component symlink whose target stays inside an allowed directory", () => {
+			const link = createSymlink(path.join(os.tmpdir(), "mobile-mcp-symlink-inside.png"));
+			try {
+				expect(() => validateOutputPath(link)).not.toThrow();
+			} finally {
+				fs.rmSync(link, { force: true });
+			}
+		});
+
+		// a single link is not enough: the target of the first link can itself be a
+		// link inside an allowed root that bottoms out somewhere outside it, so the
+		// whole chain has to be followed - stopping at the first hop accepts an
+		// in-root name while the write lands outside it
+		test("should reject a symlink chain whose dangling target is outside the allowed directories", () => {
+			const outside = path.join(path.sep, "mobile-mcp-outside", "escaped.png");
+			const first = createSymlink(outside);
+			const second = createSymlink(path.basename(first));
+			try {
+				expect(() => validateOutputPath(first)).toThrow();
+				expect(() => validateOutputPath(second)).toThrow();
+			} finally {
+				fs.rmSync(second, { force: true });
+				fs.rmSync(first, { force: true });
+			}
+		});
+
+		test("should still accept a symlink chain whose target stays inside an allowed directory", () => {
+			const first = createSymlink(path.join(os.tmpdir(), "mobile-mcp-chain-inside.png"));
+			const second = createSymlink(path.basename(first));
+			try {
+				expect(() => validateOutputPath(first)).not.toThrow();
+				expect(() => validateOutputPath(second)).not.toThrow();
+			} finally {
+				fs.rmSync(second, { force: true });
+				fs.rmSync(first, { force: true });
+			}
 		});
 	});
 });
