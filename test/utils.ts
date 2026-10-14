@@ -8,6 +8,7 @@ import {
 	validateFileExtension,
 	validateOutputPath,
 	withLowercaseScheme,
+	writeOutputFile,
 } from "../src/utils";
 
 test.describe("utils", () => {
@@ -184,6 +185,40 @@ test.describe("utils", () => {
 			} finally {
 				fs.rmSync(second, { force: true });
 				fs.rmSync(first, { force: true });
+			}
+		});
+	});
+
+	// a symlink can be planted between validateOutputPath and the write, so the
+	// write itself must refuse to follow a symlink at the final component
+	test.describe("writeOutputFile", () => {
+		test.skip(process.platform === "win32", "creating a symlink needs elevated rights on windows");
+
+		const uniqueTempPath = (name: string): string => path.join(os.tmpdir(), `mobile-mcp-${process.pid}-${Date.now()}-${name}`);
+
+		test("should not write through a symlink planted after the path was validated", () => {
+			const victim = uniqueTempPath("victim.txt");
+			const output = uniqueTempPath("output.log");
+			fs.writeFileSync(victim, "ORIGINAL");
+			try {
+				validateOutputPath(output);
+				fs.symlinkSync(victim, output);
+
+				expect(() => writeOutputFile(output, "OVERWRITTEN")).toThrow();
+				expect(fs.readFileSync(victim, "utf8")).toBe("ORIGINAL");
+			} finally {
+				fs.rmSync(output, { force: true });
+				fs.rmSync(victim, { force: true });
+			}
+		});
+
+		test("should write a regular file", () => {
+			const output = uniqueTempPath("regular.log");
+			try {
+				writeOutputFile(output, "HELLO");
+				expect(fs.readFileSync(output, "utf8")).toBe("HELLO");
+			} finally {
+				fs.rmSync(output, { force: true });
 			}
 		});
 	});
