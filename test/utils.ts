@@ -186,5 +186,18 @@ test.describe("utils", () => {
 				fs.rmSync(first, { force: true });
 			}
 		});
+
+		test("should reject a symlink cycle", () => {
+			const first = createSymlink(path.join(process.cwd(), "mobile-mcp-cycle-placeholder.png"));
+			const second = createSymlink(path.basename(first));
+			fs.rmSync(first);
+			fs.symlinkSync(path.basename(second), first);
+			try {
+				expect(() => validateOutputPath(first)).toThrow(/too many levels of symbolic links/);
+			} finally {
+				fs.rmSync(second, { force: true });
+				fs.rmSync(first, { force: true });
+			}
+		});
 	});
 });

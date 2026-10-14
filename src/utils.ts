@@ -79,6 +79,10 @@ export function validateFileExtension(filePath: string, allowedExtensions: strin
 	}
 }
 
+// windows follows up to 63 reparse points per path, linux 40 and macos 32;
+// anything longer is rejected rather than handed to the write
+const MAX_SYMLINK_HOPS = 64;
+
 // Walk `filePath` to the real location a write would land on, following a
 // symlink in EVERY component - not just the parent directory. Resolving only the
 // parent let a symlink at, or before, the final component redirect the write
@@ -90,9 +94,8 @@ export function validateFileExtension(filePath: string, allowedExtensions: strin
 function resolveWithSymlinks(filePath: string): string {
 	let current = path.resolve(filePath);
 
-	// bound the walk so a symlink cycle cannot spin forever; a cycle makes the
-	// eventual write fail with ELOOP, so it is not an escape
-	for (let hops = 0; hops < 40; hops++) {
+	// bound the walk so a symlink cycle cannot spin forever
+	for (let hops = 0; hops < MAX_SYMLINK_HOPS; hops++) {
 		const dir = path.dirname(current);
 		const filename = path.basename(current);
 
@@ -124,7 +127,7 @@ function resolveWithSymlinks(filePath: string): string {
 		current = path.resolve(realDir, fs.readlinkSync(candidate));
 	}
 
-	return current;
+	throw new ActionableError(`"${filePath}" has too many levels of symbolic links.`);
 }
 
 export function validateOutputPath(filePath: string): void {
