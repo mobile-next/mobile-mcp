@@ -15,7 +15,7 @@ import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, moveOutputFile } from "./utils";
+import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
@@ -1188,16 +1188,7 @@ export const createMcpServer = (): McpServer => {
 			// registered before mobile_stop_screen_recording waits on "close", so the
 			// file is already in place when stop reports it; also covers timeLimit
 			child.on("close", () => {
-				if (recordingPath === outputPath || !fs.existsSync(recordingPath)) {
-					return;
-				}
-
-				try {
-					validateOutputPath(outputPath);
-					moveOutputFile(recordingPath, outputPath);
-				} catch (error: any) {
-					recording.moveError = error.message;
-				}
+				recording.moveError = finishRecording(recordingPath, outputPath);
 			});
 
 			child.on("error", cleanup);
@@ -1243,7 +1234,8 @@ export const createMcpServer = (): McpServer => {
 			const durationSeconds = Math.round((Date.now() - startedAt) / 1000);
 
 			if (recording.moveError) {
-				return `Recording stopped after ~${durationSeconds}s but could not be saved to ${outputPath}: ${recording.moveError}. The recording is at: ${recordingPath}`;
+				const recovery = fs.existsSync(recordingPath) ? ` The recording is at: ${recordingPath}` : "";
+				return `Recording stopped after ~${durationSeconds}s but could not be saved to ${outputPath}: ${recording.moveError}.${recovery}`;
 			}
 
 			if (!fs.existsSync(outputPath)) {

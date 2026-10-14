@@ -10,6 +10,8 @@ import {
 	withLowercaseScheme,
 	writeOutputFile,
 	moveOutputFile,
+	finishRecording,
+	createPrivateOutputPath,
 } from "../src/utils";
 
 test.describe("utils", () => {
@@ -273,6 +275,72 @@ test.describe("utils", () => {
 
 				expect(fs.readFileSync(output, "utf8")).toBe("VIDEO");
 				expect(fs.existsSync(recording)).toBe(false);
+			} finally {
+				fs.rmSync(output, { force: true });
+				fs.rmSync(recording, { force: true });
+			}
+		});
+	});
+
+	test.describe("finishRecording", () => {
+		const uniqueTempPath = (name: string): string => path.join(os.tmpdir(), `mobile-mcp-${process.pid}-${Date.now()}-${name}`);
+
+		// rename fails with EXDEV when the private directory and the output live on
+		// different filesystems; simulate that and a copy that fails halfway
+		const whileRenameCrossesFilesystemsAndCopyFails = (check: () => void) => {
+			const originalRename = fs.renameSync;
+			const originalCopy = fs.copyFileSync;
+			fs.renameSync = () => {
+				throw Object.assign(new Error("cross-device link not permitted"), { code: "EXDEV" });
+			};
+			fs.copyFileSync = () => {
+				throw new Error("disk full");
+			};
+			try {
+				check();
+			} finally {
+				fs.renameSync = originalRename;
+				fs.copyFileSync = originalCopy;
+			}
+		};
+
+		test("should report a failure when mobilecli never created the recording", () => {
+			const recording = createPrivateOutputPath("recording.mp4");
+			const output = uniqueTempPath("previous.mp4");
+			fs.writeFileSync(output, "PREVIOUS RECORDING");
+			try {
+				expect(finishRecording(recording, output)).toBeDefined();
+			} finally {
+				fs.rmSync(output, { force: true });
+				fs.rmSync(path.dirname(recording), { recursive: true, force: true });
+			}
+		});
+
+		test("should remove the private directory after moving the recording", () => {
+			const recording = createPrivateOutputPath("recording.mp4");
+			const output = uniqueTempPath("output.mp4");
+			fs.writeFileSync(recording, "VIDEO");
+			try {
+				expect(finishRecording(recording, output)).toBeUndefined();
+				expect(fs.readFileSync(output, "utf8")).toBe("VIDEO");
+				expect(fs.existsSync(path.dirname(recording))).toBe(false);
+			} finally {
+				fs.rmSync(output, { force: true });
+				fs.rmSync(path.dirname(recording), { recursive: true, force: true });
+			}
+		});
+
+		test("should keep the existing output when a cross-filesystem copy fails", () => {
+			const recording = uniqueTempPath("recording.mp4");
+			const output = uniqueTempPath("existing.mp4");
+			fs.writeFileSync(recording, "VIDEO");
+			fs.writeFileSync(output, "EXISTING");
+			try {
+				whileRenameCrossesFilesystemsAndCopyFails(() => {
+					expect(() => moveOutputFile(recording, output)).toThrow();
+				});
+				expect(fs.readFileSync(output, "utf8")).toBe("EXISTING");
+				expect(fs.readFileSync(recording, "utf8")).toBe("VIDEO");
 			} finally {
 				fs.rmSync(output, { force: true });
 				fs.rmSync(recording, { force: true });
