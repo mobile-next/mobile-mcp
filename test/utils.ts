@@ -9,6 +9,7 @@ import {
 	validateOutputPath,
 	withLowercaseScheme,
 	writeOutputFile,
+	moveOutputFile,
 } from "../src/utils";
 
 test.describe("utils", () => {
@@ -232,6 +233,49 @@ test.describe("utils", () => {
 				expect(fs.readFileSync(output, "utf8")).toBe("HELLO");
 			} finally {
 				fs.rmSync(output, { force: true });
+			}
+		});
+	});
+
+	// screen recordings are written by mobilecli, so they land in a private
+	// directory first and are moved to the requested output afterwards
+	test.describe("moveOutputFile", () => {
+		test.skip(process.platform === "win32", "creating a symlink needs elevated rights on windows");
+
+		const uniqueTempPath = (name: string): string => path.join(os.tmpdir(), `mobile-mcp-${process.pid}-${Date.now()}-${name}`);
+
+		test("should not move a recording through a symlink planted at the output path", () => {
+			const victim = uniqueTempPath("victim.txt");
+			const recording = uniqueTempPath("recording.mp4");
+			const output = uniqueTempPath("output.mp4");
+			fs.writeFileSync(victim, "ORIGINAL");
+			fs.writeFileSync(recording, "VIDEO");
+			fs.symlinkSync(victim, output);
+			try {
+				moveOutputFile(recording, output);
+
+				expect(fs.readFileSync(victim, "utf8")).toBe("ORIGINAL");
+				expect(fs.lstatSync(output).isSymbolicLink()).toBe(false);
+				expect(fs.readFileSync(output, "utf8")).toBe("VIDEO");
+			} finally {
+				fs.rmSync(output, { force: true });
+				fs.rmSync(recording, { force: true });
+				fs.rmSync(victim, { force: true });
+			}
+		});
+
+		test("should move a recording to a new output path", () => {
+			const recording = uniqueTempPath("recording.mp4");
+			const output = uniqueTempPath("output.mp4");
+			fs.writeFileSync(recording, "VIDEO");
+			try {
+				moveOutputFile(recording, output);
+
+				expect(fs.readFileSync(output, "utf8")).toBe("VIDEO");
+				expect(fs.existsSync(recording)).toBe(false);
+			} finally {
+				fs.rmSync(output, { force: true });
+				fs.rmSync(recording, { force: true });
 			}
 		});
 	});

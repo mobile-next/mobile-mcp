@@ -164,3 +164,29 @@ export function writeOutputFile(filePath: string, data: string | Buffer): void {
 		fs.closeSync(fd);
 	}
 }
+
+// a fresh 0700 directory nobody else can plant a symlink in, for files written
+// by mobilecli rather than by us
+export function createPrivateOutputPath(filename: string): string {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mobile-mcp-"));
+	return path.join(dir, filename);
+}
+
+// rename replaces a symlink at `to` instead of following it. Across filesystems
+// rename fails with EXDEV, so remove whatever is at `to` (a symlink itself, never
+// its target) and copy with COPYFILE_EXCL, which refuses to open an existing path
+export function moveOutputFile(from: string, to: string): void {
+	try {
+		fs.renameSync(from, to);
+		return;
+	} catch (error: any) {
+		if (error.code !== "EXDEV") {
+			throw error;
+		}
+
+	}
+
+	fs.rmSync(to, { force: true });
+	fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL);
+	fs.rmSync(from);
+}
