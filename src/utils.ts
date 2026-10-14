@@ -153,7 +153,7 @@ export function validateOutputPath(filePath: string): void {
 	if (!isAllowed) {
 		const dir = path.dirname(resolved);
 		throw new ActionableError(
-			`"${dir}" is not in the list of allowed directories. Allowed directories include the current directory and the temp directory on this host.`
+			`"${dir}" is not in the list of allowed directories. Allowed directories: ${allowedRoots.join(", ")}.`
 		);
 	}
 }
