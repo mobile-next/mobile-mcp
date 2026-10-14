@@ -15,7 +15,7 @@ import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile } from "./utils";
+import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
@@ -59,8 +59,10 @@ export const formatAvailableDevices = (devices: MobilecliDevice[]): string => {
 
 interface ActiveRecording {
 	process: ChildProcess;
+	recordingPath: string;
 	outputPath: string;
 	startedAt: number;
+	moveError?: string;
 }
 
 export const getAgentVersion = (): string => {
@@ -1160,9 +1162,12 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError(`Device "${device}" is already being recorded. Stop the current recording first with mobile_stop_screen_recording.`);
 			}
 
-			const outputPath = output || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
+			// mobilecli writes the file itself, so it records into a private directory
+			// and we move the result to `output` once it is done
+			const recordingPath = createPrivateOutputPath(`screen-recording-${Date.now()}.mp4`);
+			const outputPath = output || recordingPath;
 
-			const args = ["screenrecord", "--device", device, "--output", outputPath, "--silent"];
+			const args = ["screenrecord", "--device", device, "--output", recordingPath, "--silent"];
 			if (timeLimit !== undefined) {
 				args.push("--time-limit", String(timeLimit));
 			}
@@ -1173,14 +1178,23 @@ export const createMcpServer = (): McpServer => {
 				activeRecordings.delete(device);
 			};
 
+			const recording: ActiveRecording = {
+				process: child,
+				recordingPath,
+				outputPath,
+				startedAt: Date.now(),
+			};
+
+			// registered before mobile_stop_screen_recording waits on "close", so the
+			// file is already in place when stop reports it; also covers timeLimit
+			child.on("close", () => {
+				recording.moveError = finishRecording(recordingPath, outputPath);
+			});
+
 			child.on("error", cleanup);
 			child.on("exit", cleanup);
 
-			activeRecordings.set(device, {
-				process: child,
-				outputPath,
-				startedAt: Date.now(),
-			});
+			activeRecordings.set(device, recording);
 
 			return `Screen recording started. Output will be saved to: ${outputPath}`;
 		}
@@ -1200,7 +1214,7 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError(`No active recording found for device "${device}". Start a recording first with mobile_start_screen_recording.`);
 			}
 
-			const { process: child, outputPath, startedAt } = recording;
+			const { process: child, recordingPath, outputPath, startedAt } = recording;
 			activeRecordings.delete(device);
 
 			child.kill("SIGINT");
@@ -1218,6 +1232,11 @@ export const createMcpServer = (): McpServer => {
 			});
 
 			const durationSeconds = Math.round((Date.now() - startedAt) / 1000);
+
+			if (recording.moveError) {
+				const recovery = fs.existsSync(recordingPath) ? ` The recording is at: ${recordingPath}` : "";
+				return `Recording stopped after ~${durationSeconds}s but could not be saved to ${outputPath}: ${recording.moveError}.${recovery}`;
+			}
 
 			if (!fs.existsSync(outputPath)) {
 				return `Recording stopped after ~${durationSeconds}s but the output file was not found at: ${outputPath}`;

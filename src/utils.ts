@@ -164,3 +164,59 @@ export function writeOutputFile(filePath: string, data: string | Buffer): void {
 		fs.closeSync(fd);
 	}
 }
+
+// a fresh 0700 directory nobody else can plant a symlink in, for files written
+// by mobilecli rather than by us
+export function createPrivateOutputPath(filename: string): string {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mobile-mcp-"));
+	return path.join(dir, filename);
+}
+
+// rename replaces a symlink at `to` instead of following it. Across filesystems
+// rename fails with EXDEV, so copy next to `to` first (COPYFILE_EXCL refuses an
+// existing path) and rename that over `to`, keeping `to` intact if the copy fails
+export function moveOutputFile(from: string, to: string): void {
+	try {
+		fs.renameSync(from, to);
+		return;
+	} catch (error: any) {
+		if (error.code !== "EXDEV") {
+			throw error;
+		}
+
+	}
+
+	const partial = path.join(path.dirname(to), `.${path.basename(to)}.${process.pid}-${Date.now()}.partial`);
+	try {
+		fs.copyFileSync(from, partial, fs.constants.COPYFILE_EXCL);
+		fs.renameSync(partial, to);
+	} catch (error) {
+		fs.rmSync(partial, { force: true });
+		throw error;
+	}
+
+	fs.rmSync(from);
+}
+
+// moves a finished recording from its private directory to the requested
+// output; returns an error message when that fails, so stop can report it
+export function finishRecording(recordingPath: string, outputPath: string): string | undefined {
+	if (!fs.existsSync(recordingPath)) {
+		return "mobilecli did not produce a recording";
+	}
+
+	if (recordingPath === outputPath) {
+		return undefined;
+	}
+
+	try {
+		validateOutputPath(outputPath);
+		moveOutputFile(recordingPath, outputPath);
+	} catch (error: any) {
+		// keep the private directory, the recording is still in it
+		return error.message;
+	}
+
+	fs.rmSync(path.dirname(recordingPath), { recursive: true, force: true });
+	return undefined;
+}
