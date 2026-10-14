@@ -150,3 +150,17 @@ export function validateOutputPath(filePath: string): void {
 		);
 	}
 }
+
+// O_NOFOLLOW makes the open itself refuse a symlink at the final component, so a
+// link planted after validateOutputPath cannot redirect the write.
+// ponytail: windows has no O_NOFOLLOW, there we rely on validateOutputPath alone
+const WRITE_NO_FOLLOW_FLAGS = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | (fs.constants.O_NOFOLLOW ?? 0);
+
+export function writeOutputFile(filePath: string, data: string | Buffer): void {
+	const fd = fs.openSync(filePath, WRITE_NO_FOLLOW_FLAGS);
+	try {
+		fs.writeFileSync(fd, data);
+	} finally {
+		fs.closeSync(fd);
+	}
+}

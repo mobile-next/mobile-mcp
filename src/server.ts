@@ -15,7 +15,7 @@ import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { validateOutputPath, validateFileExtension, withLowercaseScheme } from "./utils";
+import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile } from "./utils";
 import { formatElements } from "./format-elements";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
@@ -902,7 +902,7 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError("This device only supports png screenshots, save to a .png file instead.");
 			}
 
-			fs.writeFileSync(saveTo, screenshot);
+			writeOutputFile(saveTo, screenshot);
 			return `Screenshot saved to: ${saveTo}`;
 		}
 	);
@@ -1117,7 +1117,7 @@ export const createMcpServer = (): McpServer => {
 				return logs || "No log entries received";
 			}
 
-			fs.writeFileSync(saveTo, logs + "\n");
+			writeOutputFile(saveTo, logs + "\n");
 			const lineCount = logs ? logs.split("\n").length : 0;
 			return `Saved ${lineCount} log entries to: ${saveTo}`;
 		}
