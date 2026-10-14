@@ -37,11 +37,21 @@ function resolveRoot(root: string): string {
 	}
 }
 
+// the filesystem root, the home directory, or anything above it would make
+// almost every file the user owns writable, so it is never an implicit root
+function isTooBroadToAllow(dir: string): boolean {
+	const resolvedDir = resolveRoot(dir);
+	const home = resolveRoot(os.homedir());
+	return resolvedDir === home || isPathUnderRoot(home, resolvedDir);
+}
+
 function getAllowedRoots(): string[] {
-	const roots = [
-		os.tmpdir(),
-		process.cwd(),
-	];
+	const roots = [os.tmpdir()];
+
+	if (!isTooBroadToAllow(process.cwd())) {
+		roots.push(process.cwd());
+	}
+
 
 	// macOS /tmp is a symlink to /private/tmp, add both to be safe
 	if (process.platform === "darwin") {

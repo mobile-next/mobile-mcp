@@ -123,6 +123,37 @@ test.describe("utils", () => {
 			const target = path.join(process.cwd(), escape, "mobile-mcp-test-output.png");
 			expect(() => validateOutputPath(target)).toThrow();
 		});
+
+		// some mcp hosts start the server from / or from the home directory, which
+		// must not turn the whole disk or the whole home into an allowed root
+		const whileRunningFrom = (dir: string, check: () => void) => {
+			const original = process.cwd();
+			process.chdir(dir);
+			try {
+				check();
+			} finally {
+				process.chdir(original);
+			}
+		};
+
+		test("should reject a path in the home directory when started from the home directory", () => {
+			whileRunningFrom(os.homedir(), () => {
+				expect(() => validateOutputPath(path.join(os.homedir(), "mobile-mcp-test-output.png"))).toThrow();
+			});
+		});
+
+		test("should reject a path anywhere on disk when started from the filesystem root", () => {
+			const root = path.parse(process.cwd()).root;
+			whileRunningFrom(root, () => {
+				expect(() => validateOutputPath(path.join(os.homedir(), "mobile-mcp-test-output.png"))).toThrow();
+			});
+		});
+
+		test("should still accept the temp directory when started from the home directory", () => {
+			whileRunningFrom(os.homedir(), () => {
+				expect(() => validateOutputPath(path.join(os.tmpdir(), "mobile-mcp-test-output.png"))).not.toThrow();
+			});
+		});
 	});
 
 	// a symlink as the final path component would redirect a write, so it must be
