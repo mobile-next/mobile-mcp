@@ -12,6 +12,11 @@ export interface InstalledApp {
 	appName: string;
 }
 
+export interface ForegroundApp extends InstalledApp {
+	// activity class on android, view controller class on ios
+	activity?: string;
+}
+
 export type SwipeDirection = "up" | "down" | "left" | "right";
 
 export type Button = "HOME" | "BACK" | "VOLUME_UP" | "VOLUME_DOWN" | "ENTER" | "DPAD_CENTER" | "DPAD_UP" | "DPAD_DOWN" | "DPAD_LEFT" | "DPAD_RIGHT";
@@ -92,7 +97,7 @@ export interface Robot {
 	/**
 	 * Get the app currently in the foreground. Optional, not all robots support it.
 	 */
-	getForegroundApp?(): Promise<InstalledApp>;
+	getForegroundApp?(): Promise<ForegroundApp>;
 
 	/**
 	 * Override the GPS location reported by the device. Optional, not all robots support it.

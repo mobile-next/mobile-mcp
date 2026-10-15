@@ -573,7 +573,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_get_foreground_app",
 		"Get Foreground App",
-		"Get the app currently in the foreground on the device. Use this to verify which app or screen you are on before interacting with it.",
+		"Get the app currently in the foreground on the device, including the focused activity class on Android or view controller class on iOS when available. Use this to verify which app or screen you are on before interacting with it.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
@@ -585,7 +585,8 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			const app = await robot.getForegroundApp();
-			return `Foreground app: ${app.appName} (${app.packageName})`;
+			const activity = app.activity ? `, activity: ${app.activity}` : "";
+			return `Foreground app: ${app.appName} (${app.packageName})${activity}`;
 		}
 	);
 
