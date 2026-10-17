@@ -1,6 +1,3 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { test, expect } from "@playwright/test";
 import { Mobilecli } from "../src/mobilecli";
 
@@ -122,18 +119,14 @@ test.describe("mobilecli", () => {
 
 	test.describe("executeCommand", () => {
 		test("returns stdout larger than Node's default 1 MB maxBuffer", () => {
-			const dir = mkdtempSync(join(tmpdir(), "mobilecli-buffer-"));
-			const scriptPath = join(dir, "mobilecli-stub");
 			const payloadBytes = 1_500_000;
-			writeFileSync(
-				scriptPath,
-				`#!/bin/sh\nexec "${process.execPath}" -e 'process.stdout.write("x".repeat(${payloadBytes}))'\n`,
-			);
-			chmodSync(scriptPath, 0o755);
 			const previous = process.env.MOBILECLI_PATH;
-			process.env.MOBILECLI_PATH = scriptPath;
+			process.env.MOBILECLI_PATH = process.execPath;
 			try {
-				const output = new Mobilecli().executeCommand(["dump", "ui"]);
+				const output = new Mobilecli().executeCommand([
+					"-e",
+					`process.stdout.write("x".repeat(${payloadBytes}))`,
+				]);
 				expect(output).toHaveLength(payloadBytes);
 			} finally {
 				if (previous === undefined) {
@@ -141,7 +134,6 @@ test.describe("mobilecli", () => {
 				} else {
 					process.env.MOBILECLI_PATH = previous;
 				}
-				rmSync(dir, { recursive: true, force: true });
 			}
 		});
 	});
