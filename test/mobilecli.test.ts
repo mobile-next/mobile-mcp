@@ -117,6 +117,27 @@ test.describe("mobilecli", () => {
 		});
 	});
 
+	test.describe("executeCommand", () => {
+		test("returns stdout larger than Node's default 1 MB maxBuffer", () => {
+			const payloadBytes = 1_500_000;
+			const previous = process.env.MOBILECLI_PATH;
+			process.env.MOBILECLI_PATH = process.execPath;
+			try {
+				const output = new Mobilecli().executeCommand([
+					"-e",
+					`process.stdout.write("x".repeat(${payloadBytes}))`,
+				]);
+				expect(output).toHaveLength(payloadBytes);
+			} finally {
+				if (previous === undefined) {
+					delete process.env.MOBILECLI_PATH;
+				} else {
+					process.env.MOBILECLI_PATH = previous;
+				}
+			}
+		});
+	});
+
 	test.describe("agentStatus", () => {
 		test("should return fail status when agent is not installed and mobilecli exits non-zero", () => {
 			const mobilecli = new Mobilecli();
