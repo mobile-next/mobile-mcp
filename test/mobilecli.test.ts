@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Mobilecli } from "../src/mobilecli";
 
 type ExecuteCommandCall = {
@@ -114,6 +117,26 @@ test.describe("mobilecli", () => {
 
 			expect(calls.length).toBe(1);
 			expect(calls[0].args).toEqual(["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
+		});
+	});
+
+	test.describe("executeCommand", () => {
+		test("should return output larger than node's default 1MB maxBuffer", () => {
+			const dir = mkdtempSync(join(tmpdir(), "mobilecli-test-"));
+			const fakeMobilecli = join(dir, "mobilecli");
+			const outputSize = 2 * 1024 * 1024;
+			writeFileSync(fakeMobilecli, `#!/usr/bin/env node\nprocess.stdout.write("a".repeat(${outputSize}));\n`);
+			chmodSync(fakeMobilecli, 0o755);
+
+			try {
+				process.env.MOBILECLI_PATH = fakeMobilecli;
+				const mobilecli = new Mobilecli();
+				const output = mobilecli.executeCommand(["dump", "ui"]);
+				expect(output.length).toBe(outputSize);
+			} finally {
+				delete process.env.MOBILECLI_PATH;
+				rmSync(dir, { recursive: true, force: true });
+			}
 		});
 	});
 
