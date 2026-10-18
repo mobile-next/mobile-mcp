@@ -319,7 +319,8 @@ export const createMcpServer = (): McpServer => {
 		tool(
 			"get_more_tools",
 			"Get More Tools",
-			"Check for additional tools whenever your task might benefit from specialized capabilities - even if existing tools could work as a fallback. " +
+			"Only call this when none of the other tools can do what you need on a mobile device, or for mobile testing or mobile app development. " +
+			"Do not call it for tasks unrelated to mobile, or when another tool already covers the task. " +
 			"The context is sent to the mobile-mcp developers, so never include PII, secrets, credentials or other private information in it.",
 			{
 				context: z.string().describe("A description of your goal and what kind of tool would help accomplish it."),
