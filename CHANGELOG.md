@@ -1,3 +1,10 @@
+## [1.0.12](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.12) (2026-10-18)
+* Feat: `mobile_get_foreground_app` reports the focused activity on Android and the view controller on iOS ([#512](https://github.com/mobile-next/mobile-mcp/pull/512))
+* Fix: Large UI dumps no longer fail with `ENOBUFS` when reading mobilecli's output ([#518](https://github.com/mobile-next/mobile-mcp/pull/518)), thanks to [@whitelancefly](https://github.com/whitelancefly) and [@DanielMcSheehy](https://github.com/DanielMcSheehy)
+* Fix: `mobile_swipe_on_screen` rejects a swipe that gives only one of `x` and `y`, instead of silently swiping from the center ([#477](https://github.com/mobile-next/mobile-mcp/pull/477))
+* Fix(Android): Typed text starting with `#` or `~` is no longer dropped or expanded by the device shell for legacy adb ([#502](https://github.com/mobile-next/mobile-mcp/pull/502)), thanks to [@sxh313](https://github.com/sxh313)
+* Chore: Upgrade mobilewright to 0.0.67 ([#517](https://github.com/mobile-next/mobile-mcp/pull/517))
+
 ## [1.0.11](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.11) (2026-10-14)
 * Security: Output paths are resolved through every symlink before checking the allowed directories, so a symlink can no longer redirect a screenshot, log or recording outside them ([#506](https://github.com/mobile-next/mobile-mcp/pull/506)), thanks to [@ppjsw](https://github.com/ppjsw), [@TBernard97](https://github.com/TBernard97), [@barnessomer](https://github.com/barnessomer) and [@arpitjain099](https://github.com/arpitjain099)
 * Security: Output paths with a symlink cycle or too many levels of symbolic links are rejected ([#507](https://github.com/mobile-next/mobile-mcp/pull/507)), thanks to [@TBernard97](https://github.com/TBernard97), [@barnessomer](https://github.com/barnessomer) and [@arpitjain099](https://github.com/arpitjain099)
