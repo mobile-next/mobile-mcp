@@ -83,7 +83,11 @@ export class Mobilecli {
 
 	public executeCommand(args: string[], timeoutMs?: number): string {
 		const path = this.getPath();
-		const options: { encoding: "utf8"; timeout?: number } = { encoding: "utf8" };
+		// dump ui on a dense screen can exceed Node's 1 MB default and fail with ENOBUFS
+		const options: { encoding: "utf8"; maxBuffer: number; timeout?: number } = {
+			encoding: "utf8",
+			maxBuffer: MAX_BUFFER_SIZE,
+		};
 		if (timeoutMs !== undefined) {
 			options.timeout = timeoutMs;
 		}
