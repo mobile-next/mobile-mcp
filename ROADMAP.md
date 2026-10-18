@@ -17,7 +17,7 @@ Shipped in 2026, most recent first.
 
 | Feature | Description | Date |
 |---|---|---|
-| **App launch options** | Launch an app with custom arguments and environment variables (iOS). | 2026-10-18 |
+| **App launch options** | Launch an app with custom arguments (intent extras on Android) and environment variables (iOS). | 2026-10-18 |
 | **Clear app storage** | Clear an app's cache and documents between runs (Android and iOS Simulator). | 2026-10-18 |
 | **Streamable HTTP support** | `--listen` serves MCP Streamable HTTP on `/mcp` (stateless). Replaces deprecated SSE on `/mcp`. | 2026-09-11 |
 | **Device logs** | Read device system logs — syslog, console, and logcat. | 2026-09-08 |

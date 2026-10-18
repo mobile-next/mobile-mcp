@@ -81,7 +81,7 @@ export type GesturePoint = { x: number; y: number } | { ref: string };
 export interface LaunchAppOptions {
 	/** Comma-separated BCP 47 locale tags */
 	locale?: string;
-	/** Arguments passed to the app process, iOS only */
+	/** Process arguments on iOS, key=value string intent extras on Android */
 	arguments?: string[];
 	/** Environment variables set for the app process, iOS only */
 	environment?: Record<string, string>;
