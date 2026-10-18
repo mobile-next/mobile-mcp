@@ -4,8 +4,8 @@ import { existsSync } from "node:fs";
 
 import * as xml from "fast-xml-parser";
 
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation } from "./robot";
-import { validatePackageName, validateLocale } from "./utils";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenElementRect, ScreenSize, SwipeDirection, Orientation, LaunchAppOptions } from "./robot";
+import { validatePackageName, validateLocale, rejectLaunchArgumentsAndEnvironment } from "./utils";
 
 export interface AndroidDevice {
 	deviceId: string;
@@ -145,8 +145,10 @@ export class AndroidRobot implements Robot {
 			.map(line => line.substring("package:".length));
 	}
 
-	public async launchApp(packageName: string, locale?: string): Promise<void> {
+	public async launchApp(packageName: string, options: LaunchAppOptions = {}): Promise<void> {
 		validatePackageName(packageName);
+		rejectLaunchArgumentsAndEnvironment(options);
+		const locale = options.locale;
 
 		if (locale) {
 			validateLocale(locale);

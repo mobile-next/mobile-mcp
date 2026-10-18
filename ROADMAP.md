@@ -5,7 +5,6 @@ This is a living document of planned and in-progress features. Items are roughly
 | Feature | Description | Status |
 |---|---|---|
 | **File system tools** | List, push, and pull files on the device or within an app container. | Planned |
-| **App launch options** | Launch an app with custom arguments. | Planned |
 | **Pinch to zoom** | Pinch-in and pinch-out gesture support for zooming in and out. | Planned |
 | **WebView support** | Inspect and interact with WebView content inside native apps. | Planned |
 | **Flutter UI support** | Dump Flutter widget trees with semantics and element types, so agents see Flutter apps like native ones. | Planned |
@@ -19,6 +18,7 @@ Shipped in 2026, most recent first.
 
 | Feature | Description | Date |
 |---|---|---|
+| **App launch options** | Launch an app with custom arguments and environment variables (iOS). | 2026-10-18 |
 | **Streamable HTTP support** | `--listen` serves MCP Streamable HTTP on `/mcp` (stateless). Replaces deprecated SSE on `/mcp`. | 2026-09-11 |
 | **Device logs** | Read device system logs — syslog, console, and logcat. | 2026-09-08 |
 | **Background daemon for speedup** | A long-lived background process that keeps device connections, agents and tunnels warm between tool calls, so each call skips discovery and setup and returns in milliseconds instead of seconds. | 2026-09-08 |

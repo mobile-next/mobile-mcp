@@ -597,13 +597,15 @@ export const createMcpServer = (): McpServer => {
 		"Launch an app on mobile device. Use this to open a specific app. You can find the package name of the app by calling mobile_list_apps.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			packageName: z.string().describe("The package name of the app to launch"),
+			packageName: z.string().describe("The package name (Android) or bundle id (iOS) of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
+			arguments: z.array(z.string()).optional().describe("iOS only. Arguments passed to the app process, one per item, like Xcode's Arguments Passed On Launch (e.g., [\"-FeatureX\", \"YES\"])"),
+			environment: z.record(z.string().regex(/^[^=]+$/), z.string()).optional().describe("iOS only. Environment variables set for the app process (e.g., {\"API_URL\": \"https://staging.example.com\"})"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, packageName, locale }) => {
+		async ({ device, packageName, locale, arguments: launchArguments, environment }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.launchApp(packageName, locale);
+			await robot.launchApp(packageName, { locale, arguments: launchArguments, environment });
 			return `Launched app ${packageName}`;
 		}
 	);

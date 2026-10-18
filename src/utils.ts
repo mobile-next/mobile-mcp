@@ -1,7 +1,7 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { ActionableError } from "./robot";
+import { ActionableError, LaunchAppOptions } from "./robot";
 
 export function validatePackageName(packageName: string): void {
 	// iOS bundle identifiers (which flow through this same "packageName" parameter
@@ -9,6 +9,15 @@ export function validatePackageName(packageName: string): void {
 	// format, e.g. "com.some-company.app".
 	if (!/^[a-zA-Z0-9._-]+$/.test(packageName)) {
 		throw new ActionableError(`Invalid package name: "${packageName}"`);
+	}
+}
+
+// the legacy robots don't pass anything to the app process, only mobilecli does
+export function rejectLaunchArgumentsAndEnvironment(options: LaunchAppOptions): void {
+	const hasArguments = (options.arguments ?? []).length > 0;
+	const hasEnvironment = Object.keys(options.environment ?? {}).length > 0;
+	if (hasArguments || hasEnvironment) {
+		throw new ActionableError("Launch arguments and environment are not supported with MOBILEMCP_LEGACY_ROBOT=1");
 	}
 }
 

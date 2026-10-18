@@ -65,6 +65,15 @@ export interface ScreenshotOptions {
 	maxSize?: number;
 }
 
+export interface LaunchAppOptions {
+	/** Comma-separated BCP 47 locale tags */
+	locale?: string;
+	/** Arguments passed to the app process, iOS only */
+	arguments?: string[];
+	/** Environment variables set for the app process, iOS only */
+	environment?: Record<string, string>;
+}
+
 export interface Robot {
 	/**
 	 * Get the screen size of the device in pixels.
@@ -134,7 +143,7 @@ export interface Robot {
 	/**
 	 * Launch an app.
 	 */
-	launchApp(packageName: string, locale?: string): Promise<void>;
+	launchApp(packageName: string, options?: LaunchAppOptions): Promise<void>;
 
 	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this

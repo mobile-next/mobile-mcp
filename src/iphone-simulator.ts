@@ -5,8 +5,8 @@ import { join, basename, extname } from "node:path";
 
 import { trace } from "./logger";
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation } from "./robot";
-import { validatePackageName, validateLocale } from "./utils";
+import { ActionableError, Button, InstalledApp, Robot, ScreenElement, ScreenSize, SwipeDirection, Orientation, LaunchAppOptions } from "./robot";
+import { validatePackageName, validateLocale, rejectLaunchArgumentsAndEnvironment } from "./utils";
 
 export interface Simulator {
 	name: string;
@@ -102,8 +102,10 @@ export class Simctl implements Robot {
 		// alternative: this.simctl("openurl", this.simulatorUuid, url);
 	}
 
-	public async launchApp(packageName: string, locale?: string) {
+	public async launchApp(packageName: string, options: LaunchAppOptions = {}) {
 		validatePackageName(packageName);
+		rejectLaunchArgumentsAndEnvironment(options);
+		const locale = options.locale;
 		const args = ["launch", this.simulatorUuid, packageName];
 		if (locale) {
 			validateLocale(locale);
