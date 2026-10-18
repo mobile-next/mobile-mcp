@@ -163,6 +163,13 @@ test.describe("MobileDevice", () => {
 			expect(calls[0]).toEqual(["apps", "foreground", "--device", "test-device"]);
 			expect(app).toEqual({ appName: "com.example.app", packageName: "com.example.app" });
 		});
+
+		test("getForegroundApp should include the focused activity reported by mobilecli", async () => {
+			const { device } = createMockMobileDevice(JSON.stringify({ status: "ok", data: { packageName: "com.android.settings", appName: "Settings", activity: "com.android.settings.SubSettings" } }));
+			const app = await device.getForegroundApp();
+
+			expect(app).toEqual({ appName: "Settings", packageName: "com.android.settings", activity: "com.android.settings.SubSettings" });
+		});
 	});
 
 	test.describe("fold", () => {

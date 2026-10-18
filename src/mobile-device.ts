@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { ActionableError, Button, FoldPosture, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
+import { ActionableError, Button, FoldPosture, ForegroundApp, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -64,6 +64,7 @@ interface ForegroundAppResponse {
 	data: {
 		packageName: string;
 		appName?: string;
+		activity?: string;
 	};
 }
 
@@ -215,12 +216,18 @@ export class MobileDevice implements Robot {
 		})) as InstalledApp[];
 	}
 
-	public async getForegroundApp(): Promise<InstalledApp> {
+	public async getForegroundApp(): Promise<ForegroundApp> {
 		const response = this.runJsonCommand<ForegroundAppResponse>(["apps", "foreground"]);
-		return {
+		const app: ForegroundApp = {
 			appName: response.data.appName || response.data.packageName,
 			packageName: response.data.packageName,
 		};
+
+		if (response.data.activity) {
+			app.activity = response.data.activity;
+		}
+
+		return app;
 	}
 
 	public async launchApp(packageName: string, locale?: string): Promise<void> {
