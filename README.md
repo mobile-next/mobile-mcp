@@ -403,6 +403,22 @@ Once the server is configured, ask your agent to list devices:
 
 You should get back your running simulators, emulators, and connected devices. If you do, Mobile MCP is wired up correctly. If the list is empty, make sure a simulator or emulator is running (see [Prerequisites](#prerequisites)) — for more help, check the [wiki](https://github.com/mobile-next/mobile-mcp/wiki).
 
+### 🧪 From agent session to CI test
+
+Once your agent has walked a flow on the device, keep it. **[Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=readme&utm_campaign=agent-to-ci)** is "Playwright for mobile", from the same team and built on the same device stack. Ask your agent to write the flow it just ran as a Mobilewright test, and you get a deterministic TypeScript test that runs in CI:
+
+```ts
+import { test, expect } from '@mobilewright/test';
+
+test('sign in', async ({ screen }) => {
+  await screen.getByLabel('Email').fill('user@example.com');
+  await screen.getByRole('button', { name: 'Sign In' }).tap();
+  await expect(screen.getByText('Welcome back')).toBeVisible();
+});
+```
+
+Start with `npm init mobilewright@latest`.
+
 ### ☁️ Scale up, use a cloud device
 
 Want to scale to hundreds of devices? Use Mobile MCP in your CI/CD pipeline?
