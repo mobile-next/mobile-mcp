@@ -116,4 +116,18 @@ test.describe("mobilecli", () => {
 			expect(calls[0].args).toEqual(["devices", "--include-offline", "--platform", "android", "--type", "emulator"]);
 		});
 	});
+
+	test.describe("agentStatus", () => {
+		test("should return fail status when agent is not installed and mobilecli exits non-zero", () => {
+			const mobilecli = new Mobilecli();
+			const notInstalledResponse = JSON.stringify({ status: "fail", data: { message: "Agent is not installed on the device" } });
+			mobilecli.executeCommand = function(): string {
+				throw Object.assign(new Error("Command failed"), { status: 1, stdout: notInstalledResponse });
+			};
+
+			const status = mobilecli.agentStatus("SIM-ID");
+
+			expect(status.status).toBe("fail");
+		});
+	});
 });

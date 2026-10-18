@@ -284,11 +284,12 @@ export class MobileDevice implements Robot {
 	}
 
 	public async longPress(x: number, y: number, duration: number): Promise<void> {
-		this.runCommand(["io", "longpress", `${Math.round(x)},${Math.round(y)}`, "--duration", `${duration}`]);
+		// mobilecli rejects fractional coordinates and durations, both are parsed as integers
+		this.runCommand(["io", "longpress", `${Math.round(x)},${Math.round(y)}`, "--duration", `${Math.round(duration)}`]);
 	}
 
 	public async longPressByRef(ref: string, duration: number): Promise<void> {
-		this.runCommand(["io", "longpress", ref, "--duration", `${duration}`]);
+		this.runCommand(["io", "longpress", ref, "--duration", `${Math.round(duration)}`]);
 	}
 
 	public async getElementsOnScreen(): Promise<ScreenElement[]> {

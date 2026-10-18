@@ -15,7 +15,7 @@ import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
-import { resolveOutputPath, validateFileExtension } from "./utils";
+import { resolveOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
@@ -59,8 +59,10 @@ export const formatAvailableDevices = (devices: MobilecliDevice[]): string => {
 
 interface ActiveRecording {
 	process: ChildProcess;
+	recordingPath: string;
 	outputPath: string;
 	startedAt: number;
+	moveError?: string;
 }
 
 export const getAgentVersion = (): string => {
@@ -159,6 +161,7 @@ export const createMcpServer = (): McpServer => {
 				if (error instanceof ActionableError) {
 					return {
 						content: [{ type: "text", text: `${error.message}. Please fix the issue and try again.` }],
+						isError: true,
 					};
 				} else {
 					// a real exception
@@ -309,6 +312,25 @@ export const createMcpServer = (): McpServer => {
 
 		throw new ActionableError(`Device "${deviceId}" not found. Use the mobile_list_available_devices tool to see available devices.`);
 	};
+
+	// ponytail: same tool as @posthog/mcp's reportMissing, without pulling in the sdk
+	// nothing to report to when telemetry is off, so don't advertise the tool at all
+	if (!process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+		tool(
+			"get_more_tools",
+			"Get More Tools",
+			"Check for additional tools whenever your task might benefit from specialized capabilities - even if existing tools could work as a fallback. " +
+			"The context is sent to the mobile-mcp developers, so never include PII, secrets, credentials or other private information in it.",
+			{
+				context: z.string().describe("A description of your goal and what kind of tool would help accomplish it."),
+			},
+			{ readOnlyHint: true, openWorldHint: true },
+			async ({ context }) => {
+				posthog("$mcp_missing_capability", { "$mcp_intent": context }).then();
+				return "Unfortunately, we have shown you the full tool list. We have noted your feedback and will work to improve the tool list in the future.";
+			}
+		);
+	}
 
 	tool(
 		"mobile_list_available_devices",
@@ -769,7 +791,12 @@ export const createMcpServer = (): McpServer => {
 		"Press a button on device",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
+			button: z.string().describe([
+				"The button to press, in upper case. Supported buttons:",
+				"Android: HOME, BACK, VOLUME_UP, VOLUME_DOWN, ENTER, BACKSPACE, APP_SWITCH, POWER, DPAD_CENTER, DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT",
+				"iOS: HOME, VOLUME_UP, VOLUME_DOWN, ENTER, LOCK",
+				"BACKSPACE deletes the character before the cursor, APP_SWITCH opens the recent apps, POWER turns the screen on or off, LOCK locks the screen, and the DPAD buttons move focus on Android TV.",
+			].join("\n")),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, button }) => {
@@ -790,12 +817,13 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, url }) => {
 			const allowUnsafeUrls = process.env.MOBILEMCP_ALLOW_UNSAFE_URLS === "1";
-			if (!allowUnsafeUrls && !url.startsWith("http://") && !url.startsWith("https://")) {
+			const normalizedUrl = withLowercaseScheme(url);
+			if (!allowUnsafeUrls && !normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
 				throw new ActionableError("Only http:// and https:// URLs are allowed. Set MOBILEMCP_ALLOW_UNSAFE_URLS=1 to allow other URL schemes.");
 			}
 
 			const robot = getRobotFromDevice(device);
-			await robot.openUrl(url);
+			await robot.openUrl(normalizedUrl);
 			return `Opened URL: ${url}`;
 		}
 	);
@@ -809,7 +837,7 @@ export const createMcpServer = (): McpServer => {
 			direction: z.enum(["up", "down", "left", "right"]).describe("The direction to swipe"),
 			x: z.coerce.number().min(0).optional().describe("The x coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
 			y: z.coerce.number().min(0).optional().describe("The y coordinate to start the swipe from, in pixels. If not provided, uses center of screen"),
-			distance: z.coerce.number().optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
+			distance: z.coerce.number().min(1).optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, direction, x, y, distance }) => {
@@ -876,7 +904,7 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError("This device only supports png screenshots, save to a .png file instead.");
 			}
 
-			fs.writeFileSync(saveTo, screenshot);
+			writeOutputFile(saveTo, screenshot);
 			return `Screenshot saved to: ${saveTo}`;
 		}
 	);
@@ -1092,7 +1120,7 @@ export const createMcpServer = (): McpServer => {
 				return logs || "No log entries received";
 			}
 
-			fs.writeFileSync(saveTo, logs + "\n");
+			writeOutputFile(saveTo, logs + "\n");
 			const lineCount = logs ? logs.split("\n").length : 0;
 			return `Saved ${lineCount} log entries to: ${saveTo}`;
 		}
@@ -1136,9 +1164,12 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError(`Device "${device}" is already being recorded. Stop the current recording first with mobile_stop_screen_recording.`);
 			}
 
-			const outputPath = requestedOutputPath || path.join(os.tmpdir(), `screen-recording-${Date.now()}.mp4`);
+			// mobilecli writes the file itself, so it records into a private directory
+			// and we move the result to `output` once it is done
+			const recordingPath = createPrivateOutputPath(`screen-recording-${Date.now()}.mp4`);
+			const outputPath = requestedOutputPath || recordingPath;
 
-			const args = ["screenrecord", "--device", device, "--output", outputPath, "--silent"];
+			const args = ["screenrecord", "--device", device, "--output", recordingPath, "--silent"];
 			if (timeLimit !== undefined) {
 				args.push("--time-limit", String(timeLimit));
 			}
@@ -1149,14 +1180,23 @@ export const createMcpServer = (): McpServer => {
 				activeRecordings.delete(device);
 			};
 
+			const recording: ActiveRecording = {
+				process: child,
+				recordingPath,
+				outputPath,
+				startedAt: Date.now(),
+			};
+
+			// registered before mobile_stop_screen_recording waits on "close", so the
+			// file is already in place when stop reports it; also covers timeLimit
+			child.on("close", () => {
+				recording.moveError = finishRecording(recordingPath, outputPath);
+			});
+
 			child.on("error", cleanup);
 			child.on("exit", cleanup);
 
-			activeRecordings.set(device, {
-				process: child,
-				outputPath,
-				startedAt: Date.now(),
-			});
+			activeRecordings.set(device, recording);
 
 			return `Screen recording started. Output will be saved to: ${outputPath}`;
 		}
@@ -1176,7 +1216,7 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError(`No active recording found for device "${device}". Start a recording first with mobile_start_screen_recording.`);
 			}
 
-			const { process: child, outputPath, startedAt } = recording;
+			const { process: child, recordingPath, outputPath, startedAt } = recording;
 			activeRecordings.delete(device);
 
 			child.kill("SIGINT");
@@ -1194,6 +1234,11 @@ export const createMcpServer = (): McpServer => {
 			});
 
 			const durationSeconds = Math.round((Date.now() - startedAt) / 1000);
+
+			if (recording.moveError) {
+				const recovery = fs.existsSync(recordingPath) ? ` The recording is at: ${recordingPath}` : "";
+				return `Recording stopped after ~${durationSeconds}s but could not be saved to ${outputPath}: ${recording.moveError}.${recovery}`;
+			}
 
 			if (!fs.existsSync(outputPath)) {
 				return `Recording stopped after ~${durationSeconds}s but the output file was not found at: ${outputPath}`;
