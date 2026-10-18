@@ -625,6 +625,26 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_clear_app_data",
+		"Clear App Data",
+		"Clear an app's data, such as its cache, documents, preferences and databases, and stop the app, so the next launch starts as if freshly installed. The app stays installed. Supported on Android devices and emulators and on iOS simulators, not on real iOS devices.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			packageName: z.string().describe("The package name (Android) or bundle id (iOS) of the app to clear"),
+		},
+		{ readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+		async ({ device, packageName }) => {
+			const robot = getRobotFromDevice(device);
+			if (!robot.clearAppData) {
+				throw new ActionableError("Clearing app data is not supported in legacy robot mode");
+			}
+
+			await robot.clearAppData(packageName);
+			return `Cleared app data for ${packageName}`;
+		}
+	);
+
+	tool(
 		"mobile_install_app",
 		"Install App",
 		"Install an app on mobile device",

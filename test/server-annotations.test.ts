@@ -16,6 +16,7 @@ const expectedAnnotations: ToolAnnotationMatrix = {
 	mobile_terminate_app: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 	mobile_install_app: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 	mobile_uninstall_app: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+	mobile_clear_app_data: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
 	mobile_get_screen_size: { readOnlyHint: true, openWorldHint: false },
 	mobile_click_on_screen_at_coordinates: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 	mobile_double_tap_on_screen: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },

@@ -62,7 +62,7 @@ test("only mentions tools that exist", async () => {
 test("names the app with packageName in every app tool", async () => {
 	const tools = await listToolDefinitions();
 
-	for (const name of ["mobile_launch_app", "mobile_terminate_app", "mobile_uninstall_app"]) {
+	for (const name of ["mobile_launch_app", "mobile_terminate_app", "mobile_uninstall_app", "mobile_clear_app_data"]) {
 		expect(requiredParametersOf(findTool(tools, name)), name).toEqual(["device", "packageName"]);
 	}
 });
