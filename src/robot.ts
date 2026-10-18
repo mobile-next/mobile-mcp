@@ -100,6 +100,11 @@ export interface Robot {
 	getForegroundApp?(): Promise<ForegroundApp>;
 
 	/**
+	 * Clear an app's data and stop it, so the next launch starts fresh. Optional, not all robots support it.
+	 */
+	clearAppData?(packageName: string): Promise<void>;
+
+	/**
 	 * Override the GPS location reported by the device. Optional, not all robots support it.
 	 */
 	setLocation?(latitude: number, longitude: number): Promise<void>;
