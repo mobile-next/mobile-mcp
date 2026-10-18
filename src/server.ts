@@ -599,7 +599,7 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name (Android) or bundle id (iOS) of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
-			arguments: z.array(z.string()).optional().describe("iOS only. Arguments passed to the app process, one per item, like Xcode's Arguments Passed On Launch (e.g., [\"-FeatureX\", \"YES\"])"),
+			arguments: z.array(z.string()).optional().describe("Arguments to launch the app with, one per item. On iOS they are the app's process arguments, like Xcode's Arguments Passed On Launch (e.g., [\"-FeatureX\", \"YES\"]). On Android each item must be key=value and is passed as a string intent extra the app reads from its launch intent (e.g., [\"featureX=true\"])"),
 			environment: z.record(z.string().regex(/^[^=]+$/), z.string()).optional().describe("iOS only. Environment variables set for the app process (e.g., {\"API_URL\": \"https://staging.example.com\"})"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
