@@ -17,6 +17,21 @@ function createMockMobilecli(mockResponse: string): { mobilecli: Mobilecli; call
 	return { mobilecli, calls };
 }
 
+function withMobilecliPath(mobilecliPath: string, fn: () => void): void {
+	const previous = process.env.MOBILECLI_PATH;
+	process.env.MOBILECLI_PATH = mobilecliPath;
+	try {
+		fn();
+	} finally {
+		if (previous === undefined) {
+			delete process.env.MOBILECLI_PATH;
+		} else {
+			process.env.MOBILECLI_PATH = previous;
+		}
+
+	}
+}
+
 test.describe("mobilecli", () => {
 
 	const mobilecli = new Mobilecli();
@@ -36,14 +51,11 @@ test.describe("mobilecli", () => {
 		});
 
 		test("should return failed when MOBILECLI_PATH points to invalid location", () => {
-			try {
-				process.env.MOBILECLI_PATH = "/tmp";
+			withMobilecliPath("/tmp", () => {
 				const mobilecli = new Mobilecli();
 				const version = mobilecli.getVersion();
 				expect(version, `Expected version to include "failed" but got: ${version}`).toContain("failed");
-			} finally {
-				delete process.env.MOBILECLI_PATH;
-			}
+			});
 		});
 
 		test("should call executeCommand with --version argument", () => {
@@ -121,14 +133,11 @@ test.describe("mobilecli", () => {
 		test("should return output larger than node's default 1MB maxBuffer", () => {
 			// run node itself as the "mobilecli" binary so the test works on every platform
 			const outputSize = 2 * 1024 * 1024;
-			try {
-				process.env.MOBILECLI_PATH = process.execPath;
+			withMobilecliPath(process.execPath, () => {
 				const mobilecli = new Mobilecli();
 				const output = mobilecli.executeCommand(["-e", `process.stdout.write("a".repeat(${outputSize}))`]);
 				expect(output.length).toBe(outputSize);
-			} finally {
-				delete process.env.MOBILECLI_PATH;
-			}
+			});
 		});
 	});
 
