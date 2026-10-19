@@ -7,6 +7,7 @@ import {
 	validateLocale,
 	validateFileExtension,
 	validateOutputPath,
+	resolveOutputPath,
 	withLowercaseScheme,
 	writeOutputFile,
 	moveOutputFile,
@@ -376,6 +377,27 @@ test.describe("utils", () => {
 				fs.rmSync(output, { force: true });
 				fs.rmSync(recording, { force: true });
 			}
+		});
+	});
+
+	// a relative path is resolved against the server's working directory, which the
+	// caller cannot see, so the tools report the absolute path they wrote to
+	test.describe("resolveOutputPath", () => {
+		test("should turn a relative path into an absolute path under the current working directory", () => {
+			expect(resolveOutputPath("shots/screen.png")).toBe(path.join(process.cwd(), "shots", "screen.png"));
+		});
+
+		test("should keep an absolute path as it is", () => {
+			const target = path.join(os.tmpdir(), "mobile-mcp-test-output.png");
+			expect(resolveOutputPath(target)).toBe(target);
+		});
+
+		test("should reject a path outside of the allowed directories", () => {
+			const outside = process.platform === "win32"
+				? "C:\\Windows\\mobile-mcp-test-output.png"
+				: "/etc/mobile-mcp-test-output.png";
+
+			expect(() => resolveOutputPath(outside)).toThrow();
 		});
 	});
 });
