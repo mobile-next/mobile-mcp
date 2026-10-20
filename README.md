@@ -517,6 +517,7 @@ Gmail to contacts "team@example.com".
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
+| `MOBILEMCP_WDA_URL` | With `MOBILEMCP_LEGACY_ROBOT=1`, connect physical iOS devices to a WebDriverAgent already reachable at this URL (for example over Wi-Fi), skipping the go-ios tunnel and port forward checks. Applies to every physical iOS device. | `MOBILEMCP_WDA_URL=http://192.168.1.20:8100` |
 
 ### Simulators, Emulators, and Real Devices
 
