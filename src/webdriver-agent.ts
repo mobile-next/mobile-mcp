@@ -369,6 +369,33 @@ export class WebDriverAgent {
 		});
 	}
 
+	public async drag(fromX: number, fromY: number, toX: number, toY: number, duration: number): Promise<void> {
+		await this.withinSession(async sessionUrl => {
+			const url = `${sessionUrl}/actions`;
+			await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					actions: [
+						{
+							type: "pointer",
+							id: "finger1",
+							parameters: { pointerType: "touch" },
+							actions: [
+								{ type: "pointerMove", duration: 0, x: fromX, y: fromY },
+								{ type: "pointerDown", button: 0 },
+								{ type: "pointerMove", duration, x: toX, y: toY },
+								{ type: "pointerUp", button: 0 }
+							]
+						}
+					]
+				}),
+			});
+		});
+	}
+
 	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance: number = 400): Promise<void> {
 		await this.withinSession(async sessionUrl => {
 			// Use simple coordinates like the working swipe method
