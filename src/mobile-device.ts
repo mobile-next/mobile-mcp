@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { ActionableError, Button, FoldPosture, ForegroundApp, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
+import { ActionableError, Button, FoldPosture, ForegroundApp, InstalledApp, LaunchAppOptions, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -230,10 +230,18 @@ export class MobileDevice implements Robot {
 		return app;
 	}
 
-	public async launchApp(packageName: string, locale?: string): Promise<void> {
+	public async launchApp(packageName: string, options: LaunchAppOptions = {}): Promise<void> {
 		const args = ["apps", "launch", packageName];
-		if (locale) {
-			args.push("--locale", locale);
+		if (options.locale) {
+			args.push("--locale", options.locale);
+		}
+
+		for (const argument of options.arguments ?? []) {
+			args.push(`--arg=${argument}`);
+		}
+
+		for (const [key, value] of Object.entries(options.environment ?? {})) {
+			args.push("--env", `${key}=${value}`);
 		}
 
 		this.runCommand(args);
