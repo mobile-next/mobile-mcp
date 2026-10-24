@@ -863,6 +863,27 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_drag",
+		"Drag",
+		"Press at one point, move to another over a set duration, then release. Use it for reorder handles, sliders and drag-and-drop, which a swipe moves too fast to register. It does not hold still before moving, so it will not start a drag that needs a long press first.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			fromX: z.coerce.number().min(0).describe("The x coordinate to press, in pixels"),
+			fromY: z.coerce.number().min(0).describe("The y coordinate to press, in pixels"),
+			toX: z.coerce.number().min(0).describe("The x coordinate to release at, in pixels"),
+			toY: z.coerce.number().min(0).describe("The y coordinate to release at, in pixels"),
+			duration: z.coerce.number().min(1).max(10000).optional().describe("How long the move takes, in milliseconds. Defaults to 1000ms"),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+		async ({ device, fromX, fromY, toX, toY, duration }) => {
+			const robot = getRobotFromDevice(device);
+			const dragDuration = duration ?? 1000;
+			await robot.drag(fromX, fromY, toX, toY, dragDuration);
+			return `Dragged from ${fromX}, ${fromY} to ${toX}, ${toY} over ${dragDuration}ms`;
+		}
+	);
+
+	tool(
 		"mobile_type_keys",
 		"Type Text",
 		"Type text into the focused element",

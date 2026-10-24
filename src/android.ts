@@ -246,6 +246,10 @@ export class AndroidRobot implements Robot {
 		this.adb("shell", "input", "swipe", `${x0}`, `${y0}`, `${x1}`, `${y1}`, "1000");
 	}
 
+	public async drag(fromX: number, fromY: number, toX: number, toY: number, duration: number): Promise<void> {
+		this.adb("shell", "input", "swipe", `${Math.round(fromX)}`, `${Math.round(fromY)}`, `${Math.round(toX)}`, `${Math.round(toY)}`, `${Math.round(duration)}`);
+	}
+
 	private getDisplayCount(): number {
 		return this.adb("shell", "dumpsys", "SurfaceFlinger", "--display-id")
 			.toString()
