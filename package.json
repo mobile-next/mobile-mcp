@@ -25,9 +25,9 @@
     "lib"
   ],
   "dependencies": {
-    "@modelcontextprotocol/express": "2.0.0",
+    "@modelcontextprotocol/express": "^2.0.2",
     "@modelcontextprotocol/node": "2.0.0",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "ajv": "^8.18.0",
     "commander": "14.0.0",
     "express": "5.1.0",
