@@ -22,6 +22,28 @@ test.describe("coordinate mapping", () => {
 		expect(text).toBe("Screenshot is 1179x2556. Screen coordinates are 393x852. To tap something you see in this screenshot, multiply its x by 0.333 and y by 0.333.");
 	});
 
+	test("uses the rotated screen size when a landscape app is in front of a portrait-reported screen", () => {
+		// A 720x1600 Android phone running a landscape-locked app: the screenshot is landscape,
+		// but the device reports its natural portrait size.
+		const text = describeCoordinateMapping({ width: 1024, height: 461 }, { width: 720, height: 1600 });
+		expect(text).toBe("Screenshot is 1024x461. Screen coordinates are 1600x720. To tap something you see in this screenshot, multiply its x by 1.563 and y by 1.562.");
+	});
+
+	test("says coordinates match when a full-size landscape screenshot meets a portrait-reported screen", () => {
+		const text = describeCoordinateMapping({ width: 1600, height: 720 }, { width: 720, height: 1600 });
+		expect(text).toBe("Screenshot is 1600x720 and its coordinates match the screen.");
+	});
+
+	test("rotates a portrait screen measured in points to match a landscape pixel screenshot", () => {
+		const text = describeCoordinateMapping({ width: 2556, height: 1179 }, { width: 393, height: 852 });
+		expect(text).toBe("Screenshot is 2556x1179. Screen coordinates are 852x393. To tap something you see in this screenshot, multiply its x by 0.333 and y by 0.333.");
+	});
+
+	test("keeps a landscape-reported screen as is when the screenshot is landscape too", () => {
+		const text = describeCoordinateMapping({ width: 1024, height: 461 }, { width: 1600, height: 720 });
+		expect(text).toBe("Screenshot is 1024x461. Screen coordinates are 1600x720. To tap something you see in this screenshot, multiply its x by 1.563 and y by 1.562.");
+	});
+
 	test("returns nothing when the screen size is unknown", () => {
 		expect(describeCoordinateMapping({ width: 590, height: 1278 }, { width: 0, height: 0 })).toBeNull();
 	});
