@@ -1,3 +1,7 @@
+## [1.0.13](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.13) (2026-10-24)
+* Fix: `get_more_tools` is only offered when no other tool fits a mobile device, testing or development task, instead of on any task that might benefit from it ([#519](https://github.com/mobile-next/mobile-mcp/pull/519))
+* Chore: Upgrade `@modelcontextprotocol/server` to 2.4.0 and `@modelcontextprotocol/express` to 2.0.2 ([#528](https://github.com/mobile-next/mobile-mcp/pull/528))
+
 ## [1.0.12](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.12) (2026-10-18)
 * Feat: `mobile_get_foreground_app` reports the focused activity on Android and the view controller on iOS ([#512](https://github.com/mobile-next/mobile-mcp/pull/512))
 * Fix: Large UI dumps no longer fail with `ENOBUFS` when reading mobilecli's output ([#518](https://github.com/mobile-next/mobile-mcp/pull/518)), thanks to [@whitelancefly](https://github.com/whitelancefly) and [@DanielMcSheehy](https://github.com/DanielMcSheehy)
