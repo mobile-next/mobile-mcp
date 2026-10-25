@@ -393,6 +393,22 @@ npx @mobilenext/mobile-mcp@latest
 
 你应当会看到正在运行的模拟器、仿真器以及已连接的设备。如果能看到，说明 Mobile MCP 已正确接入。如果列表为空，请确认已经启动了模拟器或仿真器（参见[前置条件](#前置条件)）—— 需要更多帮助请查看 [wiki](https://github.com/mobile-next/mobile-mcp/wiki)。
 
+### 🧪 把智能体会话变成 CI 测试
+
+在用 Mobile MCP 自动化或测试移动应用？让你的智能体把这段操作流程写成 **[Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=readme&utm_campaign=agent-to-ci)** 测试。这样测试就是确定性的，并能成为你 CI/CD 工作流的一部分。
+
+```ts
+import { test, expect } from '@mobilewright/test';
+
+test('sign in', async ({ screen }) => {
+  await screen.getByLabel('Email').fill('user@example.com');
+  await screen.getByRole('button', { name: 'Sign In' }).tap();
+  await expect(screen.getByText('Welcome back')).toBeVisible();
+});
+```
+
+从 `npm init mobilewright@latest` 开始。
+
 ### ☁️ 扩展规模，使用云设备
 
 想扩展到数百台设备？想在 CI/CD 流水线中使用 Mobile MCP？

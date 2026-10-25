@@ -393,6 +393,22 @@ npx @mobilenext/mobile-mcp@latest
 
 実行中のシミュレーター、エミュレーター、接続済みのデバイスが返ってくるはずです。返ってくれば、Mobile MCP は正しく設定されています。リストが空の場合は、シミュレーターまたはエミュレーターが起動していることを確認してください（[前提条件](#前提条件)を参照）。さらに詳しくは [wiki](https://github.com/mobile-next/mobile-mcp/wiki) をご覧ください。
 
+### 🧪 エージェントのセッションを CI テストに
+
+Mobile MCP でモバイルアプリを自動化、またはテストしていますか？ エージェントに、その操作フローを **[Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=readme&utm_campaign=agent-to-ci)** のテストとして書くよう指示しましょう。テストは決定論的になり、CI/CD ワークフローに組み込めます。
+
+```ts
+import { test, expect } from '@mobilewright/test';
+
+test('sign in', async ({ screen }) => {
+  await screen.getByLabel('Email').fill('user@example.com');
+  await screen.getByRole('button', { name: 'Sign In' }).tap();
+  await expect(screen.getByText('Welcome back')).toBeVisible();
+});
+```
+
+`npm init mobilewright@latest` から始めましょう。
+
 ### ☁️ クラウドデバイスでスケールする
 
 数百台規模のデバイスにスケールしたい場合は？ CI/CD パイプラインで Mobile MCP を使いたい場合は？
