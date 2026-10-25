@@ -405,7 +405,7 @@ You should get back your running simulators, emulators, and connected devices. I
 
 ### 🧪 From agent session to CI test
 
-Once your agent has walked a flow on the device, keep it. **[Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=readme&utm_campaign=agent-to-ci)** is "Playwright for mobile", from the same team and built on the same device stack. Ask your agent to write the flow it just ran as a Mobilewright test, and you get a deterministic TypeScript test that runs in CI:
+Using Mobile MCP to automate a mobile app, or to test one? Tell your agent to write the flow as a **[Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=readme&utm_campaign=agent-to-ci)** test. It becomes deterministic, and part of your CI/CD workflow.
 
 ```ts
 import { test, expect } from '@mobilewright/test';
