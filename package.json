@@ -25,9 +25,11 @@
     "lib"
   ],
   "dependencies": {
+    "@clack/prompts": "^0.9.1",
     "@modelcontextprotocol/express": "2.0.2",
     "@modelcontextprotocol/node": "2.0.0",
     "@modelcontextprotocol/server": "2.4.0",
+    "add-mcp": "^2.6.0",
     "ajv": "^8.18.0",
     "commander": "14.0.0",
     "express": "5.1.0",
