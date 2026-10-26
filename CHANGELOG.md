@@ -1,3 +1,6 @@
+## [1.0.14](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.14) (2026-10-26)
+* Feat: `npx @mobilenext/mobile-mcp@latest install` detects the MCP clients on the machine and adds mobile-mcp to the ones you pick, or to all of them with `--yes` ([#531](https://github.com/mobile-next/mobile-mcp/pull/531))
+
 ## [1.0.13](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.13) (2026-10-24)
 * Fix: `get_more_tools` is only offered when no other tool fits a mobile device, testing or development task, instead of on any task that might benefit from it ([#519](https://github.com/mobile-next/mobile-mcp/pull/519))
 * Chore: Upgrade `@modelcontextprotocol/server` to 2.4.0 and `@modelcontextprotocol/express` to 2.0.2 ([#528](https://github.com/mobile-next/mobile-mcp/pull/528))
