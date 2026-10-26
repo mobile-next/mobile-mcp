@@ -146,6 +146,7 @@ const installIntoDetectedClients = async (options: InstallOptions) => {
 			console.log(`✓ ${agents[agent].displayName}: ${result.path}`);
 		} else {
 			console.log(`✗ ${agents[agent].displayName}: ${result.error}`);
+			process.exitCode = 1;
 		}
 	}
 };
