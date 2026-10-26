@@ -43,6 +43,18 @@ Run it against devices on your own machine, or against real iOS and Android devi
 
 https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
+## 🚀 Quick start
+
+**Quick install** detects the MCP clients on this machine (Claude Code, Codex, Cursor, VS Code, Gemini CLI and more) and lets you pick which ones to configure:
+
+```bash
+npx @mobilenext/mobile-mcp@latest install
+```
+
+Add `--yes` to configure every detected client without asking.
+
+Manual setup per client: [Installation and configuration](#installation-and-configuration)
+
 
 <p align="center">
     <a href="https://github.com/mobile-next/">
@@ -154,7 +166,7 @@ What you will need to connect MCP with your agent and mobile devices:
 
 ## Installation and configuration
 
-**Standard config** works in most of the tools:
+To configure it by hand, this **standard config** works in most of the tools:
 
 ```json
 {

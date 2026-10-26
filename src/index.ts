@@ -8,6 +8,8 @@ import { error } from "./logger";
 import { Request, Response } from "express";
 import { program } from "commander";
 
+type InstallOptions = { yes?: boolean };
+
 const logMcpError = (err: Error) => {
 	error("Error handling MCP request: " + (err.stack ?? String(err)));
 };
@@ -110,13 +112,46 @@ const startStdioServer = async () => {
 	}
 };
 
-const main = async () => {
-	program
-		.version(getAgentVersion())
-		.option("--listen <listen>", "Start Streamable HTTP server on [host:]port")
-		.option("--stdio", "Start stdio server (default)")
-		.parse(process.argv);
+const installIntoDetectedClients = async (options: InstallOptions) => {
+	// add-mcp is ESM-only, loaded lazily so a normal server start does not pay for it
+	const { agents, detectGlobalAgents, upsertServer } = await import("add-mcp");
+	const prompts = await import("@clack/prompts");
+	const config = { command: "npx", args: ["-y", "@mobilenext/mobile-mcp@latest"] };
+	const detected = await detectGlobalAgents();
+	if (detected.length === 0) {
+		console.log("No MCP clients detected. See https://github.com/mobile-next/mobile-mcp#installation-and-configuration");
+		return;
+	}
 
+	// no terminal to draw checkboxes on (e.g. an agent ran us), so behave like --yes
+	let selected = detected;
+	if (!options.yes && process.stdin.isTTY) {
+		const answer = await prompts.multiselect({
+			message: "Install mobile-mcp into which clients?",
+			options: detected.map(agent => ({ value: agent, label: agents[agent].displayName })),
+			initialValues: detected,
+			required: false,
+		});
+		if (prompts.isCancel(answer)) {
+			prompts.cancel("Installation cancelled.");
+			return;
+		}
+
+		selected = answer;
+	}
+
+	for (const agent of selected) {
+		const result = upsertServer(agent, "mobile-mcp", config);
+		if (result.success) {
+			console.log(`✓ ${agents[agent].displayName}: ${result.path}`);
+		} else {
+			console.log(`✗ ${agents[agent].displayName}: ${result.error}`);
+			process.exitCode = 1;
+		}
+	}
+};
+
+const startServer = async () => {
 	const options = program.opts();
 
 	if (options.listen) {
@@ -142,6 +177,22 @@ const main = async () => {
 	} else {
 		await startStdioServer();
 	}
+};
+
+const main = async () => {
+	program
+		.version(getAgentVersion())
+		.option("--listen <listen>", "Start Streamable HTTP server on [host:]port")
+		.option("--stdio", "Start stdio server (default)")
+		.action(startServer);
+
+	program
+		.command("install")
+		.description("Add mobile-mcp to the MCP clients detected on this machine")
+		.option("-y, --yes", "Install into every detected client without asking")
+		.action(installIntoDetectedClients);
+
+	await program.parseAsync(process.argv);
 };
 
 main().then();

@@ -34,6 +34,18 @@
 
 https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
+## 🚀 クイックスタート
+
+**クイックインストール**: このマシン上の MCP クライアント(Claude Code、Codex、Cursor、VS Code、Gemini CLI など)を検出し、設定するクライアントを選択できます:
+
+```bash
+npx @mobilenext/mobile-mcp@latest install
+```
+
+`--yes` を付けると、確認なしで検出されたすべてのクライアントを設定します。
+
+クライアントごとの手動設定: [インストールと設定](#インストールと設定)
+
 
 <p align="center">
     <a href="https://github.com/mobile-next/">
@@ -144,7 +156,7 @@ MCP をエージェントおよびモバイルデバイスに接続するため�
 
 ## インストールと設定
 
-**標準設定** はほとんどのツールで動作します:
+ほとんどのツールで動作する **標準設定**:
 
 ```json
 {

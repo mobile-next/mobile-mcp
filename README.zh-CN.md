@@ -34,6 +34,18 @@
 
 https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
+## 🚀 快速开始
+
+**快速安装**:自动检测本机上的 MCP 客户端(Claude Code、Codex、Cursor、VS Code、Gemini CLI 等),并让你选择要配置哪些:
+
+```bash
+npx @mobilenext/mobile-mcp@latest install
+```
+
+加上 `--yes` 可不经询问直接配置所有检测到的客户端。
+
+各客户端的手动配置: [安装与配置](#安装与配置)
+
 
 <p align="center">
     <a href="https://github.com/mobile-next/">
@@ -144,7 +156,7 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
 ## 安装与配置
 
-**标准配置** 适用于大多数工具:
+适用于大多数工具的 **标准配置**:
 
 ```json
 {
