@@ -65,6 +65,10 @@ interface ActiveRecording {
 	moveError?: string;
 }
 
+// module scope: in --listen mode every http request gets a fresh server from
+// createMcpServer, so recordings must outlive the server that started them.
+const activeRecordings = new Map<string, ActiveRecording>();
+
 export const getAgentVersion = (): string => {
 	const json = require("../package.json");
 	return json.version;
@@ -231,7 +235,6 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const mobilecli = new Mobilecli();
-	const activeRecordings = new Map<string, ActiveRecording>();
 	const agentVerifiedSimulators = new Set<string>();
 	const activeLoginProcesses: ChildProcess[] = [];
 	posthog("launch", {}).then();
@@ -1181,7 +1184,9 @@ export const createMcpServer = (): McpServer => {
 			const child = mobilecli.spawnCommand(args);
 
 			const cleanup = () => {
-				activeRecordings.delete(device);
+				if (activeRecordings.get(device)?.process === child) {
+					activeRecordings.delete(device);
+				}
 			};
 
 			const recording: ActiveRecording = {
