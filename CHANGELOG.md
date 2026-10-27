@@ -1,3 +1,6 @@
+## Unreleased
+* Feat: Lease local devices with `mobile_lease_device`, `mobile_renew_lease`, `mobile_release_lease` and `mobile_list_leases`, so several agents on one machine can share its devices without driving the same one. A lease handle works as the `device` of every tool, and devices nobody leased work as before
+
 ## [1.0.20](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.20) (2026-11-24)
 * Feat: Setting standard `DO_NOT_TRACK=1` disables telemetry (previous env variables work as well) ([#577](https://github.com/mobile-next/mobile-mcp/pull/577))
 * Fix: Output paths are validated by their real parent directory, and files are written to that path ([#578](https://github.com/mobile-next/mobile-mcp/pull/578), [#572](https://github.com/mobile-next/mobile-mcp/pull/572)), thanks to [@FFXFF1](https://github.com/FFXFF1)
