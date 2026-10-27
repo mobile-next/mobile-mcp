@@ -189,6 +189,33 @@ test.describe("MobileDevice", () => {
 		});
 	});
 
+	test.describe("launch app", () => {
+
+		test("launchApp without options should call mobilecli apps launch with only the package", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.launchApp("com.example.app");
+
+			expect(calls[0]).toEqual(["apps", "launch", "com.example.app", "--device", "test-device"]);
+		});
+
+		test("launchApp should pass locale, each argument and each environment variable to mobilecli", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.launchApp("com.example.app", {
+				locale: "fr-FR",
+				arguments: ["-FeatureX", "YES"],
+				environment: { API_URL: "https://staging.example.com/?a=b" },
+			});
+
+			expect(calls[0]).toEqual([
+				"apps", "launch", "com.example.app",
+				"--locale", "fr-FR",
+				"--arg=-FeatureX", "--arg=YES",
+				"--env", "API_URL=https://staging.example.com/?a=b",
+				"--device", "test-device",
+			]);
+		});
+	});
+
 	test.describe("location", () => {
 
 		test("setLocation should call mobilecli device location set with lat,lng", async () => {
