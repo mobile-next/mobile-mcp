@@ -1,3 +1,6 @@
+## Unreleased
+* Feat: Taps, swipes, typing, button presses, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle and report what changed: nothing, new content, a new screen, a dialog, or a scroll, plus what received the touch, the typed field's value and a short diff of elements. Turn it off with `feedback: false` or `MOBILEMCP_ACTION_FEEDBACK=0` ([#450](https://github.com/mobile-next/mobile-mcp/issues/450))
+
 ## [1.0.16](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.16) (2026-11-02)
 * Feat: `mobile_list_elements_on_screen` accepts `format: "raw"` to return the unfiltered platform UI hierarchy, including parent nodes and values the compact output drops ([#548](https://github.com/mobile-next/mobile-mcp/pull/548)), thanks to [@ProgramComputer](https://github.com/ProgramComputer)
 * Chore: Telemetry events are capped per user per day ([#547](https://github.com/mobile-next/mobile-mcp/pull/547))

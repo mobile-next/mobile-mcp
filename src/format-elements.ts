@@ -6,7 +6,7 @@ const shortType = (type: string): string => type.substring(type.lastIndexOf(".")
 
 const quote = (value: string): string => JSON.stringify(value);
 
-const formatElementAsText = (element: ScreenElement): string => {
+export const formatElementAsText = (element: ScreenElement): string => {
 	const parts: string[] = [];
 	if (element.ref) {
 		parts.push(element.ref);
