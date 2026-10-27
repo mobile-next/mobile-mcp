@@ -1,3 +1,6 @@
+## Unreleased
+* Feat: Taps, swipes, typing, button presses, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle and report what changed: nothing, new content, a new screen, a dialog, or a scroll, plus what received the touch, the typed field's value and a short diff of elements. Turn it off with `feedback: false` or `MOBILEMCP_ACTION_FEEDBACK=0` ([#450](https://github.com/mobile-next/mobile-mcp/issues/450))
+
 ## [1.0.18](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.18) (2026-11-18)
 * Feat: New `mobile_drag_on_screen` tool drags one finger between two points, each given as coordinates or an element ref ([#560](https://github.com/mobile-next/mobile-mcp/pull/560), [#527](https://github.com/mobile-next/mobile-mcp/pull/527)), thanks to [@yishair-investing](https://github.com/yishair-investing)
 * Feat: `mobile_take_screenshot` accepts a `clip` region to capture only part of the screen ([#561](https://github.com/mobile-next/mobile-mcp/pull/561))
