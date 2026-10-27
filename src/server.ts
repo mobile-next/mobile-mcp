@@ -17,6 +17,7 @@ import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
+import { ActionTarget, feedbackSettingsFromEnv, runWithFeedback } from "./action-feedback";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
@@ -94,6 +95,12 @@ Read the screen with mobile_list_elements_on_screen, not screenshots: it returns
 refs, coordinates and labels, and tapping by ref survives layout differences
 between devices. Fall back to mobile_take_screenshot only for elements missing
 from the hierarchy, or to judge visual appearance.
+
+Taps, swipes, typing, button presses, mobile_launch_app and mobile_open_url wait
+for the screen to settle and report what changed: nothing, new content, a new
+screen, a dialog, or a scroll, plus what received the touch, the typed field's
+value, and a short diff of elements with fresh refs. Act on that report instead
+of re-listing or taking a screenshot after every action.
 
 Each call is a device round-trip. Group known sequences (tap, type, tap) into
 mobile_batch_commands instead of issuing them one at a time.
@@ -311,6 +318,19 @@ export const createMcpServer = (): McpServer => {
 		}
 
 		throw new ActionableError(`Device "${deviceId}" not found. Use the mobile_list_available_devices tool to see available devices.`);
+	};
+
+	const feedbackSettings = feedbackSettingsFromEnv(process.env);
+
+	const feedbackParam = z.boolean().optional().describe(`Wait for the screen to settle and report what changed. Defaults to ${feedbackSettings.enabled}. Set false to skip the extra screen reads`);
+
+	// run an action, then report what it changed on screen unless the call or MOBILEMCP_ACTION_FEEDBACK=0 turned that off
+	const withFeedback = async (robot: Robot, feedback: boolean | undefined, target: ActionTarget, action: () => Promise<string>): Promise<string> => {
+		if (!(feedback ?? feedbackSettings.enabled)) {
+			return action();
+		}
+
+		return runWithFeedback(robot, target, action, feedbackSettings);
 	};
 
 	// ponytail: same tool as @posthog/mcp's reportMissing, without pulling in the sdk
@@ -599,12 +619,15 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			packageName: z.string().describe("The package name of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, packageName, locale }) => {
+		async ({ device, packageName, locale, feedback }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.launchApp(packageName, locale);
-			return `Launched app ${packageName}`;
+			return withFeedback(robot, feedback, { kind: "none" }, async () => {
+				await robot.launchApp(packageName, locale);
+				return `Launched app ${packageName}`;
+			});
 		}
 	);
 
@@ -685,25 +708,30 @@ export const createMcpServer = (): McpServer => {
 			x: z.coerce.number().min(0).optional().describe("The x coordinate to click on the screen, in pixels. Required unless ref is given"),
 			y: z.coerce.number().min(0).optional().describe("The y coordinate to click on the screen, in pixels. Required unless ref is given"),
 			ref: z.string().optional().describe("Element ref from mobile_list_elements_on_screen, e.g. \"@e5\". Takes precedence over x,y"),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, x, y, ref }) => {
+		async ({ device, x, y, ref, feedback }) => {
 			const robot = getRobotFromDevice(device);
 			if (ref !== undefined) {
 				if (!robot.tapByRef) {
 					throw new ActionableError("Clicking by ref is not supported in legacy robot mode");
 				}
 
-				await robot.tapByRef(ref);
-				return `Clicked on element ${ref}`;
+				return withFeedback(robot, feedback, { kind: "ref", ref }, async () => {
+					await robot.tapByRef!(ref);
+					return `Clicked on element ${ref}`;
+				});
 			}
 
 			if (x === undefined || y === undefined) {
 				throw new ActionableError("Either ref or both x and y must be provided");
 			}
 
-			await robot.tap(x, y);
-			return `Clicked on screen at coordinates: ${x}, ${y}`;
+			return withFeedback(robot, feedback, { kind: "point", x, y }, async () => {
+				await robot.tap(x, y);
+				return `Clicked on screen at coordinates: ${x}, ${y}`;
+			});
 		}
 	);
 
@@ -716,25 +744,30 @@ export const createMcpServer = (): McpServer => {
 			x: z.coerce.number().min(0).optional().describe("The x coordinate to double-tap, in pixels. Required unless ref is given"),
 			y: z.coerce.number().min(0).optional().describe("The y coordinate to double-tap, in pixels. Required unless ref is given"),
 			ref: z.string().optional().describe("Element ref from mobile_list_elements_on_screen, e.g. \"@e5\". Takes precedence over x,y"),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, x, y, ref }) => {
+		async ({ device, x, y, ref, feedback }) => {
 			const robot = getRobotFromDevice(device);
 			if (ref !== undefined) {
 				if (!robot.doubleTapByRef) {
 					throw new ActionableError("Double-tapping by ref is not supported in legacy robot mode");
 				}
 
-				await robot.doubleTapByRef(ref);
-				return `Double-tapped on element ${ref}`;
+				return withFeedback(robot, feedback, { kind: "ref", ref }, async () => {
+					await robot.doubleTapByRef!(ref);
+					return `Double-tapped on element ${ref}`;
+				});
 			}
 
 			if (x === undefined || y === undefined) {
 				throw new ActionableError("Either ref or both x and y must be provided");
 			}
 
-			await robot.doubleTap(x, y);
-			return `Double-tapped on screen at coordinates: ${x}, ${y}`;
+			return withFeedback(robot, feedback, { kind: "point", x, y }, async () => {
+				await robot.doubleTap(x, y);
+				return `Double-tapped on screen at coordinates: ${x}, ${y}`;
+			});
 		}
 	);
 
@@ -748,9 +781,10 @@ export const createMcpServer = (): McpServer => {
 			y: z.coerce.number().min(0).optional().describe("The y coordinate to long press on the screen, in pixels. Required unless ref is given"),
 			ref: z.string().optional().describe("Element ref from mobile_list_elements_on_screen, e.g. \"@e5\". Takes precedence over x,y"),
 			duration: z.coerce.number().min(1).max(10000).optional().describe("Duration of the long press in milliseconds. Defaults to 500ms."),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, x, y, ref, duration }) => {
+		async ({ device, x, y, ref, duration, feedback }) => {
 			const robot = getRobotFromDevice(device);
 			const pressDuration = duration ?? 500;
 			if (ref !== undefined) {
@@ -758,16 +792,20 @@ export const createMcpServer = (): McpServer => {
 					throw new ActionableError("Long pressing by ref is not supported in legacy robot mode");
 				}
 
-				await robot.longPressByRef(ref, pressDuration);
-				return `Long pressed on element ${ref} for ${pressDuration}ms`;
+				return withFeedback(robot, feedback, { kind: "ref", ref }, async () => {
+					await robot.longPressByRef!(ref, pressDuration);
+					return `Long pressed on element ${ref} for ${pressDuration}ms`;
+				});
 			}
 
 			if (x === undefined || y === undefined) {
 				throw new ActionableError("Either ref or both x and y must be provided");
 			}
 
-			await robot.longPress(x, y, pressDuration);
-			return `Long pressed on screen at coordinates: ${x}, ${y} for ${pressDuration}ms`;
+			return withFeedback(robot, feedback, { kind: "point", x, y }, async () => {
+				await robot.longPress(x, y, pressDuration);
+				return `Long pressed on screen at coordinates: ${x}, ${y} for ${pressDuration}ms`;
+			});
 		}
 	);
 
@@ -799,12 +837,15 @@ export const createMcpServer = (): McpServer => {
 				"iOS: HOME, VOLUME_UP, VOLUME_DOWN, ENTER, LOCK",
 				"BACKSPACE deletes the character before the cursor, APP_SWITCH opens the recent apps, POWER turns the screen on or off, LOCK locks the screen, and the DPAD buttons move focus on Android TV.",
 			].join("\n")),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, button }) => {
+		async ({ device, button, feedback }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.pressButton(button);
-			return `Pressed the button: ${button}`;
+			return withFeedback(robot, feedback, { kind: "none" }, async () => {
+				await robot.pressButton(button);
+				return `Pressed the button: ${button}`;
+			});
 		}
 	);
 
@@ -815,9 +856,10 @@ export const createMcpServer = (): McpServer => {
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			url: z.string().describe("The URL to open, starting with http:// or https://"),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, url }) => {
+		async ({ device, url, feedback }) => {
 			const allowUnsafeUrls = process.env.MOBILEMCP_ALLOW_UNSAFE_URLS === "1";
 			const normalizedUrl = withLowercaseScheme(url);
 			if (!allowUnsafeUrls && !normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
@@ -825,8 +867,10 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			const robot = getRobotFromDevice(device);
-			await robot.openUrl(normalizedUrl);
-			return `Opened URL: ${url}`;
+			return withFeedback(robot, feedback, { kind: "none" }, async () => {
+				await robot.openUrl(normalizedUrl);
+				return `Opened URL: ${url}`;
+			});
 		}
 	);
 
@@ -840,25 +884,28 @@ export const createMcpServer = (): McpServer => {
 			x: z.coerce.number().min(0).optional().describe("The x coordinate to start the swipe from, in pixels. Give both x and y, or neither to start from the center of screen"),
 			y: z.coerce.number().min(0).optional().describe("The y coordinate to start the swipe from, in pixels. Give both x and y, or neither to start from the center of screen"),
 			distance: z.coerce.number().min(1).optional().describe("The distance to swipe in pixels. Defaults to 400 pixels for iOS or 30% of screen dimension for Android"),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, direction, x, y, distance }) => {
+		async ({ device, direction, x, y, distance, feedback }) => {
 			if ((x === undefined) !== (y === undefined)) {
 				throw new ActionableError("Provide both x and y to start the swipe from a point, or neither to start from the center of the screen");
 			}
 
 			const robot = getRobotFromDevice(device);
 
-			if (x !== undefined && y !== undefined) {
-				// Use coordinate-based swipe
-				await robot.swipeFromCoordinate(x, y, direction, distance);
-				const distanceText = distance ? ` ${distance} pixels` : "";
-				return `Swiped ${direction}${distanceText} from coordinates: ${x}, ${y}`;
-			} else {
-				// Use center-based swipe
-				await robot.swipe(direction);
-				return `Swiped ${direction} on screen`;
-			}
+			return withFeedback(robot, feedback, { kind: "none" }, async () => {
+				if (x !== undefined && y !== undefined) {
+					// Use coordinate-based swipe
+					await robot.swipeFromCoordinate(x, y, direction, distance);
+					const distanceText = distance ? ` ${distance} pixels` : "";
+					return `Swiped ${direction}${distanceText} from coordinates: ${x}, ${y}`;
+				} else {
+					// Use center-based swipe
+					await robot.swipe(direction);
+					return `Swiped ${direction} on screen`;
+				}
+			});
 		}
 	);
 
@@ -870,17 +917,20 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			text: z.string().describe("The text to type"),
 			submit: z.boolean().optional().describe("Whether to submit the text. If true, the text will be submitted as if the user pressed the enter key. Defaults to false"),
+			feedback: feedbackParam,
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, text, submit }) => {
+		async ({ device, text, submit, feedback }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.sendKeys(text);
+			return withFeedback(robot, feedback, { kind: "typing", text }, async () => {
+				await robot.sendKeys(text);
 
-			if (submit) {
-				await robot.pressButton("ENTER");
-			}
+				if (submit) {
+					await robot.pressButton("ENTER");
+				}
 
-			return `Typed text: ${text}`;
+				return `Typed text: ${text}`;
+			});
 		}
 	);
 
@@ -1292,7 +1342,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_batch_commands",
 		"Batch Commands",
-		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Tools allowed as steps: ${batchableToolNames.join(", ")}.`,
+		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Steps skip the report of what changed on screen unless a step passes feedback: true. Tools allowed as steps: ${batchableToolNames.join(", ")}.`,
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			steps: z.array(z.object({
@@ -1324,7 +1374,8 @@ export const createMcpServer = (): McpServer => {
 				}
 
 				try {
-					const args = z.object(entry.paramsSchema).parse({ device, ...step.arguments });
+					// a batch runs known sequences, so steps skip the settle-and-diff unless they ask for it
+					const args = z.object(entry.paramsSchema).parse({ device, feedback: false, ...step.arguments });
 					const output = await entry.callback(args, {});
 					results.push(`Step ${i + 1} (${step.name}): ${output}`);
 				} catch (error: any) {

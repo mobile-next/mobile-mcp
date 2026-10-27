@@ -135,6 +135,23 @@ How we help to scale mobile automation:
 - **`mobile_press_button`** - Press device buttons (HOME, BACK, VOLUME_UP/DOWN, ENTER, etc.)
 - **`mobile_open_url`** - Open http/https URLs in the device browser
 
+### What changed after an action
+Taps, double taps, long presses, swipes, `mobile_type_keys`, `mobile_press_button`, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle (two identical element lists in a row, up to 2 seconds) and then report what the action did, so the agent doesn't need a screenshot or a full re-list to check:
+- **Screen** - nothing changed, content changed, a new screen, a dialog or sheet appeared or closed, or the content scrolled by how many pixels
+- **Touch** - which element was under the tap, and when tapping by ref, an element covering the aimed one or the aimed one being disabled
+- **Field** - the field's value after typing, flagged as `MISMATCH` when it doesn't contain the typed text
+- **Changes** - the elements added, changed and removed, at most 8 lines, with refs from the new screen
+
+```
+Typed text: me@example.com
+Screen: content changed (settled in 500ms)
+Field: @e2 EditText "email" value="e@example.com" MISMATCH, typed "me@example.com": characters may have been dropped or auto-corrected
+Changes: 0 added, 0 removed, 1 changed
+~ @e2 EditText "email": text "Email" -> "e@example.com", focused
+```
+
+Pass `feedback: false` to an action to skip the extra screen reads, or set `MOBILEMCP_ACTION_FEEDBACK=0` to turn it off by default. Steps of `mobile_batch_commands` skip it unless a step passes `feedback: true`.
+
 ### Logs & Crash Reports
 - **`mobile_get_device_logs`** - Collect live device logs (logcat on Android, unified log on iOS), optionally saved to a file
 - **`mobile_list_crashes`** - List crash reports available on the device
@@ -544,6 +561,8 @@ Gmail to contacts "team@example.com".
 | `MOBILEMCP_AUTH` | Require a Bearer token on the Streamable HTTP server (`--listen`) — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
+| `MOBILEMCP_ACTION_FEEDBACK` | Set to `0` to stop action tools from waiting for the screen to settle and reporting what changed. A call can still ask for it with `feedback: true`. | `MOBILEMCP_ACTION_FEEDBACK=0` |
+| `MOBILEMCP_SETTLE_TIMEOUT_MS` | How long action tools wait for the screen to settle before reporting what changed. Defaults to `2000`. | `MOBILEMCP_SETTLE_TIMEOUT_MS=4000` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
 
 ### Simulators, Emulators, and Real Devices
