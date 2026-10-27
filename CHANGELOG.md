@@ -1,3 +1,6 @@
+## Unreleased
+* Feat: Lease local devices with `mobile_lease_device`, `mobile_renew_lease`, `mobile_release_lease` and `mobile_list_leases`, so several agents on one machine can share its devices without driving the same one. A lease handle works as the `device` of every tool, and devices nobody leased work as before
+
 ## [1.0.16](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.16) (2026-11-02)
 * Feat: `mobile_list_elements_on_screen` accepts `format: "raw"` to return the unfiltered platform UI hierarchy, including parent nodes and values the compact output drops ([#548](https://github.com/mobile-next/mobile-mcp/pull/548)), thanks to [@ProgramComputer](https://github.com/ProgramComputer)
 * Chore: Telemetry events are capped per user per day ([#547](https://github.com/mobile-next/mobile-mcp/pull/547))
