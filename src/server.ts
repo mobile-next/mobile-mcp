@@ -17,6 +17,7 @@ import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
+import { DeviceLeaseStore, LeaseError, LeaseInfo, LeaseUnavailableError, DEFAULT_LEASE_TTL_SECONDS, MAX_LEASE_TTL_SECONDS, describeLease, isLeaseHandle, redactLeaseHandles } from "./device-leases";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
@@ -30,6 +31,8 @@ const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
+const DEFAULT_LEASE_WAIT_SECONDS = 300;
+const LEASE_POLL_INTERVAL_MS = 1000;
 const NO_LOCAL_DEVICES_HINT =
 	"No local device, simulator or emulator is available. Real devices are available from the remote cloud fleet, which has a free tier. " +
 	"Tell the user, and ask whether they want to use one. If they agree, call mobile_list_remote_devices.";
@@ -44,14 +47,48 @@ interface MobilecliDevice {
 }
 
 interface MobilecliDevicesResponse {
-	devices: MobilecliDevice[];
+	devices: Array<MobilecliDevice & { lease?: FormattedLease }>;
 	hint?: string;
 }
 
-export const formatAvailableDevices = (devices: MobilecliDevice[]): string => {
-	const out: MobilecliDevicesResponse = { devices };
+interface FormattedLease {
+	leaseId: string;
+	device: string;
+	deviceName: string;
+	platform: string;
+	type: string;
+	holder: string;
+	ttlSeconds: number;
+	acquiredAt: string;
+	expiresAt: string;
+}
+
+export const formatLease = (lease: LeaseInfo): FormattedLease => ({
+	leaseId: lease.leaseId,
+	device: lease.device,
+	deviceName: lease.deviceName,
+	platform: lease.platform,
+	type: lease.type,
+	holder: lease.holder,
+	ttlSeconds: lease.ttlSeconds,
+	acquiredAt: new Date(lease.acquiredAt).toISOString(),
+	expiresAt: new Date(lease.expiresAt).toISOString(),
+});
+
+// a device under a local lease carries a lease field, a free device looks exactly as it did before leasing existed
+export const formatAvailableDevices = (devices: MobilecliDevice[], leases: LeaseInfo[] = []): string => {
+	const leaseByDevice = new Map(leases.map(lease => [lease.device, lease]));
+	const out: MobilecliDevicesResponse = {
+		devices: devices.map(device => {
+			const lease = leaseByDevice.get(device.id);
+			return lease ? { ...device, lease: formatLease(lease) } : device;
+		}),
+	};
+
 	if (devices.length === 0) {
 		out.hint = NO_LOCAL_DEVICES_HINT;
+	} else if (devices.every(device => leaseByDevice.has(device.id))) {
+		out.hint = "Every local device is leased by another agent. Call mobile_lease_device with wait set to true to get the next one that frees up.";
 	}
 
 	return JSON.stringify(out);
@@ -85,7 +122,10 @@ export const getSdkVersion = (): string => {
 const SERVER_INSTRUCTIONS = `Drive a real or simulated iOS/Android device.
 
 Start with mobile_list_available_devices and pass the chosen device id to every
-later call - there is no implicit "current device". Use a remote device only
+later call - there is no implicit "current device". When other agents may share
+this machine's devices, lease one with mobile_lease_device instead and pass the
+returned lease handle as the device; release it with mobile_release_lease when
+the task is done. Use a remote device only
 when local ones do not fit or when requested by the user. Remote devices cost
 money and take time to allocate and release. Release when done using, so the
 remote device cleans and returns to pool.
@@ -136,7 +176,36 @@ export const createMcpServer = (): McpServer => {
 	// ponytail: batch calls tool callbacks directly, bypassing mcp transport
 	const toolCallbacks = new Map<string, { callback: ToolCallback; paramsSchema: ZodSchemaShape }>();
 
-	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, cb: ToolCallback) => {
+	const leaseStore = new DeviceLeaseStore();
+
+	// a lease handle ("lease:<token>") works as the device of every tool. it resolves to
+	// the leased device and renews the lease; a raw id of a device leased by someone else is refused.
+	const resolveLocalDevice = async (device: string): Promise<string> => {
+		try {
+			return await leaseStore.resolve(device);
+		} catch (err: any) {
+			if (err instanceof LeaseError) {
+				throw new ActionableError(err.message);
+			}
+
+			if (!isLeaseHandle(device)) {
+				// an unreadable lease store must not break machines that never lease
+				trace(`Could not check device leases: ${err.message}`);
+				return device;
+			}
+
+			throw err;
+		}
+	};
+
+	// tools whose device argument is not a local device to act on: a remote fleet id, a lease filter,
+	// or batch, which hands its device to each step so that every step resolves it itself
+	const toolsWithoutLocalDevice = new Set(["mobile_release_remote_device", "mobile_lease_device", "mobile_batch_commands"]);
+
+	const tool = (name: string, title: string, description: string, paramsSchema: ZodSchemaShape, annotations: ToolAnnotations, toolCallback: ToolCallback) => {
+		const cb: ToolCallback = "device" in paramsSchema && !toolsWithoutLocalDevice.has(name)
+			? async (args, telemetry) => toolCallback({ ...args, device: await resolveLocalDevice(args.device) }, telemetry)
+			: toolCallback;
 		toolCallbacks.set(name, { callback: cb, paramsSchema });
 		server.registerTool(name, {
 			title,
@@ -146,12 +215,12 @@ export const createMcpServer = (): McpServer => {
 		}, (async (args: any, _extra: any) => {
 			scarf();
 			try {
-				trace(`Invoking ${name} with args: ${JSON.stringify(args)}`);
+				trace(redactLeaseHandles(`Invoking ${name} with args: ${JSON.stringify(args)}`));
 				const start = +new Date();
 				const telemetry: Record<string, string | number> = {};
 				const response = await cb(args, telemetry);
 				const duration = +new Date() - start;
-				trace(`=> ${response}`);
+				trace(redactLeaseHandles(`=> ${response}`));
 				posthog("tool_invoked", { "ToolName": name, "Duration": duration, ...telemetry }).then();
 				return {
 					content: [{ type: "text", text: response }],
@@ -165,7 +234,7 @@ export const createMcpServer = (): McpServer => {
 					};
 				} else {
 					// a real exception
-					trace(`Tool '${description}' failed: ${error.message} stack: ${error.stack}`);
+					trace(redactLeaseHandles(`Tool '${description}' failed: ${error.message} stack: ${error.stack}`));
 					return {
 						content: [{ type: "text", text: `Error: ${error.message}` }],
 						isError: true,
@@ -313,6 +382,85 @@ export const createMcpServer = (): McpServer => {
 		throw new ActionableError(`Device "${deviceId}" not found. Use the mobile_list_available_devices tool to see available devices.`);
 	};
 
+	const listLocalDevices = (telemetry: Record<string, string | number>): MobilecliDevice[] => {
+		// from today onward, we must have mobilecli working
+		ensureMobilecliAvailable();
+
+		const devices: MobilecliDevice[] = [];
+		const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
+
+		if (legacyRobot) {
+			const iosManager = new IosManager();
+			const androidManager = new AndroidDeviceManager();
+
+			// Get Android devices with details
+			const androidDevices = androidManager.getConnectedDevicesWithDetails();
+			telemetry.AndroidCount = androidDevices.length;
+			for (const device of androidDevices) {
+				devices.push({
+					id: device.deviceId,
+					name: device.name,
+					platform: "android",
+					type: "emulator",
+					version: device.version,
+					state: "online",
+				});
+			}
+
+			// Get iOS physical devices with details
+			telemetry.IosRealCount = 0;
+			try {
+				const iosDevices = iosManager.listDevicesWithDetails();
+				telemetry.IosRealCount = iosDevices.length;
+				for (const device of iosDevices) {
+					devices.push({
+						id: device.deviceId,
+						name: device.deviceName,
+						platform: "ios",
+						type: "real",
+						version: device.version,
+						state: "online",
+					});
+				}
+			} catch (error: any) {
+				// If go-ios is not available, silently skip
+			}
+
+			// Get iOS simulators from mobilecli, including offline ones so we can
+			// report how many are installed vs booted. only booted ones are returned.
+			const response = mobilecli.getDevices({
+				platform: "ios",
+				type: "simulator",
+				includeOffline: true,
+			});
+			telemetry.IosSimInstalledCount = 0;
+			telemetry.IosSimCount = 0;
+			if (response.status === "ok" && response.data && response.data.devices) {
+				const simulators = response.data.devices;
+				const booted = simulators.filter(device => device.state === "online");
+				telemetry.IosSimInstalledCount = simulators.length;
+				telemetry.IosSimCount = booted.length;
+				devices.push(...booted);
+			}
+		} else {
+			const response = mobilecli.getDevices({ includeOffline: true });
+			telemetry.AndroidCount = 0;
+			telemetry.IosRealCount = 0;
+			telemetry.IosSimInstalledCount = 0;
+			telemetry.IosSimCount = 0;
+			if (response.status === "ok" && response.data && response.data.devices) {
+				const availableDevices = response.data.devices.filter(device => device.state === "online");
+				telemetry.AndroidCount = availableDevices.filter(device => device.platform === "android").length;
+				telemetry.IosRealCount = availableDevices.filter(device => device.platform === "ios" && device.type === "real").length;
+				telemetry.IosSimInstalledCount = response.data.devices.filter(device => device.platform === "ios" && device.type === "simulator").length;
+				telemetry.IosSimCount = availableDevices.filter(device => device.platform === "ios" && device.type === "simulator").length;
+				devices.push(...availableDevices);
+			}
+		}
+
+		return devices;
+	};
+
 	// ponytail: same tool as @posthog/mcp's reportMissing, without pulling in the sdk
 	// nothing to report to when telemetry is off, so don't advertise the tool at all
 	if (!process.env.MOBILEMCP_DISABLE_TELEMETRY) {
@@ -337,87 +485,17 @@ export const createMcpServer = (): McpServer => {
 		"mobile_list_available_devices",
 		"List Devices",
 		"List all available devices. This includes both physical mobile devices and mobile simulators and emulators. It returns both Android and iOS devices. " +
-		"These are local devices already connected to this machine, ready to use immediately at no cost - for devices from the shared remote cloud fleet, use mobile_list_remote_devices instead.",
+		"These are local devices already connected to this machine, ready to use immediately at no cost - for devices from the shared remote cloud fleet, use mobile_list_remote_devices instead. " +
+		"A device leased by another agent with mobile_lease_device has a lease field naming the holder and when the lease expires; do not use it until it is free.",
 		{},
 		{ readOnlyHint: true, openWorldHint: false },
 		async ({}, telemetry) => {
-
-			// from today onward, we must have mobilecli working
-			ensureMobilecliAvailable();
-
-			const devices: MobilecliDevice[] = [];
-			const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
-
-			if (legacyRobot) {
-				const iosManager = new IosManager();
-				const androidManager = new AndroidDeviceManager();
-
-				// Get Android devices with details
-				const androidDevices = androidManager.getConnectedDevicesWithDetails();
-				telemetry.AndroidCount = androidDevices.length;
-				for (const device of androidDevices) {
-					devices.push({
-						id: device.deviceId,
-						name: device.name,
-						platform: "android",
-						type: "emulator",
-						version: device.version,
-						state: "online",
-					});
-				}
-
-				// Get iOS physical devices with details
-				telemetry.IosRealCount = 0;
-				try {
-					const iosDevices = iosManager.listDevicesWithDetails();
-					telemetry.IosRealCount = iosDevices.length;
-					for (const device of iosDevices) {
-						devices.push({
-							id: device.deviceId,
-							name: device.deviceName,
-							platform: "ios",
-							type: "real",
-							version: device.version,
-							state: "online",
-						});
-					}
-				} catch (error: any) {
-					// If go-ios is not available, silently skip
-				}
-
-				// Get iOS simulators from mobilecli, including offline ones so we can
-				// report how many are installed vs booted. only booted ones are returned.
-				const response = mobilecli.getDevices({
-					platform: "ios",
-					type: "simulator",
-					includeOffline: true,
-				});
-				telemetry.IosSimInstalledCount = 0;
-				telemetry.IosSimCount = 0;
-				if (response.status === "ok" && response.data && response.data.devices) {
-					const simulators = response.data.devices;
-					const booted = simulators.filter(device => device.state === "online");
-					telemetry.IosSimInstalledCount = simulators.length;
-					telemetry.IosSimCount = booted.length;
-					devices.push(...booted);
-				}
-			} else {
-				const response = mobilecli.getDevices({ includeOffline: true });
-				telemetry.AndroidCount = 0;
-				telemetry.IosRealCount = 0;
-				telemetry.IosSimInstalledCount = 0;
-				telemetry.IosSimCount = 0;
-				if (response.status === "ok" && response.data && response.data.devices) {
-					const availableDevices = response.data.devices.filter(device => device.state === "online");
-					telemetry.AndroidCount = availableDevices.filter(device => device.platform === "android").length;
-					telemetry.IosRealCount = availableDevices.filter(device => device.platform === "ios" && device.type === "real").length;
-					telemetry.IosSimInstalledCount = response.data.devices.filter(device => device.platform === "ios" && device.type === "simulator").length;
-					telemetry.IosSimCount = availableDevices.filter(device => device.platform === "ios" && device.type === "simulator").length;
-					devices.push(...availableDevices);
-				}
-			}
-
-			return formatAvailableDevices(devices);
+			const devices = listLocalDevices(telemetry);
+			const leases = await leaseStore.list().catch((err: any) => {
+				trace(`Could not read device leases: ${err.message}`);
+				return [];
+			});
+			return formatAvailableDevices(devices, leases);
 		}
 	);
 
@@ -553,6 +631,131 @@ export const createMcpServer = (): McpServer => {
 			ensureMobilecliAvailable();
 			const result = mobilecli.remoteRelease(device);
 			return result;
+		}
+	);
+
+	tool(
+		"mobile_lease_device",
+		"Lease Local Device",
+		"Lease a local device, simulator or emulator connected to this machine for exclusive use, so other agents sharing this machine do not drive it at the same time. Leasing is free and only coordinates agents on this machine. " +
+		"Returns a lease handle (\"lease:...\"): pass it as the device argument of every other mobile_* tool. While the lease is held, calls that pass the device's plain id, or another agent's handle, are refused. " +
+		"Every call made with the handle extends the lease by ttlSeconds, and a lease that goes unused for ttlSeconds expires on its own. Release it with mobile_release_lease once the whole task is finished. " +
+		"This is different from mobile_allocate_remote_device, which reserves a billed device from the remote cloud fleet. Leasing is optional: without it, devices work as before, unless another agent holds a lease on them.",
+		{
+			platform: z.enum(["ios", "android"]).optional().describe("Only lease a device of this platform"),
+			device: z.string().optional().describe("Lease this device, by its id or exact name from mobile_list_available_devices. Omit to lease any free device that matches the other filters."),
+			type: z.enum(["real", "emulator", "simulator"]).optional().describe("Only lease a device of this type"),
+			holder: z.string().max(100).optional().describe("A label telling other agents who holds the lease, e.g. \"checkout flow tests\". Defaults to the name of the MCP client."),
+			ttlSeconds: z.coerce.number().int().positive().max(MAX_LEASE_TTL_SECONDS).optional().describe(`Seconds the lease lasts without being used. Every call made with the lease handle extends it by this much. Defaults to ${DEFAULT_LEASE_TTL_SECONDS}, at most ${MAX_LEASE_TTL_SECONDS}.`),
+			wait: z.boolean().optional().describe("If true and every matching device is leased, wait until one is released or expires, up to timeoutSeconds. If false/omitted, fail right away and say who holds them."),
+			timeoutSeconds: z.coerce.number().int().positive().max(3600).optional().describe(`Seconds to wait for a free device when wait is true. Defaults to ${DEFAULT_LEASE_WAIT_SECONDS}. Only relevant when wait is true.`),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+		async ({ platform, device, type, holder, ttlSeconds, wait, timeoutSeconds }, telemetry) => {
+			const candidates = listLocalDevices(telemetry)
+				.filter(candidate => platform === undefined || candidate.platform === platform)
+				.filter(candidate => type === undefined || candidate.type === type)
+				.filter(candidate => device === undefined || candidate.id === device || candidate.name === device);
+
+			if (candidates.length === 0) {
+				const filters = [platform && `platform ${platform}`, type && `type ${type}`, device && `device "${device}"`].filter(Boolean).join(", ");
+				throw new ActionableError(`No online local device matches${filters ? ` ${filters}` : ""}. Use mobile_list_available_devices to see the devices connected to this machine`);
+			}
+
+			const holderLabel = holder?.trim() || getClientName();
+			const deadline = Date.now() + (timeoutSeconds ?? DEFAULT_LEASE_WAIT_SECONDS) * 1000;
+			const startedAt = Date.now();
+			for (;;) {
+				try {
+					const { handle, lease } = await leaseStore.acquire(candidates, holderLabel, ttlSeconds);
+					telemetry.LeaseWaitSeconds = Math.round((Date.now() - startedAt) / 1000);
+					return JSON.stringify({
+						device: handle,
+						lease: formatLease(lease),
+						hint: "Pass the device value above as the device argument of every other mobile_* tool. Release it with mobile_release_lease when the task is finished.",
+					});
+				} catch (err: any) {
+					if (err instanceof LeaseUnavailableError) {
+						if (!wait) {
+							throw new ActionableError(`${err.message}. Pass wait: true to wait until one frees up, or try again later`);
+						}
+
+						if (Date.now() + LEASE_POLL_INTERVAL_MS > deadline) {
+							throw new ActionableError(`${err.message}. Gave up waiting after ${Math.round((Date.now() - startedAt) / 1000)}s`);
+						}
+
+						await new Promise(resolve => setTimeout(resolve, LEASE_POLL_INTERVAL_MS));
+						continue;
+					}
+
+					if (err instanceof LeaseError) {
+						throw new ActionableError(err.message);
+					}
+
+					throw err;
+				}
+			}
+		}
+	);
+
+	tool(
+		"mobile_renew_lease",
+		"Renew Device Lease",
+		"Extend a lease taken with mobile_lease_device, without acting on the device. Every tool call made with the lease handle already extends it, so only call this to keep a device through a long pause, or to change ttlSeconds.",
+		{
+			lease: z.string().describe("The lease handle returned by mobile_lease_device, e.g. \"lease:...\""),
+			ttlSeconds: z.coerce.number().int().positive().max(MAX_LEASE_TTL_SECONDS).optional().describe(`New number of seconds the lease lasts without being used, counted from now. Defaults to the lease's current ttlSeconds, at most ${MAX_LEASE_TTL_SECONDS}.`),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+		async ({ lease, ttlSeconds }) => {
+			try {
+				const renewed = await leaseStore.renew(lease, ttlSeconds);
+				return JSON.stringify({ lease: formatLease(renewed) });
+			} catch (err: any) {
+				if (err instanceof LeaseError) {
+					throw new ActionableError(err.message);
+				}
+
+				throw err;
+			}
+		}
+	);
+
+	tool(
+		"mobile_release_lease",
+		"Release Device Lease",
+		"Release a lease taken with mobile_lease_device, so other agents on this machine can use the device. The device itself is left as it is: apps, files and settings are kept. " +
+		"Only release once the whole task is finished - if there is more work to do on the same device shortly, keep holding it.",
+		{
+			lease: z.string().describe("The lease handle returned by mobile_lease_device, e.g. \"lease:...\""),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+		async ({ lease }) => {
+			try {
+				const released = await leaseStore.release(lease);
+				return `Released the lease on device "${released.device}" (${released.deviceName}). Other agents can lease it now.`;
+			} catch (err: any) {
+				if (err instanceof LeaseError) {
+					throw new ActionableError(err.message);
+				}
+
+				throw err;
+			}
+		}
+	);
+
+	tool(
+		"mobile_list_leases",
+		"List Device Leases",
+		"List the active leases on local devices of this machine: which device, who holds it, and when the lease expires. Lease handles are never shown, so a lease can only be used by the agent that took it.",
+		{},
+		{ readOnlyHint: true, openWorldHint: false },
+		async ({}) => {
+			const leases = await leaseStore.list();
+			const now = Date.now();
+			return JSON.stringify({
+				leases: leases.map(lease => ({ ...formatLease(lease), status: describeLease(lease, now) })),
+			});
 		}
 	);
 
