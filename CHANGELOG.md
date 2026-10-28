@@ -1,5 +1,5 @@
 ## Unreleased
-* Feat: Taps, swipes, typing, button presses, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle and report what changed: nothing, new content, a new screen, a dialog, or a scroll, plus what received the touch, the typed field's value and a short diff of elements. Turn it off with `feedback: false` or `MOBILEMCP_ACTION_FEEDBACK=0` ([#450](https://github.com/mobile-next/mobile-mcp/issues/450))
+* Feat: Taps, swipes, typing, button presses, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle and report what changed: nothing, new content, a new screen, a dialog, or a scroll, plus what received the touch, the typed field's value and a short diff of elements. Turn it off with `feedback: false` or `MOBILEMCP_ACTION_FEEDBACK=0` ([#535](https://github.com/mobile-next/mobile-mcp/pull/535))
 
 ## [1.0.17](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.17) (2026-11-11)
 * Fix: The tap coordinate hint now matches the screenshot's orientation, so taps land correctly on landscape apps ([#454](https://github.com/mobile-next/mobile-mcp/pull/454)), thanks to [@nongvantinh](https://github.com/nongvantinh)
