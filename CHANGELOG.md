@@ -1,5 +1,5 @@
 ## Unreleased
-* Feat: Taps, swipes, typing, button presses, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle and report what changed: nothing, new content, a new screen, a dialog, or a scroll, plus what received the touch, the typed field's value and a short diff of elements. Turn it off with `feedback: false` or `MOBILEMCP_ACTION_FEEDBACK=0` ([#450](https://github.com/mobile-next/mobile-mcp/issues/450))
+* Feat: Taps, swipes, typing, button presses, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle and report what changed: nothing, new content, a new screen, a dialog, or a scroll, plus what received the touch, the typed field's value and a short diff of elements. Turn it off with `feedback: false` or `MOBILEMCP_ACTION_FEEDBACK=0` ([#535](https://github.com/mobile-next/mobile-mcp/pull/535))
 
 ## [1.0.14](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.14) (2026-10-26)
 * Feat: `npx @mobilenext/mobile-mcp@latest install` detects the MCP clients on the machine and adds mobile-mcp to the ones you pick, or to all of them with `--yes` ([#531](https://github.com/mobile-next/mobile-mcp/pull/531))
