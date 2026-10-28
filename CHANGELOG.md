@@ -1,5 +1,5 @@
 ## Unreleased
-* Feat: Lease local devices with `mobile_lease_device`, `mobile_renew_lease`, `mobile_release_lease` and `mobile_list_leases`, so several agents on one machine can share its devices without driving the same one. A lease handle works as the `device` of every tool, and devices nobody leased work as before
+* Feat: Lease local devices with `mobile_lease_device`, `mobile_renew_lease`, `mobile_release_lease` and `mobile_list_leases`, so several agents on one machine can share its devices without driving the same one. A lease handle works as the `device` of every tool, and devices nobody leased work as before ([#536](https://github.com/mobile-next/mobile-mcp/pull/536))
 
 ## [1.0.14](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.14) (2026-10-26)
 * Feat: `npx @mobilenext/mobile-mcp@latest install` detects the MCP clients on the machine and adds mobile-mcp to the ones you pick, or to all of them with `--yes` ([#531](https://github.com/mobile-next/mobile-mcp/pull/531))
