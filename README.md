@@ -105,6 +105,12 @@ How we help to scale mobile automation:
 - **`mobile_set_location`** - Override the GPS location reported by the device, or clear the override
 - **`mobile_clipboard`** - Read or replace the device clipboard
 
+### Sharing Local Devices Between Agents
+- **`mobile_lease_device`** - Lease a local device for exclusive use and get a handle to pass as `device`
+- **`mobile_renew_lease`** - Extend a lease without acting on the device
+- **`mobile_release_lease`** - Release a lease so other agents can use the device
+- **`mobile_list_leases`** - List who holds which local device, and until when
+
 ### Remote Devices (Mobile Next Cloud)
 - **`mobile_login_to_cloud_provider`** - Authenticate this machine with the cloud device provider (browser-based device-code login)
 - **`mobile_list_remote_devices`** - List device models available to reserve from the cloud fleet
@@ -440,6 +446,18 @@ In your Agent, prompt:
 log in to mobile next cloud and then show me which remote devices are available to me
 ```
 
+### 🤝 Sharing devices between agents
+
+When several agents use the devices plugged into one machine, for example a few Claude Code or Codex sessions side by side, or many clients of one `--listen` server, each agent can lease a device so no two agents drive the same one:
+
+```text
+lease an android emulator for the checkout tests, run them, then release it
+```
+
+`mobile_lease_device` picks a free device that matches the filters (`platform`, `type`, or a `device` id or name), optionally waits for one to free up (`wait`, `timeoutSeconds`), and returns a handle such as `lease:Zm9v…`. Pass that handle as the `device` argument of any other tool. While a lease is held, calls that use the device's plain id, or another agent's handle, are refused with the name of the holder and when the lease expires. Every call made with the handle extends the lease by `ttlSeconds` (600 by default, at most 3600), and a lease left unused that long expires on its own, so a crashed agent never keeps a device. `mobile_list_available_devices` shows a `lease` field on leased devices.
+
+Leasing is local, free and optional: devices nobody leased work exactly as before. Leases are kept in a lock-protected file in `$XDG_STATE_HOME/mobile-mcp` (`~/.local/state/mobile-mcp` by default, `%LOCALAPPDATA%\mobile-mcp` on Windows), shared by every mobile-mcp process of the same user. Set `MOBILEMCP_STATE_DIR` to use another directory; every process that should coordinate must point at the same one. Only a hash of each handle is stored, and handles are never logged in full.
+
 ### Streamable HTTP Server Mode
 
 By default, Mobile MCP runs over stdio. To start a [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) server instead, use the `--listen` flag:
@@ -544,6 +562,7 @@ Gmail to contacts "team@example.com".
 | `MOBILEMCP_AUTH` | Require a Bearer token on the Streamable HTTP server (`--listen`) — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
+| `MOBILEMCP_STATE_DIR` | Directory for local device leases, shared by every mobile-mcp process that should coordinate. Defaults to `$XDG_STATE_HOME/mobile-mcp` (`~/.local/state/mobile-mcp`), or `%LOCALAPPDATA%\mobile-mcp` on Windows. | `MOBILEMCP_STATE_DIR=/var/lib/mobile-mcp` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
 
 ### Simulators, Emulators, and Real Devices
