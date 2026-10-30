@@ -438,7 +438,9 @@ export class HarmonyRobot implements Robot {
 
 	public async installApp(path: string): Promise<void> {
 		try {
-			execFileSync(getHdcPath(), ["-t", this.deviceId, "install", "-r", path], {
+			// -s is the standalone-HSP install mode; -r is the overwrite mode for HAP/HSP packages
+			const installMode = path.toLowerCase().endsWith(".hsp") ? "-s" : "-r";
+			execFileSync(getHdcPath(), ["-t", this.deviceId, "install", installMode, path], {
 				maxBuffer: MAX_BUFFER_SIZE,
 				timeout: 300000, // installs can take a while
 			});
@@ -467,11 +469,12 @@ export class HarmonyRobot implements Robot {
 	public async openUrl(url: string): Promise<void> {
 		this.ensureScreenAwake();
 
-		// harmony opens urls through the ability manager's want; start with default browser ability.
+		// implicit viewData want lets the system resolve whichever browser is installed
+		// (com.huawei.hmos.browser on Huawei, com.ohos.browser on OpenHarmony).
 		// single-quote the url so shell metacharacters (&, ;, ?...) survive the hdc shell hop,
 		// same escaping approach as sendKeys.
 		const escaped = url.replace(/'/g, "'\\''");
-		this.hdc("aa", "start", "-a", "MainAbility", "-b", "com.huawei.hmos.browser", "-U", `'${escaped}'`);
+		this.hdc("aa", "start", "-A", "ohos.want.action.viewData", "-U", `'${escaped}'`);
 	}
 
 	public async sendKeys(text: string): Promise<void> {
