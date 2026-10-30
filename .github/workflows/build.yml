@@ -71,7 +71,7 @@ jobs:
     if: github.ref_type == 'tag'
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
     - uses: actions/checkout@v5
@@ -126,6 +126,22 @@ jobs:
         sed -i "s/{{VERSION}}/$VERSION/g" server.json
         mcp-publisher publish
         mcp-publisher logout
+
+    - name: Create or update GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        VERSION=${GITHUB_REF_NAME#v}
+        sed -n "/^## \[$VERSION\]/,/^## \[/{ /^## \[$VERSION\]/p; /^## \[/!p; }" CHANGELOG.md > release-notes.md
+        if [ ! -s release-notes.md ]; then
+          echo "::error::CHANGELOG.md has no section for $VERSION"
+          exit 1
+        fi
+        if gh release view "$GITHUB_REF_NAME" &>/dev/null; then
+          gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
+        else
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+        fi
 
   publish_mcpb:
     # macos runner (arm64) so sharp bundles darwin-arm64 native libs;
