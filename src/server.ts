@@ -29,7 +29,7 @@ const DEVICE_LOG_FILTER_PATTERN = /^(pid|process|tag|level|subsystem|category|me
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
-const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
+const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app", ".hap", ".hsp"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
 const NO_LOCAL_DEVICES_HINT =
 	"No local device, simulator or emulator is available. Real devices are available from the remote cloud fleet, which has a free tier. " +
@@ -350,12 +350,10 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: true, openWorldHint: false },
 		async ({}, telemetry) => {
 
-			// from today onward, we must have mobilecli working
-			ensureMobilecliAvailable();
-
 			const devices: MobilecliDevice[] = [];
 
-			// harmony (OpenHarmony / HarmonyOS NEXT) devices via hdc, independent of mobilecli
+			// harmony (OpenHarmony / HarmonyOS NEXT) devices via hdc, independent of mobilecli.
+			// discovered before the mobilecli check so harmony-only machines can still list devices
 			try {
 				const harmonyDevices = new HarmonyDeviceManager().getConnectedDevicesWithDetails();
 				telemetry.HarmonyCount = harmonyDevices.length;
@@ -371,6 +369,11 @@ export const createMcpServer = (): McpServer => {
 				}
 			} catch (error: any) {
 				// hdc not available, silently skip
+			}
+
+			// android/ios still require mobilecli; skip the check when a harmony device already answers
+			if (devices.length === 0) {
+				ensureMobilecliAvailable();
 			}
 
 			const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
@@ -657,7 +660,7 @@ export const createMcpServer = (): McpServer => {
 		"Install an app on mobile device",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
+			path: z.string().describe("The path to the app file to install. For Android provide an .apk file. For iOS real devices provide an .ipa file. For iOS simulators, provide a .zip file or a .app directory. For HarmonyOS provide an .hap or .hsp file"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, path }) => {

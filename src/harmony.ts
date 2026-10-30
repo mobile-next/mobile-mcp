@@ -37,7 +37,11 @@ const getHdcPath = (): string => {
 	}
 
 	if (process.env.HARMONY_HOME) {
-		return path.join(process.env.HARMONY_HOME, "toolchains", "hdc");
+		const candidate = path.join(process.env.HARMONY_HOME, "toolchains", "hdc");
+		if (existsSync(candidate)) {
+			return candidate;
+		}
+		// fall through to the other resolution strategies
 	}
 
 	if (process.env.DEVECO_SDK_HOME) {
@@ -166,7 +170,7 @@ export class HarmonyRobot implements Robot {
 		try {
 			this.silentHdc("power-shell", "wakeup");
 			// give the display a moment before the caller's actual command
-			this.silentHdc("shell", "sleep", "1");
+			this.silentHdc("sleep", "1");
 		} catch (error) {
 			// wake failed; the caller's own command will report the visible symptom
 		}
@@ -242,6 +246,8 @@ export class HarmonyRobot implements Robot {
 	}
 
 	public async swipe(direction: SwipeDirection): Promise<void> {
+		this.ensureScreenAwake();
+
 		const screenSize = await this.getScreenSize();
 		const centerX = screenSize.width >> 1;
 
@@ -277,6 +283,8 @@ export class HarmonyRobot implements Robot {
 	}
 
 	public async swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void> {
+		this.ensureScreenAwake();
+
 		const screenSize = await this.getScreenSize();
 
 		let x0: number, y0: number, x1: number, y1: number;
@@ -457,8 +465,13 @@ export class HarmonyRobot implements Robot {
 	}
 
 	public async openUrl(url: string): Promise<void> {
-		// harmony opens urls through the ability manager's want; start with default browser ability
-		this.hdc("aa", "start", "-a", "MainAbility", "-b", "com.huawei.hmos.browser", "-U", url);
+		this.ensureScreenAwake();
+
+		// harmony opens urls through the ability manager's want; start with default browser ability.
+		// single-quote the url so shell metacharacters (&, ;, ?...) survive the hdc shell hop,
+		// same escaping approach as sendKeys.
+		const escaped = url.replace(/'/g, "'\\''");
+		this.hdc("aa", "start", "-a", "MainAbility", "-b", "com.huawei.hmos.browser", "-U", `'${escaped}'`);
 	}
 
 	public async sendKeys(text: string): Promise<void> {
@@ -481,6 +494,7 @@ export class HarmonyRobot implements Robot {
 			throw new ActionableError(`Button "${button}" is not supported`);
 		}
 
+		this.ensureScreenAwake();
 		this.hdc("uitest", "uiInput", "keyEvent", mapped);
 	}
 
@@ -490,11 +504,14 @@ export class HarmonyRobot implements Robot {
 	}
 
 	public async longPress(x: number, y: number, duration: number): Promise<void> {
+		this.ensureScreenAwake();
+
 		// uiInput longClick has no duration parameter; a swipe in place approximates it
 		this.hdc("uitest", "uiInput", "swipe", `${x}`, `${y}`, `${x}`, `${y}`, `${Math.min(40000, Math.max(200, duration))}`);
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
+		this.ensureScreenAwake();
 		this.hdc("uitest", "uiInput", "doubleClick", `${x}`, `${y}`);
 	}
 
