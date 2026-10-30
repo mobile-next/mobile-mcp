@@ -243,6 +243,10 @@ export class MobileDevice implements Robot {
 		this.runCommand(["apps", "terminate", packageName]);
 	}
 
+	public async clearAppData(packageName: string): Promise<void> {
+		this.runCommand(["apps", "clear", packageName]);
+	}
+
 	public async installApp(path: string): Promise<void> {
 		this.runCommand(["apps", "install", path]);
 	}

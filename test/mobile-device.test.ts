@@ -189,6 +189,16 @@ test.describe("MobileDevice", () => {
 		});
 	});
 
+	test.describe("clear app data", () => {
+
+		test("clearAppData should call mobilecli apps clear with the package", async () => {
+			const { device, calls } = createMockMobileDevice("");
+			await device.clearAppData("com.example.app");
+
+			expect(calls[0]).toEqual(["apps", "clear", "com.example.app", "--device", "test-device"]);
+		});
+	});
+
 	test.describe("location", () => {
 
 		test("setLocation should call mobilecli device location set with lat,lng", async () => {
