@@ -1,4 +1,6 @@
-# Mobile Next - モバイル開発・自動化のための MCP サーバー | iOS、Android、シミュレーター、エミュレーター、実機
+# Mobile MCP：AI エージェントで iOS・Android アプリを操作
+
+シミュレーター、エミュレーター、実機に対応した MCP サーバー。
 
 [English](README.md) | **日本語** | [简体中文](README.zh-CN.md)
 

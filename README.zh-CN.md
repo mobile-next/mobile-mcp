@@ -1,4 +1,6 @@
-# Mobile Next - 用于移动开发与自动化的 MCP 服务器 | iOS、Android、模拟器、仿真器与真机
+# Mobile MCP：让 AI 智能体操控你的 iOS 和 Android 应用
+
+支持模拟器、仿真器与真机的 MCP 服务器。
 
 [English](README.md) | [日本語](README.ja.md) | **简体中文**
 

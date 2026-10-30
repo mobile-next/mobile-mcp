@@ -1,4 +1,6 @@
-# Mobile Next - MCP server for Mobile Development and Automation | iOS, Android, Simulator, Emulator, and Real Devices
+# Mobile MCP: let AI agents drive your iOS and Android apps
+
+MCP server for simulators, emulators and real devices.
 
 **English** | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
 
