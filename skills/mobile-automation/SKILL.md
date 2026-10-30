@@ -28,10 +28,12 @@ prefixed `mobile_`.
    `mobile_type_keys`, `mobile_press_button` (HOME, BACK, VOLUME, ENTER),
    `mobile_launch_app` / `mobile_terminate_app` / `mobile_list_apps`,
    `mobile_open_url`.
-4. **Verify after every action.** Re-list elements (or re-screenshot) to
-   confirm the UI changed as expected before the next step. Mobile UIs
-   animate; if the expected element is not there yet, wait briefly and check
-   again rather than tapping blind.
+4. **Verify after every action.** Each action waits for the UI to settle and
+   reports what changed (nothing, new content, a new screen, a dialog, a
+   scroll), what received the touch, the typed field's value and a short
+   element diff. Read it before the next step, and re-list elements (or
+   re-screenshot) only when the report is not enough. If it says the screen
+   is still changing, wait briefly and check again rather than tapping blind.
 
 ## Tips
 
