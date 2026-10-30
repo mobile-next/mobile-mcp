@@ -128,6 +128,7 @@ How we help to scale mobile automation:
 - **`mobile_double_tap_on_screen`** - Double-tap at specific coordinates or on an element by its ref
 - **`mobile_long_press_on_screen_at_coordinates`** - Long press at specific coordinates or on an element by its ref
 - **`mobile_swipe_on_screen`** - Swipe in any direction (up, down, left, right)
+- **`mobile_drag`** - Press, move to another point over a set duration, and release (reorder handles, sliders, drag-and-drop)
 - **`mobile_start_screen_recording`** - Start recording the device screen to a video file
 - **`mobile_stop_screen_recording`** - Stop the active screen recording and save the video
 

@@ -190,6 +190,11 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "swipe", `${Math.round(x)},${Math.round(y)},${Math.round(endX)},${Math.round(endY)}`]);
 	}
 
+	public async drag(fromX: number, fromY: number, toX: number, toY: number, duration: number): Promise<void> {
+		// mobilecli rejects fractional coordinates and durations, both are parsed as integers
+		this.runCommand(["io", "swipe", `${Math.round(fromX)},${Math.round(fromY)},${Math.round(toX)},${Math.round(toY)}`, "--duration", `${Math.round(duration)}`]);
+	}
+
 	public async getScreenshot(options?: ScreenshotOptions): Promise<Buffer> {
 		const format = options?.format || "png";
 		const fullArgs = ["screenshot", "--device", this.deviceId, "--format", format, "--output", "-"];
