@@ -430,7 +430,7 @@ test('sign in', async ({ screen }) => {
 });
 ```
 
-Start with `npm init mobilewright@latest`.
+Start with `npm init mobilewright@latest`. The [step-by-step guide](docs/mobilewright-ci.md) goes from an agent session to a test running in GitHub Actions.
 
 ### ☁️ Scale up, use a cloud device
 

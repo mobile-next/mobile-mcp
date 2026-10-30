@@ -419,7 +419,7 @@ test('sign in', async ({ screen }) => {
 });
 ```
 
-`npm init mobilewright@latest` から始めましょう。
+`npm init mobilewright@latest` から始めましょう。エージェントのセッションから GitHub Actions で動くテストまでの流れは[ステップバイステップガイド](docs/mobilewright-ci.md)（英語）をご覧ください。
 
 ### ☁️ クラウドデバイスでスケールする
 

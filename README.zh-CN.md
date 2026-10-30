@@ -419,7 +419,7 @@ test('sign in', async ({ screen }) => {
 });
 ```
 
-从 `npm init mobilewright@latest` 开始。
+从 `npm init mobilewright@latest` 开始。[分步指南](docs/mobilewright-ci.md)（英文）介绍了如何从一次智能体会话得到在 GitHub Actions 中运行的测试。
 
 ### ☁️ 扩展规模，使用云设备
 
