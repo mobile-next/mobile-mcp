@@ -1,39 +1,36 @@
-
 # From Mobile MCP to CI
 
 Mobile MCP lets a coding agent such as Claude Code or Cursor drive an iOS simulator, an Android emulator or a real device. It is a good way to explore an app and check a flow by hand. An agent session is not a test, though: it costs tokens on every run and the agent can take a different path each time.
 
 This guide turns one agent session into a [Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=docs&utm_campaign=agent-to-ci) test that runs the same way every time, then runs that test in GitHub Actions on every pull request.
 
-The examples use [Milliways](https://github.com/mobile-next/milliways-ios), our sample iOS app. Replace the bundle ID and the steps with your own app's.
+The examples use [Milliways](https://github.com/mobile-next/Milliways), our sample app. Replace the bundle ID and the steps with your own app's.
 
 ## 1. Install Mobile MCP
 
-In Claude Code:
+Run the installer:
 
 ```bash
-claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
+npx @mobilenext/mobile-mcp@latest install
 ```
 
-In Cursor, go to **Cursor Settings → MCP → Add new MCP Server**, choose the `command` type and use `npx -y @mobilenext/mobile-mcp@latest`.
+It finds the MCP clients on your machine (Claude Code, Cursor, VS Code, Codex, Windsurf and more), lets you pick which ones to set up, and adds Mobile MCP to each of them. Add `--yes` to set up every client it finds without asking.
 
-Other clients and the full setup are in the [README](../README.md#installation-and-configuration).
+To set up a client by hand instead, see [Installation and configuration](../README.md#installation-and-configuration) in the README.
 
-Boot a simulator (or start an emulator, or plug in a device) and install your app on it. For Milliways, download `Milliways-simulator.zip` from the [latest release](https://github.com/mobile-next/milliways-ios/releases/latest), unzip it, and run:
-
-```bash
-xcrun simctl boot "iPhone 17 Pro"
-xcrun simctl install booted Milliways.app
-```
+Then boot a simulator, start an emulator, or plug in a device.
 
 ## 2. Let the agent explore the flow
 
-Ask the agent to do the flow you want to cover, in plain words:
+Ask the agent to do the flow you want to cover, in plain words. You don't need to install the app first; the agent can do that too:
 
 ```text
-Open Milliways on the iPhone simulator. Start a new order, add two Green Salads,
+Download and install the app from https://github.com/mobile-next/Milliways/releases/latest
+on the iPhone simulator. Then open it, start a new order, add two Green Salads,
 open the order and check that the total is ₭44.00.
 ```
+
+The agent picks the right build for the device (the simulator `.zip`, the `.apk` for Android, or the `.ipa` for a real iPhone), downloads it, and installs it with Mobile MCP.
 
 The agent reads the screen through Mobile MCP's element list, taps by element, and reports what it saw at each step:
 
@@ -112,7 +109,32 @@ From now on this flow runs in seconds, without an agent and without tokens. Keep
 
 ## 5. Run it in GitHub Actions
 
-Create `.github/workflows/mobilewright.yml`. Mobilewright does not boot a simulator for you, so the workflow boots one and installs the app before running the tests:
+In CI, run the tests on remote devices instead of simulators. The runner doesn't need a Mac or a simulator: Mobilewright allocates a device on [Mobile Next Cloud](https://mobilewright.dev/docs/cloud-providers/mobile-next-cloud), installs your app on it, runs the tests, and uploads the report to your dashboard.
+
+Switch the driver when an API key is present, so the same config keeps working locally:
+
+`mobilewright.config.ts`:
+
+```ts
+import { defineConfig, type MobilewrightConfig } from 'mobilewright';
+import { MobileNextDriver } from '@mobilewright/driver-mobilenext';
+
+const config: MobilewrightConfig = {
+  platform: 'ios',
+  bundleId: 'com.mobilenext.Milliways',
+  deviceName: /iPhone/,
+};
+
+if (process.env.MOBILENEXT_API_KEY) {
+  config.driver = new MobileNextDriver();
+  config.deviceType = 'real';
+  config.installApps = ['./build/app.ipa'];
+}
+
+export default defineConfig(config);
+```
+
+Create an API key at [mobilenext.ai](https://mobilenext.ai/cloud?utm_source=mobile-mcp&utm_medium=docs&utm_campaign=agent-to-ci), add it to your repository as the `MOBILENEXT_API_KEY` secret, and create `.github/workflows/mobilewright.yml`:
 
 `.github/workflows/mobilewright.yml`:
 
@@ -128,27 +150,33 @@ permissions:
   contents: read
 
 jobs:
-  ios:
+  build:
     runs-on: macos-latest
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - run: ./scripts/build-app.sh  # produces build/app.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: build/
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MOBILENEXT_API_KEY: ${{ secrets.MOBILENEXT_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+          path: build/
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
       - run: npm ci
-
-      - name: Boot a simulator and install the app
-        run: |
-          curl -sL -o Milliways-simulator.zip \
-            https://github.com/mobile-next/milliways-ios/releases/latest/download/Milliways-simulator.zip
-          unzip -q Milliways-simulator.zip
-          xcrun simctl boot "iPhone 16 Pro"
-          xcrun simctl install booted Milliways.app
-
-      - name: Run Mobilewright tests
-        run: npx mobilewright test --reporter list,html
+      - run: npx mobilewright test --reporter list,html
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -160,41 +188,12 @@ jobs:
 
 Key points:
 
-- **Your own app.** Replace the download step with however your build gets onto the runner: build it with `xcodebuild` for the simulator in an earlier step, or download it from your build job with `actions/download-artifact`. The `.app` must be a simulator build.
-- **Simulator name.** `xcrun simctl list devices available` shows which simulators the runner image has. `deviceName: /iPhone/` in the config matches whichever iPhone is booted.
-- **`if: ${{ !cancelled() }}`** uploads the report when tests fail, which is when you need it. Download it from the run summary and open it with `npx mobilewright show-report <folder>`.
+- **Build once, test anywhere.** The `build` job compiles the app on a Mac. The `test` job only needs Node.js and the app file, so it runs on `ubuntu-latest`, which costs less and starts faster.
+- **Android** works the same way: point `installApps` at your `.apk` and set `platform: 'android'`, or add a [project](https://mobilewright.dev/docs/test/projects) per platform.
+- **More devices.** Raise `--workers` to run tests on several cloud devices at once.
+- **`if: ${{ !cancelled() }}`** uploads the report when tests fail, which is when you need it.
 
-### Android
-
-For Android, run the emulator on a Linux runner with [android-emulator-runner](https://github.com/ReactiveCircus/android-emulator-runner), install your APK, and point a second config (or a [project](https://mobilewright.dev/docs/test/projects)) at `platform: 'android'` and your package name:
-
-```yaml
-  android:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - run: npm ci
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run Mobilewright tests on an emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          script: |
-            adb install app-debug.apk
-            npx mobilewright test --config mobilewright.android.config.ts
-```
+Mobile Next Cloud is one of several [cloud providers](https://mobilewright.dev/docs/cloud-providers) Mobilewright supports; the workflow is the same for the others, with their driver and credentials. [Best Practices](https://mobilewright.dev/docs/guides/best-practices) covers splitting the build from the test job, and when to use workers or sharding.
 
 ## Tips for prompts
 
@@ -205,6 +204,8 @@ For Android, run the emulator on a Linux runner with [android-emulator-runner](h
 
 ## See also
 
-- [Setting up CI](https://mobilewright.dev/docs/getting-started/ci)
+- [Best Practices](https://mobilewright.dev/docs/guides/best-practices) for running Mobilewright in CI
+- [Cloud providers](https://mobilewright.dev/docs/cloud-providers)
+- [Setting up CI](https://mobilewright.dev/docs/getting-started/ci), for local simulators and emulators
 - [Agent CLI](https://mobilewright.dev/docs/agent-cli/introduction), a shell alternative to Mobile MCP for agents
 - [Codegen](https://mobilewright.dev/docs/guides/codegen), to record a test by clicking instead of prompting
