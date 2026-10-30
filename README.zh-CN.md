@@ -84,6 +84,7 @@ npx @mobilenext/mobile-mcp@latest install
 | iOS 真机 | ✅ | 通过 USB 连接并已信任的设备 |
 | Android 仿真器 | ✅ | Android SDK 以及运行中的仿真器 (`adb`) |
 | Android 真机 | ✅ | `adb`，并已启用并授权 USB 调试 |
+| HarmonyOS 真机 | ✅ | `hdc`（来自 [DevEco Studio](https://developer.huawei.com/consumer/zh/deveco-studio/) 或 OpenHarmony SDK），并已启用 USB 调试；基于 Android 的旧版 HarmonyOS 可像 Android 设备一样通过 `adb` 使用 |
 
 ## 🔧 可用的 MCP 工具
 
@@ -535,6 +536,7 @@ Gmail to contacts "team@example.com".
 | `MOBILEMCP_DISABLE_TELEMETRY` | 关闭匿名使用情况遥测。 | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | 允许 `mobile_open_url` 打开非标准的 URL scheme（默认被阻止）。 | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | 对 Android 设备和 iOS 真机使用旧版的平台专用 robot。iOS 模拟器仍然使用 `mobilecli`。 | `MOBILEMCP_LEGACY_ROBOT=1` |
+| `HDC_HOME` | 用于 HarmonyOS 设备的 `hdc` 二进制完整路径。未设置时，服务器会依次探测 `DEVECO_SDK_HOME`、DevEco Studio 默认安装位置，最后是 `PATH`。 | `HDC_HOME=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc` |
 
 ### 模拟器、仿真器与真机
 

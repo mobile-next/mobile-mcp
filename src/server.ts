@@ -10,6 +10,7 @@ import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Dimensions, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
+import { HarmonyRobot, HarmonyDeviceManager } from "./harmony";
 import { PNG } from "./png";
 import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
@@ -37,7 +38,8 @@ const NO_LOCAL_DEVICES_HINT =
 interface MobilecliDevice {
 	id: string;
 	name: string;
-	platform: "android" | "ios";
+	// "harmony" is emitted by the built-in hdc robot for HarmonyOS/OpenHarmony devices
+	platform: "android" | "ios" | "harmony";
 	type: "real" | "emulator" | "simulator";
 	version: string;
 	state: "online" | "offline";
@@ -263,6 +265,12 @@ export const createMcpServer = (): McpServer => {
 
 	const createRobotFromDevice = (deviceId: string): Robot => {
 
+		// harmony devices are served by the hdc robot, everything else needs mobilecli working
+		const harmonyManager = new HarmonyDeviceManager();
+		if (harmonyManager.getConnectedDevices().some(d => d.deviceId === deviceId)) {
+			return new HarmonyRobot(deviceId);
+		}
+
 		// from now on, we must have mobilecli working
 		ensureMobilecliAvailable();
 
@@ -346,6 +354,25 @@ export const createMcpServer = (): McpServer => {
 			ensureMobilecliAvailable();
 
 			const devices: MobilecliDevice[] = [];
+
+			// harmony (OpenHarmony / HarmonyOS NEXT) devices via hdc, independent of mobilecli
+			try {
+				const harmonyDevices = new HarmonyDeviceManager().getConnectedDevicesWithDetails();
+				telemetry.HarmonyCount = harmonyDevices.length;
+				for (const device of harmonyDevices) {
+					devices.push({
+						id: device.deviceId,
+						name: device.name,
+						platform: "harmony",
+						type: "real",
+						version: device.version,
+						state: "online",
+					});
+				}
+			} catch (error: any) {
+				// hdc not available, silently skip
+			}
+
 			const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
 
 			if (legacyRobot) {
