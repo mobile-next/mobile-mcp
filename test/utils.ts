@@ -296,6 +296,30 @@ test.describe("utils", () => {
 			}
 		});
 
+		const permissionsOf = (filePath: string): number => fs.statSync(filePath).mode & 0o777;
+
+		test("should keep the permissions of the file it replaces", () => {
+			const output = uniqueTempPath("existing-mode.log");
+			fs.writeFileSync(output, "OLD");
+			fs.chmodSync(output, 0o640);
+			try {
+				writeOutputFile(output, "NEW");
+				expect(permissionsOf(output)).toBe(0o640);
+			} finally {
+				fs.rmSync(output, { force: true });
+			}
+		});
+
+		test("should create a new file readable only by its owner", () => {
+			const output = uniqueTempPath("new-mode.log");
+			try {
+				writeOutputFile(output, "NEW");
+				expect(permissionsOf(output)).toBe(0o600);
+			} finally {
+				fs.rmSync(output, { force: true });
+			}
+		});
+
 		test("should leave no partial file behind when the write fails", () => {
 			const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mobile-mcp-"));
 			const output = path.join(dir, "output.log");

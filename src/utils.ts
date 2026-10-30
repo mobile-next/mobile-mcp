@@ -173,8 +173,15 @@ function partialPathFor(to: string): string {
 // it, so a link can never point the write at another file
 export function writeOutputFile(filePath: string, data: string | Buffer): void {
 	const partial = partialPathFor(filePath);
+	const existing = fs.lstatSync(filePath, { throwIfNoEntry: false });
 	try {
-		fs.writeFileSync(partial, data, { flag: "wx" });
+		// 0600 while half-written; a link at `filePath` is replaced, so only a
+		// regular file there passes its mode on to the new file
+		fs.writeFileSync(partial, data, { flag: "wx", mode: 0o600 });
+		if (existing?.isFile()) {
+			fs.chmodSync(partial, existing.mode & 0o777);
+		}
+
 		fs.renameSync(partial, filePath);
 	} catch (error) {
 		fs.rmSync(partial, { force: true });
