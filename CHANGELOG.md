@@ -1,6 +1,6 @@
 ## [1.0.15](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.15) (2026-10-30)
 * Feat: `mobile_clear_app_data` clears an app's data on Android and iOS Simulator ([#524](https://github.com/mobile-next/mobile-mcp/pull/524))
-* Fix: `mobile_save_screenshot` and `mobile_get_device_logs` replace the output file by rename, so a hard link at `saveTo` is never written through ([#533](https://github.com/mobile-next/mobile-mcp/pull/533))
+* Fix: `mobile_save_screenshot` and `mobile_get_device_logs` replace the output file by rename, so a hard link at `saveTo` is never written through ([#533](https://github.com/mobile-next/mobile-mcp/pull/533)), thanks to [@Daniel-GrunbergerCA](https://github.com/Daniel-GrunbergerCA)
 * Chore: Upgrade `@modelcontextprotocol/node` to 2.1.2 ([#539](https://github.com/mobile-next/mobile-mcp/pull/539))
 
 ## [1.0.14](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.14) (2026-10-26)
