@@ -81,6 +81,27 @@ test("refuses the raw id inside a batch step too", async () => {
 	expect(result.text).toContain(`Step 1 (mobile_press_button) failed: Device "emulator-5554" is leased by "other-agent"`);
 });
 
+test("refuses mobile_take_screenshot of a device another agent leased", async () => {
+	await new DeviceLeaseStore().acquire([pixel], "other-agent");
+	const client = await createConnectedClient();
+
+	const result = await call(client, "mobile_take_screenshot", { device: "emulator-5554" });
+
+	expect(result.isError).toBe(true);
+	expect(result.text).toContain(`Device "emulator-5554" is leased by "other-agent" until`);
+});
+
+test("lets the lease holder take a screenshot with its handle", async () => {
+	const { handle } = await new DeviceLeaseStore().acquire([pixel], "this-agent");
+	const client = await createConnectedClient();
+
+	// no real device here either, so it fails, but on the resolved device rather than the handle
+	const result = await call(client, "mobile_take_screenshot", { device: handle });
+
+	expect(result.text).not.toContain("leased by");
+	expect(result.text).not.toContain("lease:");
+});
+
 test("leaves unleased devices alone", async () => {
 	await new DeviceLeaseStore().acquire([pixel], "other-agent");
 	const client = await createConnectedClient();
