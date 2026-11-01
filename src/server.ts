@@ -658,16 +658,22 @@ export const createMcpServer = (): McpServer => {
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ platform, device, type, holder, ttlSeconds, wait, timeoutSeconds }, telemetry) => {
-			const candidates = listLocalDevices(telemetry)
-				.filter(candidate => platform === undefined || candidate.platform === platform)
-				.filter(candidate => type === undefined || candidate.type === type)
-				.filter(candidate => device === undefined || candidate.id === device || candidate.name === device);
+			// devices come and go while we wait, so the candidates are listed again before every attempt
+			const findCandidates = (): MobilecliDevice[] => {
+				const candidates = listLocalDevices(telemetry)
+					.filter(candidate => platform === undefined || candidate.platform === platform)
+					.filter(candidate => type === undefined || candidate.type === type)
+					.filter(candidate => device === undefined || candidate.id === device || candidate.name === device);
 
-			if (candidates.length === 0) {
-				const filters = [platform && `platform ${platform}`, type && `type ${type}`, device && `device "${device}"`].filter(Boolean).join(", ");
-				throw new ActionableError(`No online local device matches${filters ? ` ${filters}` : ""}. Use mobile_list_available_devices to see the devices connected to this machine`);
-			}
+				if (candidates.length === 0) {
+					const filters = [platform && `platform ${platform}`, type && `type ${type}`, device && `device "${device}"`].filter(Boolean).join(", ");
+					throw new ActionableError(`No online local device matches${filters ? ` ${filters}` : ""}. Use mobile_list_available_devices to see the devices connected to this machine`);
+				}
 
+				return candidates;
+			};
+
+			let candidates = findCandidates();
 			const holderLabel = holder?.trim() || getClientName();
 			const deadline = Date.now() + (timeoutSeconds ?? DEFAULT_LEASE_WAIT_SECONDS) * 1000;
 			const startedAt = Date.now();
@@ -691,6 +697,7 @@ export const createMcpServer = (): McpServer => {
 						}
 
 						await new Promise(resolve => setTimeout(resolve, LEASE_POLL_INTERVAL_MS));
+						candidates = findCandidates();
 						continue;
 					}
 
