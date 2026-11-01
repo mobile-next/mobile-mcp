@@ -18,7 +18,7 @@ import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
 import { shouldSendEvent } from "./telemetry-quota";
-import { DeviceLeaseStore, LeaseError, LeaseInfo, LeaseUnavailableError, DEFAULT_LEASE_TTL_SECONDS, MAX_LEASE_TTL_SECONDS, describeLease, isLeaseHandle, redactLeaseHandles } from "./device-leases";
+import { DeviceLeaseStore, LeaseError, LeaseInfo, LeaseUnavailableError, DEFAULT_LEASE_TTL_SECONDS, MAX_LEASE_TTL_SECONDS, describeLease, redactLeaseHandles } from "./device-leases";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
@@ -189,13 +189,10 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError(err.message);
 			}
 
-			if (!isLeaseHandle(device)) {
-				// an unreadable lease store must not break machines that never lease
-				trace(`Could not check device leases: ${err.message}`);
-				return device;
-			}
-
-			throw err;
+			// a missing lease file is an empty store, so any other read failure means the lease of
+			// this device is unknown: refuse rather than let an agent act on a device that may be leased
+			trace(`Could not check device leases: ${err.message}`);
+			throw new ActionableError(`Could not check device leases: ${err.message}`);
 		}
 	};
 
@@ -407,7 +404,7 @@ export const createMcpServer = (): McpServer => {
 					id: device.deviceId,
 					name: device.name,
 					platform: "android",
-					type: "emulator",
+					type: device.deviceId.startsWith("emulator-") ? "emulator" : "real",
 					version: device.version,
 					state: "online",
 				});
