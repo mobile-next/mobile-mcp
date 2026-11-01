@@ -314,7 +314,14 @@ test.describe("device lease lock", () => {
 				output += chunk;
 			});
 			child.on("error", reject);
-			child.on("exit", () => resolve(JSON.parse(output.trim())));
+			// "close" fires once stdout has ended, "exit" can come before all of it is read
+			child.on("close", () => {
+				try {
+					resolve(JSON.parse(output.trim()));
+				} catch (err) {
+					reject(new Error(`child printed unexpected output: ${JSON.stringify(output)}`));
+				}
+			});
 		});
 
 		const results = await Promise.all(Array.from({ length: 8 }, runChild));
