@@ -17,10 +17,12 @@ const onlineIphone = { id: "A1B2C3", name: "iPhone 17", platform: "ios" as const
 
 let stateDir: string;
 let previousStateDir: string | undefined;
+let previousTelemetrySetting: string | undefined;
 
 test.beforeEach(() => {
 	stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "mobile-mcp-server-leases-test-"));
 	previousStateDir = process.env.MOBILEMCP_STATE_DIR;
+	previousTelemetrySetting = process.env.MOBILEMCP_DISABLE_TELEMETRY;
 	process.env.MOBILEMCP_STATE_DIR = stateDir;
 	process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
 });
@@ -30,6 +32,12 @@ test.afterEach(() => {
 		delete process.env.MOBILEMCP_STATE_DIR;
 	} else {
 		process.env.MOBILEMCP_STATE_DIR = previousStateDir;
+	}
+
+	if (previousTelemetrySetting === undefined) {
+		delete process.env.MOBILEMCP_DISABLE_TELEMETRY;
+	} else {
+		process.env.MOBILEMCP_DISABLE_TELEMETRY = previousTelemetrySetting;
 	}
 });
 
