@@ -611,6 +611,8 @@ const readForegroundApp = async (robot: FeedbackRobot): Promise<ForegroundApp | 
 export const runWithFeedback = async (robot: FeedbackRobot, target: ActionTarget, action: () => Promise<string>, settings: FeedbackSettings = DEFAULT_FEEDBACK_SETTINGS, clock: SettleClock = realClock): Promise<string> => {
 	let before: ScreenState | null = null;
 	try {
+		// safe for ref targets: mobilecli resolves "@eN" against a fresh dump of its own when the
+		// tap or long press runs, so this read does not change which element a ref points to
 		before = { elements: await robot.getElementsOnScreen(), app: await readForegroundApp(robot) };
 	} catch {
 		before = null;
