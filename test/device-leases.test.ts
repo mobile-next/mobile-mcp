@@ -215,6 +215,61 @@ test.describe("device lease lock", () => {
 		expect(lease.device).toBe("emulator-5554");
 	});
 
+	test("does not remove a fresh lock that replaced an empty stale one while it was being recovered", async () => {
+		const store = new DeviceLeaseStore({ dir: temporaryStateDir(), staleLockMs: 1000, lockTimeoutMs: 2000 });
+		fs.writeFileSync(store.lockFilePath, "");
+		const old = new Date(Date.now() - 5000);
+		fs.utimesSync(store.lockFilePath, old, old);
+
+		// after this store judges the empty lock stale, another contender breaks it and a
+		// third process takes the lock before this store renames the file aside
+		const fresh = { pid: process.pid, hostname: os.hostname(), nonce: "fresh", createdAt: Date.now() };
+		const internals = store as any;
+		const isLockStale = internals.isLockStale.bind(store);
+		let replaced = false;
+		internals.isLockStale = async (...args: any[]) => {
+			const stale = await isLockStale(...args);
+			if (!replaced) {
+				replaced = true;
+				fs.rmSync(store.lockFilePath);
+				fs.writeFileSync(store.lockFilePath, JSON.stringify(fresh));
+			}
+
+			return stale;
+		};
+
+		await internals.breakLockIfStale();
+
+		expect(JSON.parse(fs.readFileSync(store.lockFilePath, "utf8")).nonce).toBe("fresh");
+		expect(fs.readdirSync(path.dirname(store.lockFilePath)).filter(name => name.includes(".stale-"))).toEqual([]);
+	});
+
+	test("does not remove a fresh empty lock that replaced an empty stale one", async () => {
+		const store = new DeviceLeaseStore({ dir: temporaryStateDir(), staleLockMs: 1000, lockTimeoutMs: 2000 });
+		fs.writeFileSync(store.lockFilePath, "");
+		const old = new Date(Date.now() - 5000);
+		fs.utimesSync(store.lockFilePath, old, old);
+
+		// the new holder has created its lock but not written its owner yet
+		const internals = store as any;
+		const isLockStale = internals.isLockStale.bind(store);
+		let replaced = false;
+		internals.isLockStale = async (...args: any[]) => {
+			const stale = await isLockStale(...args);
+			if (!replaced) {
+				replaced = true;
+				fs.rmSync(store.lockFilePath);
+				fs.writeFileSync(store.lockFilePath, "");
+			}
+
+			return stale;
+		};
+
+		await internals.breakLockIfStale();
+
+		expect(fs.existsSync(store.lockFilePath)).toBe(true);
+	});
+
 	test("waits for a live lock and gives up with a clear error", async () => {
 		const store = new DeviceLeaseStore({ dir: temporaryStateDir(), lockTimeoutMs: 200 });
 		fs.writeFileSync(store.lockFilePath, JSON.stringify({ pid: process.pid, hostname: os.hostname(), nonce: "live", createdAt: Date.now() }));

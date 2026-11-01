@@ -1168,7 +1168,8 @@ export const createMcpServer = (): McpServer => {
 		},
 		async ({ device, maxSize, scale }) => {
 			try {
-				const robot = getRobotFromDevice(device);
+				// registered without tool() because it returns an image, so resolve the lease here
+				const robot = getRobotFromDevice(await resolveLocalDevice(device));
 
 				// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
 				// maxSize wins over scale (same precedence as mobilecli); the default applies only when neither is given
