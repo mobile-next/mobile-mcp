@@ -175,11 +175,14 @@ test.describe("with a stand-in mobilecli", () => {
 
 	let previousMobilecliPath: string | undefined;
 
+	const devicesFile = () => path.join(stateDir, "devices.json");
+	const writeDevices = (devices: object[]) => fs.writeFileSync(devicesFile(), JSON.stringify({ status: "ok", data: { devices } }));
+
 	test.beforeEach(() => {
 		// answers only what leasing needs: the version check and the device list
-		const devices = JSON.stringify({ status: "ok", data: { devices: [onlinePixel, onlineIphone] } });
+		writeDevices([onlinePixel, onlineIphone]);
 		const fakeMobilecli = path.join(stateDir, "mobilecli");
-		fs.writeFileSync(fakeMobilecli, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "mobilecli version 9.9.9"; else echo '${devices}'; fi\n`, { mode: 0o755 });
+		fs.writeFileSync(fakeMobilecli, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "mobilecli version 9.9.9"; else cat '${devicesFile()}'; fi\n`, { mode: 0o755 });
 		previousMobilecliPath = process.env.MOBILECLI_PATH;
 		process.env.MOBILECLI_PATH = fakeMobilecli;
 	});
@@ -219,6 +222,20 @@ test.describe("with a stand-in mobilecli", () => {
 		const waited = await call(client, "mobile_lease_device", { device: "emulator-5554", holder: "agent-b", wait: true, timeoutSeconds: 10 });
 		expect(waited.isError).toBe(false);
 		expect(JSON.parse(waited.text).lease.holder).toBe("agent-b");
+	});
+
+	test("does not hand out a device that went offline while waiting for it", async () => {
+		const client = await createConnectedClient();
+		const first = JSON.parse((await call(client, "mobile_lease_device", { device: "emulator-5554", holder: "agent-a" })).text);
+
+		setTimeout(async () => {
+			writeDevices([onlineIphone]);
+			await call(client, "mobile_release_lease", { lease: first.device });
+		}, 300);
+		const waited = await call(client, "mobile_lease_device", { device: "emulator-5554", holder: "agent-b", wait: true, timeoutSeconds: 10 });
+
+		expect(waited.isError).toBe(true);
+		expect(waited.text).toContain(`No online local device matches device "emulator-5554"`);
 	});
 
 	test("reports when no device matches the filters", async () => {
