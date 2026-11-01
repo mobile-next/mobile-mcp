@@ -387,7 +387,7 @@ export class DeviceLeaseStore {
 		}
 	}
 
-	private async isLockStale(owner: LockOwner | undefined): Promise<boolean> {
+	private async isLockStale(owner: LockOwner | undefined, file: string = this.lockFilePath): Promise<boolean> {
 		if (owner && typeof owner.createdAt === "number") {
 			if (owner.hostname === os.hostname() && !isProcessAlive(owner.pid)) {
 				return true;
@@ -398,7 +398,7 @@ export class DeviceLeaseStore {
 
 		// unreadable or still being written: judge by age
 		try {
-			const stat = await fs.promises.stat(this.lockFilePath);
+			const stat = await fs.promises.stat(file);
 			return Date.now() - stat.mtimeMs > this.staleLockMs;
 		} catch (err: any) {
 			return false;
@@ -421,8 +421,15 @@ export class DeviceLeaseStore {
 			return;
 		}
 
+		// between our check and the rename, another process may have broken the same lock
+		// and a third may have created a fresh one, which is what we just moved aside
 		const taken = await this.readLockOwner(aside);
-		if (observed && taken?.nonce !== observed.nonce) {
+		const replaced = observed
+			? taken?.nonce !== observed.nonce
+			// we judged an empty or unreadable file by its age: a lock that now parses, or
+			// a file young enough not to be stale (rename keeps the mtime), is someone else's
+			: taken !== undefined || !await this.isLockStale(undefined, aside);
+		if (replaced) {
 			// not the lock we judged stale, restore it unless a new lock already exists
 			await fs.promises.link(aside, this.lockFilePath).catch(() => {});
 		}
