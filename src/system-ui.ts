@@ -6,12 +6,14 @@
  * the status bar, the navigation bar, gesture handles and launcher edge
  * triggers. Those roots are never what a task is about, yet on a Samsung
  * phone they are close to half of the lines returned. A root is dropped only
- * when its package is a known overlay package and, for packages that also
- * draw real screens (the notification shade is com.android.systemui, the
- * home screen is the launcher), only when the window is small. Anything not
- * recognised stays, so keyboards, permission dialogs and iOS dumps (whose
- * identifiers carry no package) are untouched. The "raw" format bypasses
- * this entirely.
+ * when it is owned by a known overlay package, contains one of that
+ * package's known passive resource ids, and is small. The same packages
+ * also draw windows that matter (the notification shade and the volume
+ * dialog are com.android.systemui, the home screen is the launcher, the One
+ * Hand Operation + settings are sidegesturepad), so neither the package nor
+ * the size alone is enough. Anything not recognised stays, so keyboards,
+ * permission dialogs and iOS dumps (whose identifiers carry no package) are
+ * untouched. The "raw" format bypasses this entirely.
  */
 
 export interface UINode {
@@ -26,20 +28,32 @@ export interface UINode {
 }
 
 interface OverlayRule {
-	// the window is dropped when its area is at most this fraction of the
-	// largest window's area; 1 drops it regardless of size
+	// resource ids (the part after ":id/") that mark a passive window of this
+	// package; all were read from a real dump, a window with none of them stays
+	passiveIds: string[];
+	// and the window must be at most this fraction of the largest window's area
 	maxAreaFraction: number;
 }
 
 const OVERLAY_RULES: Record<string, OverlayRule> = {
-	// status bar and navigation bar are thin strips; the pulled-down shade,
-	// the keyguard and system dialogs come from the same package but are tall
-	"com.android.systemui": { maxAreaFraction: 0.10 },
-	// samsung "one hand operation+" draws two invisible full-height handles
-	"com.samsung.android.sidegesturepad": { maxAreaFraction: 1 },
+	// the status bar strip; the pulled-down shade carries status bar ids too
+	// but is tall, and dialogs such as volume carry none of these ids
+	"com.android.systemui": {
+		passiveIds: ["status_bar_launch_animation_container", "status_bar_container", "status_bar"],
+		maxAreaFraction: 0.10,
+	},
+	// samsung "one hand operation+" draws two invisible full-height handles;
+	// its own settings screen has none of these ids
+	"com.samsung.android.sidegesturepad": {
+		passiveIds: ["visible_handler", "visible_area"],
+		maxAreaFraction: 1,
+	},
 	// samsung edge panel trigger is a sliver on the screen edge; the home
-	// screen itself is a full-size window of the same package
-	"com.sec.android.app.launcher": { maxAreaFraction: 0.05 },
+	// screen is a full-size window of the same package
+	"com.sec.android.app.launcher": {
+		passiveIds: ["trigger_container", "trigger_view", "default_trigger"],
+		maxAreaFraction: 0.05,
+	},
 };
 
 // android resource ids look like "com.example.app:id/button"; "android:id/..."
@@ -86,6 +100,17 @@ export const inferWindowPackage = (root: UINode): string | undefined => {
 	return best;
 };
 
+const containsPassiveId = (root: UINode, pkg: string, passiveIds: string[]): boolean => {
+	const wanted = new Set(passiveIds.map(id => `${pkg}:id/${id}`));
+	let found = false;
+	walk(root, node => {
+		if (node.identifier && wanted.has(node.identifier)) {
+			found = true;
+		}
+	});
+	return found;
+};
+
 const area = (node: UINode): number => Math.max(0, node.rect.width) * Math.max(0, node.rect.height);
 
 /**
@@ -101,11 +126,12 @@ export const dropPassiveOverlays = <T extends UINode>(roots: T[]): T[] => {
 	const kept = roots.filter(root => {
 		const pkg = inferWindowPackage(root);
 		const rule = pkg ? OVERLAY_RULES[pkg] : undefined;
-		if (!rule) {
+		if (!pkg || !rule) {
 			return true;
 		}
 
-		return area(root) / screenArea > rule.maxAreaFraction;
+		const passive = containsPassiveId(root, pkg, rule.passiveIds) && area(root) / screenArea <= rule.maxAreaFraction;
+		return !passive;
 	});
 
 	// a dump made only of overlays (nothing else is on screen) is better shown than hidden

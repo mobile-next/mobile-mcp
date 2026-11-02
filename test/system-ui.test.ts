@@ -86,6 +86,32 @@ test("keeps windows of unknown packages, such as the keyboard and permission dia
 	expect(kept).toEqual([keyboard, permissionDialog, settingsWindow]);
 });
 
+test("keeps a small systemui window that is not the status bar, such as the volume dialog", () => {
+	const volumeDialog: UINode = {
+		identifier: "com.android.systemui:id/volume_dialog",
+		rect: rect(960, 600, 100, 700),
+		children: [{ identifier: "com.android.systemui:id/volume_row_slider", rect: rect(980, 640, 60, 600) }],
+	};
+
+	const kept = dropPassiveOverlays([statusBar, volumeDialog, settingsWindow]);
+	expect(kept).toEqual([volumeDialog, settingsWindow]);
+});
+
+test("keeps the one hand operation + settings screen next to its own gesture handles", () => {
+	const oneHandSettings: UINode = {
+		identifier: "com.samsung.android.sidegesturepad:id/settings_container",
+		rect: rect(0, 0, 1080, 2340),
+		children: [{ identifier: "com.samsung.android.sidegesturepad:id/main_switch", rect: rect(40, 300, 1000, 120) }],
+	};
+	const keyboard: UINode = {
+		identifier: "com.google.android.inputmethod.latin:id/keyboard_area",
+		rect: rect(0, 1500, 1080, 840),
+	};
+
+	const kept = dropPassiveOverlays([gestureHandle, oneHandSettings, keyboard]);
+	expect(kept).toEqual([oneHandSettings, keyboard]);
+});
+
 test("keeps windows that carry no package, as on ios", () => {
 	const iosWindow: UINode = {
 		identifier: "main window",

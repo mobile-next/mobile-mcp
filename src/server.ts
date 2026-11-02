@@ -803,7 +803,7 @@ export const createMcpServer = (): McpServer => {
 		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen or mobile_long_press_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs. text and json leave out passive system overlays such as the status bar and gesture handles; use raw to see them"),
+			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs. On Android with the default mobilecli robot (not MOBILEMCP_LEGACY_ROBOT), text and json leave out passive system overlays such as the status bar and gesture handles; use raw to see them"),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
 		async ({ device, format }) => {
