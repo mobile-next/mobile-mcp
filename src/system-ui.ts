@@ -33,6 +33,9 @@ interface OverlayRule {
 	passiveIds: string[];
 	// and the window must be at most this fraction of the largest window's area
 	maxAreaFraction: number;
+	// resource ids of controls that make the window worth keeping after all,
+	// such as the ongoing-call chip that the status bar can carry
+	actionableIds?: string[];
 }
 
 const OVERLAY_RULES: Record<string, OverlayRule> = {
@@ -41,6 +44,9 @@ const OVERLAY_RULES: Record<string, OverlayRule> = {
 	"com.android.systemui": {
 		passiveIds: ["status_bar_launch_animation_container", "status_bar_container", "status_bar"],
 		maxAreaFraction: 0.10,
+		// tappable status bar chips, from aosp SystemUI status_bar.xml: the call chip
+		// up to android 14, the activity chips after it, and the user switcher chip
+		actionableIds: ["ongoing_call_chip", "ongoing_activity_chip_primary", "ongoing_activity_chip_secondary", "user_switcher_container"],
 	},
 	// samsung "one hand operation+" draws two invisible full-height handles;
 	// its own settings screen has none of these ids
@@ -100,8 +106,8 @@ export const inferWindowPackage = (root: UINode): string | undefined => {
 	return best;
 };
 
-const containsPassiveId = (root: UINode, pkg: string, passiveIds: string[]): boolean => {
-	const wanted = new Set(passiveIds.map(id => `${pkg}:id/${id}`));
+const containsAnyId = (root: UINode, pkg: string, ids: string[]): boolean => {
+	const wanted = new Set(ids.map(id => `${pkg}:id/${id}`));
 	let found = false;
 	walk(root, node => {
 		if (node.identifier && wanted.has(node.identifier)) {
@@ -130,7 +136,9 @@ export const dropPassiveOverlays = <T extends UINode>(roots: T[]): T[] => {
 			return true;
 		}
 
-		const passive = containsPassiveId(root, pkg, rule.passiveIds) && area(root) / screenArea <= rule.maxAreaFraction;
+		const passive = containsAnyId(root, pkg, rule.passiveIds)
+			&& area(root) / screenArea <= rule.maxAreaFraction
+			&& !containsAnyId(root, pkg, rule.actionableIds ?? []);
 		return !passive;
 	});
 

@@ -86,6 +86,18 @@ test("keeps windows of unknown packages, such as the keyboard and permission dia
 	expect(kept).toEqual([keyboard, permissionDialog, settingsWindow]);
 });
 
+test("keeps the status bar while it carries a tappable chip, such as an ongoing call", () => {
+	const callChip: UINode = { identifier: "com.android.systemui:id/ongoing_call_chip", rect: rect(340, 17, 160, 68) };
+	const statusBarWithCall: UINode = { ...statusBar, children: [...statusBar.children!, callChip] };
+	const statusBarWithActivityChip: UINode = {
+		...statusBar,
+		children: [...statusBar.children!, { identifier: "com.android.systemui:id/ongoing_activity_chip_primary", rect: rect(340, 17, 160, 68) }],
+	};
+
+	expect(dropPassiveOverlays([statusBarWithCall, settingsWindow])).toEqual([statusBarWithCall, settingsWindow]);
+	expect(dropPassiveOverlays([statusBarWithActivityChip, settingsWindow])).toEqual([statusBarWithActivityChip, settingsWindow]);
+});
+
 test("keeps a small systemui window that is not the status bar, such as the volume dialog", () => {
 	const volumeDialog: UINode = {
 		identifier: "com.android.systemui:id/volume_dialog",
