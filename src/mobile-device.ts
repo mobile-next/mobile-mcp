@@ -323,6 +323,11 @@ export class MobileDevice implements Robot {
 			throw new ActionableError("No raw UI hierarchy was returned for this device. Its screen may be off or locked, or the installed mobilecli version may not support raw UI dumps");
 		}
 
+		// mobilecli returns android rawData as a json string, ios as an object
+		if (typeof rawData === "string") {
+			return JSON.parse(rawData);
+		}
+
 		return rawData;
 	}
 
