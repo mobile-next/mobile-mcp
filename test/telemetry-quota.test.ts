@@ -65,6 +65,13 @@ test("a corrupt quota file starts a fresh day", () => {
 	expect(countSentEvents("launch", undefined, 2, quotaFile, MONDAY)).toBe(1);
 });
 
+test("a quota file with an invalid count starts a fresh day", () => {
+	const quotaFile = freshQuotaFile();
+	fs.mkdirSync(path.dirname(quotaFile), { recursive: true });
+	fs.writeFileSync(quotaFile, JSON.stringify({ day: "2026-11-02", counts: { launch: "x", tool_failed: -5 } }));
+	expect(countSentEvents("launch", undefined, 3, quotaFile, MONDAY)).toBe(1);
+});
+
 test("a planted link is replaced, not written through", () => {
 	const quotaFile = freshQuotaFile();
 	const victim = path.join(path.dirname(path.dirname(quotaFile)), "victim.txt");

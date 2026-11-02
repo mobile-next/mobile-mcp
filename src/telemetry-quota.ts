@@ -24,10 +24,18 @@ const defaultQuotaPath = (): string => path.join(stateDir(), "mobile-mcp-telemet
 
 const today = (now: Date): string => now.toISOString().slice(0, 10);
 
+const isValidCounts = (counts: unknown): boolean => {
+	if (typeof counts !== "object" || counts === null || Array.isArray(counts)) {
+		return false;
+	}
+
+	return Object.values(counts).every(count => Number.isInteger(count) && count >= 0);
+};
+
 const readState = (statePath: string, day: string): QuotaState => {
 	try {
 		const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-		if (state?.day === day && typeof state.counts === "object" && state.counts !== null) {
+		if (state?.day === day && isValidCounts(state.counts)) {
 			return state;
 		}
 
