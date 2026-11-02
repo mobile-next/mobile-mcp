@@ -1,3 +1,11 @@
+## [1.0.16](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.16) (2026-11-02)
+* Feat: `mobile_list_elements_on_screen` accepts `format: "raw"` to return the unfiltered platform UI hierarchy, including parent nodes and values the compact output drops ([#548](https://github.com/mobile-next/mobile-mcp/pull/548)), thanks to [@ProgramComputer](https://github.com/ProgramComputer)
+* Chore: Telemetry events are capped per user per day ([#547](https://github.com/mobile-next/mobile-mcp/pull/547))
+* Chore: Upgrade `mobilewright` to 0.0.68, which brings mobilecli 1.0.22 ([#546](https://github.com/mobile-next/mobile-mcp/pull/546))
+* Fix: Flutter UI dumps no longer fail when `Offset.zero` expires mid-dump ([mobilecli#546](https://github.com/mobile-next/mobilecli/pull/546)), thanks to [@aluedeke](https://github.com/aluedeke)
+* Perf: iOS Simulator UI dumps are faster, skipping simctl and a deep snapshot before each dump ([mobilecli#523](https://github.com/mobile-next/mobilecli/pull/523)), thanks to [@avilashp-sportsbet](https://github.com/avilashp-sportsbet)
+* Fix: Android in-app agent is built for x86_64 too, so x86 emulators work ([mobilecli#547](https://github.com/mobile-next/mobilecli/pull/547)), thanks to [@aluedeke](https://github.com/aluedeke)
+
 ## [1.0.15](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.15) (2026-10-30)
 * Feat: `mobile_clear_app_data` clears an app's data on Android and iOS Simulator ([#524](https://github.com/mobile-next/mobile-mcp/pull/524))
 * Fix: `mobile_save_screenshot` and `mobile_get_device_logs` replace the output file by rename, so a hard link at `saveTo` is never written through ([#533](https://github.com/mobile-next/mobile-mcp/pull/533)), thanks to [@Daniel-GrunbergerCA](https://github.com/Daniel-GrunbergerCA)
