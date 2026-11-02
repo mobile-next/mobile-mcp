@@ -31,7 +31,7 @@ interface UiAutomatorXml {
 }
 
 const getAdbPath = (): string => {
-	const exeName = process.env.platform === "win32" ? "adb.exe" : "adb";
+	const exeName = process.platform === "win32" ? "adb.exe" : "adb";
 	if (process.env.ANDROID_HOME) {
 		return path.join(process.env.ANDROID_HOME, "platform-tools", exeName);
 	}
