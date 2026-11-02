@@ -17,6 +17,7 @@ import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
+import { shouldSendEvent } from "./telemetry-quota";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
@@ -177,6 +178,11 @@ export const createMcpServer = (): McpServer => {
 
 	const posthog = async (event: string, properties: Record<string, string | number>) => {
 		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+			return;
+		}
+
+		const toolName = typeof properties.ToolName === "string" ? properties.ToolName : undefined;
+		if (!shouldSendEvent(event, toolName)) {
 			return;
 		}
 
