@@ -281,4 +281,41 @@ test.describe("MobileDevice", () => {
 			await expect(pending).rejects.toThrow("no such device");
 		});
 	});
+	test.describe("passive overlay filtering", () => {
+
+		const dump = JSON.stringify({
+			status: "ok",
+			data: {
+				elements: [
+					{
+						type: "FrameLayout",
+						identifier: "com.android.systemui:id/status_bar",
+						rect: { x: 0, y: 0, width: 1080, height: 96 },
+					},
+					{
+						type: "FrameLayout",
+						identifier: "com.example.app:id/root",
+						rect: { x: 0, y: 0, width: 1080, height: 2340 },
+						children: [{ ref: "@e2", type: "Button", identifier: "com.example.app:id/ok", rect: { x: 100, y: 100, width: 200, height: 100 } }],
+					},
+				],
+			},
+		});
+
+		const deviceOn = (platform?: string): MobileDevice => {
+			const device = new MobileDevice("test-device", platform);
+			(device as any).mobilecli.executeCommand = (): string => dump;
+			return device;
+		};
+
+		test("drops the status bar window on android", async () => {
+			const identifiers = (await deviceOn("android").getElementsOnScreen()).map(element => element.identifier);
+			expect(identifiers).toEqual(["com.example.app:id/root", "com.example.app:id/ok"]);
+		});
+
+		test("leaves ios and unknown platforms untouched, whatever the identifiers look like", async () => {
+			expect(await deviceOn("ios").getElementsOnScreen()).toHaveLength(3);
+			expect(await deviceOn().getElementsOnScreen()).toHaveLength(3);
+		});
+	});
 });
