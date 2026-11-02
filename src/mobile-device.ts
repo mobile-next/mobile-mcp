@@ -1,4 +1,5 @@
 import { Mobilecli } from "./mobilecli";
+import { dropPassiveOverlays } from "./system-ui";
 import { ActionableError, Button, FoldPosture, ForegroundApp, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
@@ -312,7 +313,11 @@ export class MobileDevice implements Robot {
 			throw new ActionableError("No UI hierarchy was returned for this device - its screen is most likely off or locked. Wake it up (for example with mobile_press_button using HOME, or POWER when that is supported) and try again");
 		}
 
-		return elements.flatMap(element => flattenUIElement(element));
+		// each top-level element is a window; passive system overlays (status bar,
+
+		// gesture handles) are dropped as whole windows so refs inside the app stay intact
+
+		return dropPassiveOverlays(elements).flatMap(element => flattenUIElement(element));
 	}
 
 	public async getRawUIHierarchy(): Promise<unknown> {
