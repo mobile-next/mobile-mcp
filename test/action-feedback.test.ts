@@ -6,6 +6,7 @@ import {
 	classifyChange,
 	DEFAULT_FEEDBACK_SETTINGS,
 	diffElements,
+	FEEDBACK_READ_TIMEOUT_MS,
 	elementAt,
 	feedbackSettingsFromEnv,
 	formatReport,
@@ -237,6 +238,16 @@ test.describe("buildReport and formatReport", () => {
 		expect(report.typing?.status).toBe("hidden");
 	});
 
+	test("typing with submit does not call a vanished field a failure", () => {
+		const home = [title, doneButton];
+		const submitted = formatReport(buildReport({ kind: "typing", text: "me@example.com", submitted: true }, { elements: form }, { elements: home }, settled));
+		expect(submitted).toContain("text was submitted with ENTER");
+		expect(submitted).not.toContain("may not have reached a field");
+
+		const notSubmitted = formatReport(buildReport({ kind: "typing", text: "me@example.com" }, { elements: form }, { elements: home }, settled));
+		expect(notSubmitted).toContain("may not have reached a field");
+	});
+
 	test("caps the diff and points to the full list", () => {
 		const rows = Array.from({ length: 20 }, (_, i) => element("android.widget.TextView", 0, i * 100, 1080, 100, { text: `Result ${i}` }));
 		const text = formatReport(buildReport({ kind: "none" }, { elements: [title] }, { elements: [title, ...rows] }, settled), 5);
@@ -318,6 +329,34 @@ test.describe("runWithFeedback", () => {
 		const text = await runWithFeedback(robot, { kind: "none" }, async () => "Pressed the button: LOCK", DEFAULT_FEEDBACK_SETTINGS, fakeClock());
 
 		expect(text).toBe("Pressed the button: LOCK\nScreen: could not be read after the action (screen is locked)");
+	});
+
+	test("bounds every screen read with a timeout", async () => {
+		const timeouts: Array<number | undefined> = [];
+		const robot: FeedbackRobot = { getElementsOnScreen: async (timeoutMs?: number) => {
+			timeouts.push(timeoutMs);
+			return form;
+		} };
+
+		await runWithFeedback(robot, { kind: "none" }, async () => "Pressed the button: HOME", DEFAULT_FEEDBACK_SETTINGS, fakeClock());
+
+		expect(timeouts.length).toBeGreaterThanOrEqual(3);
+		expect(timeouts.every(timeoutMs => timeoutMs === FEEDBACK_READ_TIMEOUT_MS)).toBe(true);
+	});
+
+	test("keeps the action's result when the screen read times out", async () => {
+		let reads = 0;
+		const robot: FeedbackRobot = { getElementsOnScreen: async () => {
+			if (reads++ > 0) {
+				throw new Error("spawnSync mobilecli ETIMEDOUT");
+			}
+
+			return form;
+		} };
+
+		const text = await runWithFeedback(robot, { kind: "none" }, async () => "Tapped", DEFAULT_FEEDBACK_SETTINGS, fakeClock());
+
+		expect(text).toBe("Tapped\nScreen: could not be read after the action (spawnSync mobilecli ETIMEDOUT)");
 	});
 
 	test("propagates a failing action unchanged", async () => {
