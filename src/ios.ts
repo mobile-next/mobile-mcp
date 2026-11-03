@@ -123,6 +123,11 @@ export class IosRobot implements Robot {
 		await wda.swipeFromCoordinate(x, y, direction, distance);
 	}
 
+	public async drag(fromX: number, fromY: number, toX: number, toY: number, duration: number): Promise<void> {
+		const wda = await this.wda();
+		await wda.drag(fromX, fromY, toX, toY, duration);
+	}
+
 	public async listApps(): Promise<InstalledApp[]> {
 		await this.assertTunnelRunning();
 
