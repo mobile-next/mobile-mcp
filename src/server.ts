@@ -100,8 +100,12 @@ from the hierarchy, or to judge visual appearance.
 Taps, swipes, typing, button presses, mobile_launch_app and mobile_open_url wait
 for the screen to settle and report what changed: nothing, new content, a new
 screen, a dialog, or a scroll, plus what received the touch, the typed field's
-value, and a short diff of elements with fresh refs. Act on that report instead
-of re-listing or taking a screenshot after every action.
+value, and a short diff of elements with fresh refs. When a report is present,
+act on it instead of re-listing or taking a screenshot after every action. Calls
+made with feedback false, steps of mobile_batch_commands (unless they pass
+feedback true), and servers started with MOBILEMCP_ACTION_FEEDBACK=0 return no
+report, so check the screen with mobile_list_elements_on_screen before relying
+on the result.
 
 Each call is a device round-trip. Group known sequences (tap, type, tap) into
 mobile_batch_commands instead of issuing them one at a time.
@@ -955,7 +959,7 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 		async ({ device, text, submit, feedback }) => {
 			const robot = getRobotFromDevice(device);
-			return withFeedback(robot, feedback, { kind: "typing", text }, async () => {
+			return withFeedback(robot, feedback, { kind: "typing", text, submitted: submit === true }, async () => {
 				await robot.sendKeys(text);
 
 				if (submit) {
