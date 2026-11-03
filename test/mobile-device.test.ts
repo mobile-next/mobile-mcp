@@ -176,6 +176,19 @@ test.describe("MobileDevice", () => {
 			expect(app).toEqual({ appName: "com.example.app", packageName: "com.example.app" });
 		});
 
+		test("getForegroundApp passes its timeout to mobilecli", async () => {
+			const device = new MobileDevice("test-device");
+			let seen: number | undefined;
+			(device as any).mobilecli.executeCommand = function(_args: string[], timeoutMs?: number): string {
+				seen = timeoutMs;
+				return JSON.stringify({ status: "ok", data: { packageName: "com.example.app" } });
+			};
+
+			await device.getForegroundApp(4321);
+
+			expect(seen).toBe(4321);
+		});
+
 		test("getForegroundApp should include the focused activity reported by mobilecli", async () => {
 			const { device } = createMockMobileDevice(JSON.stringify({ status: "ok", data: { packageName: "com.android.settings", appName: "Settings", activity: "com.android.settings.SubSettings" } }));
 			const app = await device.getForegroundApp();

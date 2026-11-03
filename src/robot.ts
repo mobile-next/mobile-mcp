@@ -97,7 +97,7 @@ export interface Robot {
 	/**
 	 * Get the app currently in the foreground. Optional, not all robots support it.
 	 */
-	getForegroundApp?(): Promise<ForegroundApp>;
+	getForegroundApp?(timeoutMs?: number): Promise<ForegroundApp>;
 
 	/**
 	 * Clear an app's data and stop it, so the next launch starts fresh. Optional, not all robots support it.

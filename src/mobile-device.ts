@@ -217,8 +217,8 @@ export class MobileDevice implements Robot {
 		})) as InstalledApp[];
 	}
 
-	public async getForegroundApp(): Promise<ForegroundApp> {
-		const response = this.runJsonCommand<ForegroundAppResponse>(["apps", "foreground"]);
+	public async getForegroundApp(timeoutMs?: number): Promise<ForegroundApp> {
+		const response = this.runJsonCommand<ForegroundAppResponse>(["apps", "foreground"], timeoutMs);
 		const app: ForegroundApp = {
 			appName: response.data.appName || response.data.packageName,
 			packageName: response.data.packageName,
