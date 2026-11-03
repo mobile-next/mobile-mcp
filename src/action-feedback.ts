@@ -44,11 +44,14 @@ export const feedbackSettingsFromEnv = (env: NodeJS.ProcessEnv): FeedbackSetting
 export type ActionTarget =
 	| { kind: "point"; x: number; y: number }
 	| { kind: "ref"; ref: string }
-	| { kind: "typing"; text: string }
+	| { kind: "typing"; text: string; submitted?: boolean }
 	| { kind: "none" };
 
+// a stalled "dump ui" must not hold the server (reads are synchronous), so every feedback read is bounded
+export const FEEDBACK_READ_TIMEOUT_MS = 10000;
+
 export interface FeedbackRobot {
-	getElementsOnScreen(): Promise<ScreenElement[]>;
+	getElementsOnScreen(timeoutMs?: number): Promise<ScreenElement[]>;
 	getForegroundApp?(): Promise<ForegroundApp>;
 }
 
@@ -414,7 +417,7 @@ export interface FeedbackReport {
 	elapsedMs: number;
 	foregroundApp?: ForegroundApp;
 	touch?: { element?: ScreenElement; aimed?: ScreenElement; x: number; y: number };
-	typing?: TypingCheck & { typed: string };
+	typing?: TypingCheck & { typed: string; submitted?: boolean };
 	diff: ElementDiff;
 }
 
@@ -448,7 +451,7 @@ export const buildReport = (target: ActionTarget, before: ScreenState, after: Sc
 			}
 		}
 	} else if (target.kind === "typing") {
-		report.typing = { ...checkTypedText(diff, after.elements, target.text), typed: target.text };
+		report.typing = { ...checkTypedText(diff, after.elements, target.text), typed: target.text, submitted: target.submitted };
 	}
 
 	return report;
@@ -549,8 +552,11 @@ export const formatReport = (report: FeedbackReport, maxDiffLines: number = DEFA
 	}
 
 	if (report.typing) {
-		const { status, field, value, typed } = report.typing;
-		if (status === "no_field") {
+		const { status, field, value, typed, submitted } = report.typing;
+		if (status === "no_field" && submitted) {
+			// ENTER often leaves the form, so a missing field afterwards says nothing about the typing
+			lines.push("Field: text was submitted with ENTER, the field is no longer on screen to check what was typed");
+		} else if (status === "no_field") {
 			lines.push("Field: no text field is focused or changed, the text may not have reached a field");
 		} else if (status === "hidden") {
 			lines.push(`Field: ${shortName(field!, true)} hides its value, cannot check what was typed`);
@@ -613,7 +619,7 @@ export const runWithFeedback = async (robot: FeedbackRobot, target: ActionTarget
 	try {
 		// safe for ref targets: mobilecli resolves "@eN" against a fresh dump of its own when the
 		// tap or long press runs, so this read does not change which element a ref points to
-		before = { elements: await robot.getElementsOnScreen(), app: await readForegroundApp(robot) };
+		before = { elements: await robot.getElementsOnScreen(FEEDBACK_READ_TIMEOUT_MS), app: await readForegroundApp(robot) };
 	} catch {
 		before = null;
 	}
@@ -624,7 +630,7 @@ export const runWithFeedback = async (robot: FeedbackRobot, target: ActionTarget
 	}
 
 	try {
-		const settle = await waitForSettle(() => robot.getElementsOnScreen(), settings, clock);
+		const settle = await waitForSettle(() => robot.getElementsOnScreen(FEEDBACK_READ_TIMEOUT_MS), settings, clock);
 		const after: ScreenState = { elements: settle.elements, app: await readForegroundApp(robot) };
 		const report = buildReport(target, before, after, settle);
 		return `${result}\n${formatReport(report, settings.maxDiffLines)}`;
