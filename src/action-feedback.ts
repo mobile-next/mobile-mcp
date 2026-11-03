@@ -52,7 +52,7 @@ export const FEEDBACK_READ_TIMEOUT_MS = 10000;
 
 export interface FeedbackRobot {
 	getElementsOnScreen(timeoutMs?: number): Promise<ScreenElement[]>;
-	getForegroundApp?(): Promise<ForegroundApp>;
+	getForegroundApp?(timeoutMs?: number): Promise<ForegroundApp>;
 }
 
 export interface SettleClock {
@@ -603,7 +603,7 @@ const readForegroundApp = async (robot: FeedbackRobot): Promise<ForegroundApp | 
 	}
 
 	try {
-		return await robot.getForegroundApp();
+		return await robot.getForegroundApp(FEEDBACK_READ_TIMEOUT_MS);
 	} catch {
 		return undefined;
 	}
