@@ -67,17 +67,17 @@ export class IosRobot implements Robot {
 		return await this.isListeningOnPort(WDA_PORT);
 	}
 
-	private async assertTunnelRunning(): Promise<void> {
-		if (await this.isTunnelRequired()) {
+	private async assertTunnelRunning(timeoutMs?: number): Promise<void> {
+		if (await this.isTunnelRequired(timeoutMs)) {
 			if (!(await this.isTunnelRunning())) {
 				throw new ActionableError("iOS tunnel is not running, please see https://github.com/mobile-next/mobile-mcp/wiki/");
 			}
 		}
 	}
 
-	private async wda(): Promise<WebDriverAgent> {
+	private async wda(timeoutMs?: number): Promise<WebDriverAgent> {
 
-		await this.assertTunnelRunning();
+		await this.assertTunnelRunning(timeoutMs);
 
 		if (!(await this.isWdaForwardRunning())) {
 			throw new ActionableError("Port forwarding to WebDriverAgent is not running (tunnel okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
@@ -85,7 +85,7 @@ export class IosRobot implements Robot {
 
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
 
-		if (!(await wda.isRunning())) {
+		if (!(await wda.isRunning(timeoutMs))) {
 			throw new ActionableError("WebDriverAgent is not running on device (tunnel okay, port forwarding okay), please see https://github.com/mobile-next/mobile-mcp/wiki/");
 		}
 
@@ -96,14 +96,18 @@ export class IosRobot implements Robot {
 		return execFileSync(getGoIosPath(), ["--udid", this.deviceId, ...args], {}).toString();
 	}
 
-	public async getIosVersion(): Promise<string> {
-		const output = await this.ios("info");
+	private async iosWithTimeout(timeoutMs: number | undefined, ...args: string[]): Promise<string> {
+		return execFileSync(getGoIosPath(), ["--udid", this.deviceId, ...args], timeoutMs !== undefined ? { timeout: timeoutMs } : {}).toString();
+	}
+
+	public async getIosVersion(timeoutMs?: number): Promise<string> {
+		const output = await this.iosWithTimeout(timeoutMs, "info");
 		const json = JSON.parse(output);
 		return json.ProductVersion;
 	}
 
-	private async isTunnelRequired(): Promise<boolean> {
-		const version = await this.getIosVersion();
+	private async isTunnelRequired(timeoutMs?: number): Promise<boolean> {
+		const version = await this.getIosVersion(timeoutMs);
 		const args = version.split(".");
 		return parseInt(args[0], 10) >= 17;
 	}
@@ -212,9 +216,9 @@ export class IosRobot implements Robot {
 		await wda.longPress(x, y, duration);
 	}
 
-	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const wda = await this.wda();
-		return await wda.getElementsOnScreen();
+	public async getElementsOnScreen(timeoutMs?: number): Promise<ScreenElement[]> {
+		const wda = await this.wda(timeoutMs);
+		return await wda.getElementsOnScreen(timeoutMs);
 	}
 
 	public async getScreenshot(): Promise<Buffer> {
