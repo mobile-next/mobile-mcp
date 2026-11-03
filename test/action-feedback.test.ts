@@ -344,6 +344,22 @@ test.describe("runWithFeedback", () => {
 		expect(timeouts.every(timeoutMs => timeoutMs === FEEDBACK_READ_TIMEOUT_MS)).toBe(true);
 	});
 
+	test("bounds every foreground app read with a timeout", async () => {
+		const timeouts: Array<number | undefined> = [];
+		const robot: FeedbackRobot = {
+			getElementsOnScreen: async () => form,
+			getForegroundApp: async (timeoutMs?: number) => {
+				timeouts.push(timeoutMs);
+				return { appName: "Settings", packageName: "com.android.settings" };
+			},
+		};
+
+		await runWithFeedback(robot, { kind: "none" }, async () => "Pressed the button: HOME", DEFAULT_FEEDBACK_SETTINGS, fakeClock());
+
+		expect(timeouts.length).toBe(2);
+		expect(timeouts.every(timeoutMs => timeoutMs === FEEDBACK_READ_TIMEOUT_MS)).toBe(true);
+	});
+
 	test("keeps the action's result when the screen read times out", async () => {
 		let reads = 0;
 		const robot: FeedbackRobot = { getElementsOnScreen: async () => {
