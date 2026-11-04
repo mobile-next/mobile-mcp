@@ -546,6 +546,11 @@ Gmail to contacts "team@example.com".
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
+| `MOBILEMCP_SYSTEMONE_MODEL` | System One decision model (`choice`/`score`/`noul` via `/v1/systemone`, e.g. Kev or RUNE) used with the UI hierarchy for screen classification and element ranking. | `MOBILEMCP_SYSTEMONE_MODEL=kev:4b-q4_K_M` |
+| `MOBILEMCP_OLLAMA_URL` | Base URL for the local Ollama server exposing `/v1/systemone`. | `MOBILEMCP_OLLAMA_URL=http://127.0.0.1:11434` |
+| `MOBILEMCP_SYSTEMONE_URL` | Base URL for hosted System One decision models (`saas-*`). | `MOBILEMCP_SYSTEMONE_URL=https://api.systemone.ai` |
+| `MOBILEMCP_SYSTEMONE_API_KEY` | Bearer API key for hosted System One decision models (`saas-*`). | `MOBILEMCP_SYSTEMONE_API_KEY=sk-...` |
+| `MOBILEMCP_SCREENSHOT_MODE` | Set to `image` to force `mobile_take_screenshot` to always return raw base64 images instead of System One + UI hierarchy snapshots. | `MOBILEMCP_SCREENSHOT_MODE=image` |
 
 ### Simulators, Emulators, and Real Devices
 
