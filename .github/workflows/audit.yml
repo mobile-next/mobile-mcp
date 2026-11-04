@@ -1,0 +1,34 @@
+name: Audit
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
+
+    - name: Use Node.js 24
+      uses: actions/setup-node@v5
+      with:
+        node-version: '24'
+
+    - name: Audit
+      run: npm audit --audit-level high --omit dev

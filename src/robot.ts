@@ -100,6 +100,11 @@ export interface Robot {
 	getForegroundApp?(): Promise<ForegroundApp>;
 
 	/**
+	 * Clear an app's data and stop it, so the next launch starts fresh. Optional, not all robots support it.
+	 */
+	clearAppData?(packageName: string): Promise<void>;
+
+	/**
 	 * Override the GPS location reported by the device. Optional, not all robots support it.
 	 */
 	setLocation?(latitude: number, longitude: number): Promise<void>;
@@ -206,6 +211,11 @@ export interface Robot {
 	 * return a filtered list of elements that make sense to interact with.
 	 */
 	getElementsOnScreen(): Promise<ScreenElement[]>;
+
+	/**
+	 * Get the unfiltered, platform-specific UI hierarchy. mobilecli only.
+	 */
+	getRawUIHierarchy?(): Promise<unknown>;
 
 	/**
 	 * Change the screen orientation of the device.

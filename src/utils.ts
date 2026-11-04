@@ -1,6 +1,7 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { randomBytes } from "node:crypto";
 import { ActionableError } from "./robot";
 
 export function validatePackageName(packageName: string): void {
@@ -161,17 +162,30 @@ export function validateOutputPath(filePath: string): void {
 	}
 }
 
-// O_NOFOLLOW makes the open itself refuse a symlink at the final component, so a
-// link planted after validateOutputPath cannot redirect the write.
-// ponytail: windows has no O_NOFOLLOW, there we rely on validateOutputPath alone
-const WRITE_NO_FOLLOW_FLAGS = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | (fs.constants.O_NOFOLLOW ?? 0);
+// a sibling of `to` with an unguessable name, created with O_EXCL ("wx"), so a
+// file or link planted there makes the write fail instead of redirecting it
+function partialPathFor(to: string): string {
+	return path.join(path.dirname(to), `.${path.basename(to)}.${randomBytes(8).toString("hex")}.partial`);
+}
 
+// write next to `filePath` and rename over it: rename replaces whatever sits at
+// `filePath` (a symlink, a hard link, a regular file) instead of writing through
+// it, so a link can never point the write at another file
 export function writeOutputFile(filePath: string, data: string | Buffer): void {
-	const fd = fs.openSync(filePath, WRITE_NO_FOLLOW_FLAGS);
+	const partial = partialPathFor(filePath);
+	const existing = fs.lstatSync(filePath, { throwIfNoEntry: false });
 	try {
-		fs.writeFileSync(fd, data);
-	} finally {
-		fs.closeSync(fd);
+		// 0600 while half-written; a link at `filePath` is replaced, so only a
+		// regular file there passes its mode on to the new file
+		fs.writeFileSync(partial, data, { flag: "wx", mode: 0o600 });
+		if (existing?.isFile()) {
+			fs.chmodSync(partial, existing.mode & 0o777);
+		}
+
+		fs.renameSync(partial, filePath);
+	} catch (error) {
+		fs.rmSync(partial, { force: true });
+		throw error;
 	}
 }
 
@@ -196,7 +210,7 @@ export function moveOutputFile(from: string, to: string): void {
 
 	}
 
-	const partial = path.join(path.dirname(to), `.${path.basename(to)}.${process.pid}-${Date.now()}.partial`);
+	const partial = partialPathFor(to);
 	try {
 		fs.copyFileSync(from, partial, fs.constants.COPYFILE_EXCL);
 		fs.renameSync(partial, to);

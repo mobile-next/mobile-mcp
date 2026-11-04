@@ -119,6 +119,7 @@ How we help to scale mobile automation:
 - **`mobile_terminate_app`** - Stop and terminate a running app
 - **`mobile_install_app`** - Install an app from file (.apk, .ipa, .app, .zip)
 - **`mobile_uninstall_app`** - Uninstall an app by its package name or bundle ID
+- **`mobile_clear_app_data`** - Clear an app's data so it starts fresh (Android and iOS Simulator)
 
 ### Screen Interaction
 - **`mobile_take_screenshot`** - Take a screenshot to understand what's on screen
@@ -430,7 +431,7 @@ test('sign in', async ({ screen }) => {
 });
 ```
 
-Start with `npm init mobilewright@latest`.
+Start with `npm init mobilewright@latest`. The [step-by-step guide](docs/mobilewright-ci.md) goes from an agent session to a test running in GitHub Actions.
 
 ### ☁️ Scale up, use a cloud device
 

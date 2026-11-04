@@ -18,6 +18,7 @@ import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
+import { shouldSendEvent } from "./telemetry-quota";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
@@ -179,6 +180,11 @@ export const createMcpServer = (): McpServer => {
 
 	const posthog = async (event: string, properties: Record<string, string | number>) => {
 		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+			return;
+		}
+
+		const toolName = typeof properties.ToolName === "string" ? properties.ToolName : undefined;
+		if (!shouldSendEvent(event, toolName)) {
 			return;
 		}
 
@@ -655,6 +661,26 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_clear_app_data",
+		"Clear App Data",
+		"Clear an app's data, such as its cache, documents, preferences and databases, and stop the app, so the next launch starts as if freshly installed. The app stays installed. Supported on Android devices and emulators and on iOS simulators, not on real iOS devices.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			packageName: z.string().describe("The package name (Android) or bundle id (iOS) of the app to clear"),
+		},
+		{ readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+		async ({ device, packageName }) => {
+			const robot = getRobotFromDevice(device);
+			if (!robot.clearAppData) {
+				throw new ActionableError("Clearing app data is not supported in legacy robot mode");
+			}
+
+			await robot.clearAppData(packageName);
+			return `Cleared app data for ${packageName}`;
+		}
+	);
+
+	tool(
 		"mobile_install_app",
 		"Install App",
 		"Install an app on mobile device",
@@ -807,11 +833,18 @@ export const createMcpServer = (): McpServer => {
 		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen or mobile_long_press_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			format: z.enum(["text", "json"]).optional().describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array"),
+			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs"),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
-		async ({ device, format = "text" }) => {
+		async ({ device, format }) => {
 			const robot = getRobotFromDevice(device);
+			if (format === "raw") {
+				if (!robot.getRawUIHierarchy) {
+					throw new ActionableError("Raw UI hierarchy is not supported in legacy robot mode");
+				}
+				return JSON.stringify(await robot.getRawUIHierarchy());
+			}
+
 			const elements = await robot.getElementsOnScreen();
 			return formatElements(elements, format);
 		}
