@@ -213,6 +213,11 @@ export interface Robot {
 	getElementsOnScreen(): Promise<ScreenElement[]>;
 
 	/**
+	 * Get the unfiltered, platform-specific UI hierarchy. mobilecli only.
+	 */
+	getRawUIHierarchy?(): Promise<unknown>;
+
+	/**
 	 * Change the screen orientation of the device.
 	 * @param orientation The desired orientation ("portrait" or "landscape")
 	 */

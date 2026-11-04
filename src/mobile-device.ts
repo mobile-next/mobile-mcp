@@ -56,6 +56,7 @@ interface DumpUIResponse {
 	// device screen is off or locked, so neither level can be relied on.
 	data?: {
 		elements?: UIElementResponse[];
+		rawData?: unknown;
 	};
 }
 
@@ -312,6 +313,22 @@ export class MobileDevice implements Robot {
 		}
 
 		return elements.flatMap(element => flattenUIElement(element));
+	}
+
+	public async getRawUIHierarchy(): Promise<unknown> {
+		const response = this.runJsonCommand<DumpUIResponse>(["dump", "ui", "--format", "raw", "--full"]);
+		const rawData = response.data?.rawData;
+
+		if (rawData === undefined || rawData === null) {
+			throw new ActionableError("No raw UI hierarchy was returned for this device. Its screen may be off or locked, or the installed mobilecli version may not support raw UI dumps");
+		}
+
+		// mobilecli returns android rawData as a json string, ios as an object
+		if (typeof rawData === "string") {
+			return JSON.parse(rawData);
+		}
+
+		return rawData;
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {

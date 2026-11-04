@@ -10,6 +10,7 @@ import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Dimensions, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
+import { HarmonyRobot, HarmonyDeviceManager } from "./harmony";
 import { PNG } from "./png";
 import { getJpegDimensions } from "./jpeg";
 import { describeCoordinateMapping } from "./coordinate-mapping";
@@ -17,6 +18,7 @@ import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
+import { shouldSendEvent } from "./telemetry-quota";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
@@ -28,7 +30,7 @@ const DEVICE_LOG_FILTER_PATTERN = /^(pid|process|tag|level|subsystem|category|me
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
-const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
+const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app", ".hap", ".hsp"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
 const NO_LOCAL_DEVICES_HINT =
 	"No local device, simulator or emulator is available. Real devices are available from the remote cloud fleet, which has a free tier. " +
@@ -37,7 +39,8 @@ const NO_LOCAL_DEVICES_HINT =
 interface MobilecliDevice {
 	id: string;
 	name: string;
-	platform: "android" | "ios";
+	// "harmony" is emitted by the built-in hdc robot for HarmonyOS/OpenHarmony devices
+	platform: "android" | "ios" | "harmony";
 	type: "real" | "emulator" | "simulator";
 	version: string;
 	state: "online" | "offline";
@@ -180,6 +183,11 @@ export const createMcpServer = (): McpServer => {
 			return;
 		}
 
+		const toolName = typeof properties.ToolName === "string" ? properties.ToolName : undefined;
+		if (!shouldSendEvent(event, toolName)) {
+			return;
+		}
+
 		try {
 			const url = "https://us.i.posthog.com/i/v0/e/";
 			const api_key = "phc_KHRTZmkDsU7A8EbydEK8s4lJpPoTDyyBhSlwer694cS";
@@ -263,6 +271,12 @@ export const createMcpServer = (): McpServer => {
 
 	const createRobotFromDevice = (deviceId: string): Robot => {
 
+		// harmony devices are served by the hdc robot, everything else needs mobilecli working
+		const harmonyManager = new HarmonyDeviceManager();
+		if (harmonyManager.getConnectedDevices().some(d => d.deviceId === deviceId)) {
+			return new HarmonyRobot(deviceId);
+		}
+
 		// from now on, we must have mobilecli working
 		ensureMobilecliAvailable();
 
@@ -342,10 +356,32 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: true, openWorldHint: false },
 		async ({}, telemetry) => {
 
-			// from today onward, we must have mobilecli working
-			ensureMobilecliAvailable();
-
 			const devices: MobilecliDevice[] = [];
+
+			// harmony (OpenHarmony / HarmonyOS NEXT) devices via hdc, independent of mobilecli.
+			// discovered before the mobilecli check so harmony-only machines can still list devices
+			try {
+				const harmonyDevices = new HarmonyDeviceManager().getConnectedDevicesWithDetails();
+				telemetry.HarmonyCount = harmonyDevices.length;
+				for (const device of harmonyDevices) {
+					devices.push({
+						id: device.deviceId,
+						name: device.name,
+						platform: "harmony",
+						type: "real",
+						version: device.version,
+						state: "online",
+					});
+				}
+			} catch (error: any) {
+				// hdc not available, silently skip
+			}
+
+			// android/ios still require mobilecli; skip the check when a harmony device already answers
+			if (devices.length === 0) {
+				ensureMobilecliAvailable();
+			}
+
 			const legacyRobot = process.env.MOBILEMCP_LEGACY_ROBOT === "1";
 
 			if (legacyRobot) {
@@ -650,7 +686,7 @@ export const createMcpServer = (): McpServer => {
 		"Install an app on mobile device",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			path: z.string().describe("The path to the app file to install. For iOS simulators, provide a .zip file or a .app directory. For Android provide an .apk file. For iOS real devices provide an .ipa file"),
+			path: z.string().describe("The path to the app file to install. For Android provide an .apk file. For iOS real devices provide an .ipa file. For iOS simulators, provide a .zip file or a .app directory. For HarmonyOS provide an .hap or .hsp file"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, path }) => {
@@ -797,11 +833,18 @@ export const createMcpServer = (): McpServer => {
 		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen or mobile_long_press_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			format: z.enum(["text", "json"]).optional().describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array"),
+			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs"),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
-		async ({ device, format = "text" }) => {
+		async ({ device, format }) => {
 			const robot = getRobotFromDevice(device);
+			if (format === "raw") {
+				if (!robot.getRawUIHierarchy) {
+					throw new ActionableError("Raw UI hierarchy is not supported in legacy robot mode");
+				}
+				return JSON.stringify(await robot.getRawUIHierarchy());
+			}
+
 			const elements = await robot.getElementsOnScreen();
 			return formatElements(elements, format);
 		}
