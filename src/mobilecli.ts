@@ -51,7 +51,9 @@ export interface MobilecliDeviceProvider {
 export interface MobilecliDevice {
 	id: string;
 	name: string;
-	platform: "android" | "ios";
+	// "harmony" is reported by the built-in hdc robot for HarmonyOS/OpenHarmony
+	// devices; mobilecli itself only emits "android" and "ios"
+	platform: "android" | "ios" | "harmony";
 	type: "real" | "emulator" | "simulator";
 	version: string;
 	state: "online" | "offline";
