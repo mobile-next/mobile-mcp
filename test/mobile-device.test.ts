@@ -18,6 +18,18 @@ function createMockMobileDevice(mockResponse: string): { device: MobileDevice; c
 
 test.describe("MobileDevice", () => {
 
+	test("getElementsOnScreen passes its timeout to mobilecli", async () => {
+		const device = new MobileDevice("test-device");
+		let seen: number | undefined;
+		(device as any).mobilecli.executeCommand = function(_args: string[], timeoutMs?: number): string {
+			seen = timeoutMs;
+			return JSON.stringify({ status: "ok", data: { elements: [] } });
+		};
+
+		await device.getElementsOnScreen(1234);
+		expect(seen).toBe(1234);
+	});
+
 	test.describe("coordinate rounding", () => {
 
 		test("tap should round fractional coordinates before calling mobilecli", async () => {
@@ -162,6 +174,19 @@ test.describe("MobileDevice", () => {
 
 			expect(calls[0]).toEqual(["apps", "foreground", "--device", "test-device"]);
 			expect(app).toEqual({ appName: "com.example.app", packageName: "com.example.app" });
+		});
+
+		test("getForegroundApp passes its timeout to mobilecli", async () => {
+			const device = new MobileDevice("test-device");
+			let seen: number | undefined;
+			(device as any).mobilecli.executeCommand = function(_args: string[], timeoutMs?: number): string {
+				seen = timeoutMs;
+				return JSON.stringify({ status: "ok", data: { packageName: "com.example.app" } });
+			};
+
+			await device.getForegroundApp(4321);
+
+			expect(seen).toBe(4321);
 		});
 
 		test("getForegroundApp should include the focused activity reported by mobilecli", async () => {

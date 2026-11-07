@@ -113,13 +113,13 @@ export class MobileDevice implements Robot {
 		this.mobilecli = new Mobilecli();
 	}
 
-	private runCommand(args: string[]): string {
+	private runCommand(args: string[], timeoutMs?: number): string {
 		const fullArgs = [...args, "--device", this.deviceId];
-		return this.mobilecli.executeCommand(fullArgs);
+		return this.mobilecli.executeCommand(fullArgs, timeoutMs);
 	}
 
-	private runJsonCommand<T>(args: string[]): T {
-		const output = this.runCommand(args);
+	private runJsonCommand<T>(args: string[], timeoutMs?: number): T {
+		const output = this.runCommand(args, timeoutMs);
 		try {
 			return JSON.parse(output) as T;
 		} catch {
@@ -217,8 +217,8 @@ export class MobileDevice implements Robot {
 		})) as InstalledApp[];
 	}
 
-	public async getForegroundApp(): Promise<ForegroundApp> {
-		const response = this.runJsonCommand<ForegroundAppResponse>(["apps", "foreground"]);
+	public async getForegroundApp(timeoutMs?: number): Promise<ForegroundApp> {
+		const response = this.runJsonCommand<ForegroundAppResponse>(["apps", "foreground"], timeoutMs);
 		const app: ForegroundApp = {
 			appName: response.data.appName || response.data.packageName,
 			packageName: response.data.packageName,
@@ -304,8 +304,8 @@ export class MobileDevice implements Robot {
 		this.runCommand(["io", "longpress", ref, "--duration", `${Math.round(duration)}`]);
 	}
 
-	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const response = this.runJsonCommand<DumpUIResponse>(["dump", "ui"]);
+	public async getElementsOnScreen(timeoutMs?: number): Promise<ScreenElement[]> {
+		const response = this.runJsonCommand<DumpUIResponse>(["dump", "ui"], timeoutMs);
 		const elements = response.data?.elements;
 
 		if (!elements) {
