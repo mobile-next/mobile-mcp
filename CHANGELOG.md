@@ -1,3 +1,11 @@
+## [1.0.17](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.17) (2026-11-11)
+* Fix: The tap coordinate hint now matches the screenshot's orientation, so taps land correctly on landscape apps ([#454](https://github.com/mobile-next/mobile-mcp/pull/454)), thanks to [@nongvantinh](https://github.com/nongvantinh)
+* Chore: Upgrade `mobilewright` to 0.0.69, which brings mobilecli 1.0.23 ([#556](https://github.com/mobile-next/mobile-mcp/pull/556))
+* Feat: iOS real devices inject the agent over the debug proxy instead of lldb, which is much faster ([mobilecli#559](https://github.com/mobile-next/mobilecli/pull/559))
+* Fix: iOS finds the agent again after the daemon exits ([mobilecli#562](https://github.com/mobile-next/mobilecli/pull/562))
+* Feat: Android `mobile_list_elements_on_screen` leaves out System UI elements ([mobilecli#556](https://github.com/mobile-next/mobilecli/pull/556))
+* Fix: Android reports the screen size and orientation the display is rotated to ([mobilecli#545](https://github.com/mobile-next/mobilecli/pull/545)), thanks to [@edusperoni](https://github.com/edusperoni)
+
 ## [1.0.16](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.16) (2026-11-02)
 * Feat: `mobile_list_elements_on_screen` accepts `format: "raw"` to return the unfiltered platform UI hierarchy, including parent nodes and values the compact output drops ([#548](https://github.com/mobile-next/mobile-mcp/pull/548)), thanks to [@ProgramComputer](https://github.com/ProgramComputer)
 * Chore: Telemetry events are capped per user per day ([#547](https://github.com/mobile-next/mobile-mcp/pull/547))
