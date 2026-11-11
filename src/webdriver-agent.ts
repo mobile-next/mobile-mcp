@@ -27,10 +27,10 @@ export class WebDriverAgent {
 	constructor(private readonly host: string, private readonly port: number) {
 	}
 
-	public async isRunning(): Promise<boolean> {
+	public async isRunning(timeoutMs?: number): Promise<boolean> {
 		const url = `http://${this.host}:${this.port}/status`;
 		try {
-			const response = await fetch(url);
+			const response = await fetch(url, timeoutMs !== undefined ? { signal: AbortSignal.timeout(timeoutMs) } : undefined);
 			const json = await response.json();
 			return response.status === 200 && json.value?.ready === true;
 		} catch (error) {
@@ -271,15 +271,16 @@ export class WebDriverAgent {
 		return output;
 	}
 
-	public async getPageSource(): Promise<SourceTree> {
+	// with timeoutMs the request is aborted (not just abandoned) when WDA does not answer in time
+	public async getPageSource(timeoutMs?: number): Promise<SourceTree> {
 		const url = `http://${this.host}:${this.port}/source?format=json`;
-		const response = await fetch(url);
+		const response = await fetch(url, timeoutMs !== undefined ? { signal: AbortSignal.timeout(timeoutMs) } : undefined);
 		const json = await response.json();
 		return json as SourceTree;
 	}
 
-	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const source = await this.getPageSource();
+	public async getElementsOnScreen(timeoutMs?: number): Promise<ScreenElement[]> {
+		const source = await this.getPageSource(timeoutMs);
 		return this.filterSourceElements(source.value);
 	}
 

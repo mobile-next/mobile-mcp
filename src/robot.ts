@@ -97,7 +97,7 @@ export interface Robot {
 	/**
 	 * Get the app currently in the foreground. Optional, not all robots support it.
 	 */
-	getForegroundApp?(): Promise<ForegroundApp>;
+	getForegroundApp?(timeoutMs?: number): Promise<ForegroundApp>;
 
 	/**
 	 * Clear an app's data and stop it, so the next launch starts fresh. Optional, not all robots support it.
@@ -208,9 +208,10 @@ export interface Robot {
 
 	/**
 	 * Get all elements on the screen. Works only on native apps (not webviews). Will
-	 * return a filtered list of elements that make sense to interact with.
+	 * return a filtered list of elements that make sense to interact with. With
+	 * timeoutMs the read gives up (and aborts the underlying request) after that long.
 	 */
-	getElementsOnScreen(): Promise<ScreenElement[]>;
+	getElementsOnScreen(timeoutMs?: number): Promise<ScreenElement[]>;
 
 	/**
 	 * Get the unfiltered, platform-specific UI hierarchy. mobilecli only.
