@@ -18,6 +18,7 @@ import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
 import { shouldSendEvent } from "./telemetry-quota";
+import { compactHierarchy, analyzeScreenWithKev, formatKevScreenSnapshot } from "./kev-hierarchy";
 
 type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
@@ -803,16 +804,38 @@ export const createMcpServer = (): McpServer => {
 		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen or mobile_long_press_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs"),
+			format: z.enum(["text", "json", "raw", "kev"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only), \"kev\" runs the Kev decision model on the UI hierarchy to classify the screen and rank interactive elements. Raw nodes may be offscreen and do not have element refs"),
+			goal: z.string().optional().describe("Optional goal or intent (e.g. 'Open General settings') for Kev to rank the best matching interactive element ref."),
+			model: z.string().optional().describe("Optional System One / Kev decision model name (e.g. 'kev:4b-q4_K_M', 'kev:8b-q4_K_M', 'saas-24b-4bit'). Defaults to MOBILEMCP_SYSTEMONE_MODEL or 'kev:4b-q4_K_M'."),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
-		async ({ device, format }) => {
+		async ({ device, format, goal, model }) => {
 			const robot = getRobotFromDevice(device);
 			if (format === "raw") {
 				if (!robot.getRawUIHierarchy) {
 					throw new ActionableError("Raw UI hierarchy is not supported in legacy robot mode");
 				}
 				return JSON.stringify(await robot.getRawUIHierarchy());
+			}
+
+			if (format === "kev" || goal !== undefined) {
+				const [elements, screenSize, foregroundApp] = await Promise.all([
+					robot.getElementsOnScreen(),
+					robot.getScreenSize(),
+					robot.getForegroundApp ? robot.getForegroundApp().catch(() => undefined) : Promise.resolve(undefined),
+				]);
+
+				const hierarchy = compactHierarchy(elements, screenSize, foregroundApp);
+				try {
+					const analysis = await analyzeScreenWithKev(hierarchy, { goal, model });
+					return formatKevScreenSnapshot(hierarchy, analysis, screenSize, foregroundApp);
+				} catch (kevErr: any) {
+					if (format === "kev") {
+						throw new ActionableError(`Kev decision model analysis failed: ${kevErr.message}`);
+					}
+					trace(`Kev decision model unavailable (${kevErr.message}), falling back to ${format} element list`);
+					return formatElements(elements, format);
+				}
 			}
 
 			const elements = await robot.getElementsOnScreen();
@@ -952,9 +975,12 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		{
 			title: "Take Screenshot",
-			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
+			description: "Take a screenshot of the mobile device. By default, uses the Kev decision model with the device UI hierarchy to classify the screen, assess complexity, identify salient or goal-matched interactive elements, and return a compact 1:1 coordinate text snapshot instead of sending a raw image. Pass goal to have Kev rank the exact element ref to tap, or rawImage=true only when pixel vision is required (e.g. games or canvas UI). Do not cache this result.",
 			inputSchema: z.object({
 				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+				goal: z.string().optional().describe("Optional goal or intent (e.g. 'Open General settings') for Kev to resolve against the screen UI hierarchy."),
+				model: z.string().optional().describe("Optional System One / Kev decision model name (e.g. 'kev:4b-q4_K_M', 'kev:8b-q4_K_M', 'saas-24b-4bit'). Defaults to MOBILEMCP_SYSTEMONE_MODEL or 'kev:4b-q4_K_M'."),
+				rawImage: z.boolean().optional().describe("If true, bypass Kev + UI hierarchy and return a base64 image screenshot instead. Defaults to false."),
 				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
 				scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
 			}),
@@ -963,9 +989,40 @@ export const createMcpServer = (): McpServer => {
 				openWorldHint: true,
 			},
 		},
-		async ({ device, maxSize, scale }) => {
+		async ({ device, goal, model, rawImage, maxSize, scale }) => {
 			try {
 				const robot = getRobotFromDevice(device);
+				const forceImage = rawImage === true || process.env.MOBILEMCP_SCREENSHOT_MODE === "image";
+
+				if (!forceImage) {
+					try {
+						const [elements, screenSize, foregroundApp] = await Promise.all([
+							robot.getElementsOnScreen(),
+							robot.getScreenSize(),
+							robot.getForegroundApp ? robot.getForegroundApp().catch(() => undefined) : Promise.resolve(undefined),
+						]);
+
+						const hierarchy = compactHierarchy(elements, screenSize, foregroundApp);
+						if (hierarchy.actionable.length + hierarchy.informational.length > 0) {
+							const analysis = await analyzeScreenWithKev(hierarchy, { goal, model });
+							if (analysis.hierarchySufficient) {
+								const snapshotText = formatKevScreenSnapshot(hierarchy, analysis, screenSize, foregroundApp);
+								trace(`Kev UI hierarchy snapshot generated in ${analysis.elapsedMs}ms (${snapshotText.length} chars)`);
+								posthog("tool_invoked", {
+									"ToolName": "mobile_take_screenshot",
+									"ScreenshotFilesize": snapshotText.length,
+									"ScreenshotMimeType": "text/kev-hierarchy",
+								}).then();
+
+								return {
+									content: [{ type: "text", text: snapshotText }],
+								};
+							}
+						}
+					} catch (kevErr: any) {
+						trace(`Kev + UI hierarchy analysis unavailable (${kevErr.message}), falling back to raw screenshot`);
+					}
+				}
 
 				// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
 				// maxSize wins over scale (same precedence as mobilecli); the default applies only when neither is given
