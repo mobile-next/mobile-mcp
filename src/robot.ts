@@ -82,6 +82,14 @@ export interface Robot {
 	swipeFromCoordinate(x: number, y: number, direction: SwipeDirection, distance?: number): Promise<void>;
 
 	/**
+	 * Press at one point, move to another over the given duration, then release.
+	 * Unlike a swipe, the end point is arbitrary and the speed is controlled, which
+	 * is what reorder handles, sliders and drag-and-drop need to register the gesture.
+	 * @param duration - Duration of the movement in milliseconds
+	 */
+	drag(fromX: number, fromY: number, toX: number, toY: number, duration: number): Promise<void>;
+
+	/**
 	 * Get a screenshot of the screen. Returns a PNG image by default.
 	 * Robots that support it may honor options (format, quality, scale,
 	 * maxSize); others ignore them and return a full-size PNG.
