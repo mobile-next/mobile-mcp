@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, sep } from "node:path";
 import { execFileSync, spawn, ChildProcess } from "node:child_process";
 
@@ -107,7 +108,7 @@ export class Mobilecli {
 		}) as Buffer;
 	}
 
-	private static getMobilecliPath(): string {
+	private static getMobilecliPath(currentPath: string = __filename): string {
 		if (process.env.MOBILECLI_PATH) {
 			return process.env.MOBILECLI_PATH;
 		}
@@ -121,10 +122,14 @@ export class Mobilecli {
 		const scopedPackage = `mobilecli-${normalizedPlatform}-${normalizedArch}`;
 		const binaryName = `${scopedPackage}${ext}`;
 
+		const resolvedPath = Mobilecli.resolveFromDependencies(currentPath, scopedPackage, binaryName);
+		if (resolvedPath) {
+			return resolvedPath;
+		}
+
 		const nodeModulesRoots: string[] = [];
 
 		// Check if mobile-mcp is installed as a package
-		const currentPath = __filename;
 		const pathParts = currentPath.split(sep);
 		const lastNodeModulesIndex = pathParts.lastIndexOf("node_modules");
 
@@ -134,7 +139,7 @@ export class Mobilecli {
 		}
 
 		// Not in node_modules, look one directory up from current script
-		nodeModulesRoots.push(join(dirname(dirname(__filename)), "node_modules"));
+		nodeModulesRoots.push(join(dirname(dirname(currentPath)), "node_modules"));
 
 		for (const root of nodeModulesRoots) {
 			// mobilecli <= 1.0.6 shipped the binary in its own bin directory
@@ -152,6 +157,27 @@ export class Mobilecli {
 		}
 
 		throw new Error(`Could not find mobilecli binary for platform: ${platform}`);
+	}
+
+	// mobilecli comes in through mobilewright -> @mobilewright/driver-mobilecli, so with
+	// an isolated layout (pnpm) it is not next to us in node_modules. Walk the same
+	// dependency chain node would. mobilewright and the driver do not export their
+	// package.json, so resolve their entry points instead.
+	private static resolveFromDependencies(currentPath: string, scopedPackage: string, binaryName: string): string | null {
+		try {
+			const mobilewright = createRequire(currentPath).resolve("mobilewright");
+			const driver = createRequire(mobilewright).resolve("@mobilewright/driver-mobilecli");
+			const mobilecli = createRequire(driver).resolve("mobilecli/package.json");
+			const platformPackage = createRequire(mobilecli).resolve(`@mobilenext/${scopedPackage}/package.json`);
+			const binaryPath = join(dirname(platformPackage), binaryName);
+			if (existsSync(binaryPath)) {
+				return binaryPath;
+			}
+		} catch {
+			// fall back to looking in node_modules directly
+		}
+
+		return null;
 	}
 
 	getVersion(): string {
