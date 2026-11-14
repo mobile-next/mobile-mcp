@@ -93,6 +93,7 @@ How we help to scale mobile automation:
 | iOS Real Device | ✅ | Device connected over USB and trusted |
 | Android Emulator | ✅ | Android SDK + running emulator (`adb`) |
 | Android Real Device | ✅ | `adb` + USB debugging enabled & authorized |
+| HarmonyOS Real Device | ✅ | `hdc` (from [DevEco Studio](https://developer.huawei.com/consumer/en/deveco-studio/) or OpenHarmony SDK) + USB debugging enabled; legacy Android-based HarmonyOS works over `adb` like any Android device |
 
 ## 🔧 Available MCP Tools
 
@@ -546,6 +547,7 @@ Gmail to contacts "team@example.com".
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
+| `HDC_HOME` | Full path to the `hdc` binary used for HarmonyOS devices. When unset, the server probes `DEVECO_SDK_HOME`, the DevEco Studio default install location, and finally `PATH`. | `HDC_HOME=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc` |
 
 ### Simulators, Emulators, and Real Devices
 
