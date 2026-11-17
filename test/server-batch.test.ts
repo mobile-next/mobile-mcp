@@ -56,10 +56,12 @@ test("rejects a step named after an inherited object property", async () => {
 	expect(text).toContain("Unknown tool in step 1: constructor");
 });
 
-test("rejects mobile_take_screenshot with a hint to use mobile_save_screenshot", async () => {
+test("runs mobile_take_screenshot as a step like any other tool", async () => {
 	const client = await createConnectedClient();
-	const text = await runBatch(client, { device: "nope", steps: [{ name: "mobile_take_screenshot", arguments: {} }] });
-	expect(text).toContain("use mobile_save_screenshot instead");
+	const text = await runBatch(client, { device: "no-such-device", steps: [{ name: "mobile_take_screenshot", arguments: { maxSize: 256 } }] });
+
+	// no device is attached, so the step gets as far as the device lookup instead of being rejected up front
+	expect(text).toContain('Step 1 (mobile_take_screenshot) failed: Device "no-such-device" not found');
 });
 
 test("validates step arguments against the target tool schema", async () => {
@@ -85,13 +87,4 @@ test("returns only the step results when no screenshot is asked for", async () =
 
 	expect(content.length).toBe(1);
 	expect(content[0].text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
-});
-
-test("adds the screenshot result after the step results when screenshotAtEnd is set", async () => {
-	const content = await contentOfBatch({ device: "no-such-device", steps: oneFailingClick, screenshotAtEnd: true });
-
-	expect(content.length).toBe(2);
-	expect(content[0].text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
-	// no device is attached, so the screenshot step reports the lookup failure instead of an image
-	expect(content[1].text).toContain('Device "no-such-device" not found');
 });

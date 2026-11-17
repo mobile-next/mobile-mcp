@@ -6,7 +6,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { ChildProcess } from "node:child_process";
 
-import { error, trace } from "./logger";
+import { trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { ActionableError, Dimensions, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
@@ -20,19 +20,6 @@ import { formatElements } from "./format-elements";
 import { shouldSendEvent } from "./telemetry-quota";
 
 type ToolContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
-
-interface ToolResult {
-	// the mcp sdk's result type is open-ended
-	[key: string]: unknown;
-	content: ToolContent[];
-	isError?: boolean;
-}
-
-interface TakeScreenshotArguments {
-	device: string;
-	maxSize?: number;
-	scale?: number;
-}
 
 const ALLOWED_LOG_EXTENSIONS = [".log", ".txt", ".jsonl"];
 const DEFAULT_DEVICE_LOG_ENTRIES = 100;
@@ -124,6 +111,14 @@ const textOf = (response: string | ToolContent[]): string => {
 	}
 
 	return response.flatMap(block => block.type === "text" ? [block.text] : []).join("\n");
+};
+
+const imagesOf = (response: string | ToolContent[]): ToolContent[] => {
+	if (typeof response === "string") {
+		return [];
+	}
+
+	return response.filter(block => block.type === "image");
 };
 
 export const createMcpServer = (): McpServer => {
@@ -976,8 +971,17 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	const takeScreenshot = async ({ device, maxSize, scale }: TakeScreenshotArguments): Promise<ToolResult> => {
-		try {
+	tool(
+		"mobile_take_screenshot",
+		"Take Screenshot",
+		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
+			scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
+		},
+		{ readOnlyHint: true, openWorldHint: true },
+		async ({ device, maxSize, scale }, telemetry) => {
 			const robot = getRobotFromDevice(device);
 
 			// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
@@ -1007,7 +1011,7 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			if (screenshotSize.width <= 0 || screenshotSize.height <= 0) {
-				throw new ActionableError("Screenshot is invalid. Please try again.");
+				throw new ActionableError("Screenshot is invalid");
 			}
 
 			// the screenshot is downscaled (and on ios the screen is in points while pixels are not),
@@ -1017,11 +1021,8 @@ export const createMcpServer = (): McpServer => {
 
 			const screenshot64 = screenshot.toString("base64");
 			trace(`Screenshot taken: ${screenshot.length} bytes, ${screenshotSize.width}x${screenshotSize.height}`);
-			posthog("tool_invoked", {
-				"ToolName": "mobile_take_screenshot",
-				"ScreenshotFilesize": screenshot64.length,
-				"ScreenshotMimeType": mimeType,
-			}).then();
+			telemetry.ScreenshotFilesize = screenshot64.length;
+			telemetry.ScreenshotMimeType = mimeType;
 
 			const content: ToolContent[] = [];
 			if (mapping !== null) {
@@ -1029,32 +1030,8 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			content.push({ type: "image", data: screenshot64, mimeType });
-			return { content };
-		} catch (err: any) {
-			error(`Error taking screenshot: ${err.message} ${err.stack}`);
-			return {
-				content: [{ type: "text", text: `Error: ${err.message}` }],
-				isError: true,
-			};
+			return content;
 		}
-	};
-
-	server.registerTool(
-		"mobile_take_screenshot",
-		{
-			title: "Take Screenshot",
-			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
-			inputSchema: z.object({
-				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
-				scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
-			}),
-			annotations: {
-				readOnlyHint: true,
-				openWorldHint: true,
-			},
-		},
-		takeScreenshot
 	);
 
 	tool(
@@ -1349,8 +1326,7 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	// mobile_take_screenshot is not a step: a batch returns one image at most, through screenshotAtEnd
-	const batchableToolNames = [...toolCallbacks.keys()].filter(name => name !== "mobile_take_screenshot");
+	const batchableToolNames = [...toolCallbacks.keys()];
 
 	tool(
 		"mobile_batch_commands",
@@ -1364,22 +1340,18 @@ export const createMcpServer = (): McpServer => {
 			})).min(1).describe("Tools to run, in order"),
 			stopOnError: z.boolean().optional().describe("Stop at the first failing step. Defaults to true"),
 			listElementsAtEnd: z.boolean().optional().describe("Run mobile_list_elements_on_screen after the last step and include its result. Defaults to false"),
-			screenshotAtEnd: z.boolean().optional().describe("Take a screenshot after the last step and include it, same as mobile_take_screenshot. Defaults to false"),
 		},
 		{ readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-		async ({ device, steps, stopOnError, listElementsAtEnd, screenshotAtEnd }, telemetry) => {
+		async ({ device, steps, stopOnError, listElementsAtEnd }, telemetry) => {
 			const shouldStopOnError = stopOnError ?? true;
 			const results: string[] = [];
+			const images: ToolContent[] = [];
 			telemetry.StepCount = steps.length;
 
 			for (let i = 0; i < steps.length; i++) {
 				const step = steps[i];
 				if (step.name === "mobile_batch_commands") {
 					throw new ActionableError("mobile_batch_commands cannot be nested");
-				}
-
-				if (step.name === "mobile_take_screenshot") {
-					throw new ActionableError("mobile_take_screenshot cannot be used as a step. Set screenshotAtEnd to get a screenshot after the last step, or use mobile_save_screenshot instead");
 				}
 
 				const entry = toolCallbacks.get(step.name);
@@ -1391,6 +1363,7 @@ export const createMcpServer = (): McpServer => {
 					const args = z.object(entry.paramsSchema).parse({ device, ...step.arguments });
 					const output = await entry.callback(args, {});
 					results.push(`Step ${i + 1} (${step.name}): ${textOf(output)}`);
+					images.push(...imagesOf(output));
 				} catch (error: any) {
 					results.push(`Step ${i + 1} (${step.name}) failed: ${error.message}`);
 					if (shouldStopOnError) {
@@ -1404,12 +1377,12 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			const text = results.join("\n");
-			if (!screenshotAtEnd) {
+			if (images.length === 0) {
 				return text;
 			}
 
-			const screenshot = await takeScreenshot({ device });
-			return [{ type: "text", text }, ...screenshot.content];
+			// images follow the text, in the order their steps ran
+			return [{ type: "text", text }, ...images];
 		}
 	);
 
