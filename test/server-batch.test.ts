@@ -71,3 +71,27 @@ test("validates step arguments against the target tool schema", async () => {
 	expect(text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
 	expect(text).toContain("x");
 });
+
+const contentOfBatch = async (args: Record<string, unknown>): Promise<any[]> => {
+	const client = await createConnectedClient();
+	const result: any = await client.callTool({ name: "mobile_batch_commands", arguments: args });
+	return result.content;
+};
+
+const oneFailingClick = [{ name: "mobile_click_on_screen_at_coordinates", arguments: { x: 1, y: 1 } }];
+
+test("returns only the step results when no screenshot is asked for", async () => {
+	const content = await contentOfBatch({ device: "no-such-device", steps: oneFailingClick });
+
+	expect(content.length).toBe(1);
+	expect(content[0].text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
+});
+
+test("adds the screenshot result after the step results when screenshotAtEnd is set", async () => {
+	const content = await contentOfBatch({ device: "no-such-device", steps: oneFailingClick, screenshotAtEnd: true });
+
+	expect(content.length).toBe(2);
+	expect(content[0].text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
+	// no device is attached, so the screenshot step reports the lookup failure instead of an image
+	expect(content[1].text).toContain('Device "no-such-device" not found');
+});
