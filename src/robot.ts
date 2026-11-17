@@ -58,11 +58,21 @@ export type Orientation = "portrait" | "landscape";
 
 export type FoldPosture = "folded" | "half-open" | "open";
 
+// a region of the screen, in screen coordinates
+export interface ClipRegion {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
 export interface ScreenshotOptions {
 	format?: "png" | "jpeg";
 	quality?: number;
 	scale?: number;
 	maxSize?: number;
+	// crop to this region before scaling. mobilecli only.
+	clip?: ClipRegion;
 }
 
 export interface Robot {

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { EventEmitter } from "node:events";
 
 import { MobileDevice } from "../src/mobile-device";
-import { ActionableError } from "../src/robot";
+import { ActionableError, ScreenshotOptions } from "../src/robot";
 
 function createMockMobileDevice(mockResponse: string): { device: MobileDevice; calls: string[][] } {
 	const device = new MobileDevice("test-device");
@@ -17,6 +17,34 @@ function createMockMobileDevice(mockResponse: string): { device: MobileDevice; c
 }
 
 test.describe("MobileDevice", () => {
+
+	test.describe("screenshot", () => {
+
+		const screenshotArgumentsFor = async (options: ScreenshotOptions): Promise<string[]> => {
+			const device = new MobileDevice("test-device");
+			const calls: string[][] = [];
+			(device as any).mobilecli.executeCommandBuffer = function(args: string[]): Buffer {
+				calls.push(args);
+				return Buffer.alloc(0);
+			};
+
+			await device.getScreenshot(options);
+			return calls[0];
+		};
+
+		test("getScreenshot should pass a rounded clip region to mobilecli", async () => {
+			const args = await screenshotArgumentsFor({ clip: { x: 60.4, y: 740, width: 864.6, height: 1000 } });
+
+			expect(args).toContain("--clip");
+			expect(args[args.indexOf("--clip") + 1]).toBe("60,740,865,1000");
+		});
+
+		test("getScreenshot should not clip when no region is given", async () => {
+			const args = await screenshotArgumentsFor({ maxSize: 512 });
+
+			expect(args).not.toContain("--clip");
+		});
+	});
 
 	test.describe("coordinate rounding", () => {
 

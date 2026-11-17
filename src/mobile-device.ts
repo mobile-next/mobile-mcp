@@ -198,6 +198,11 @@ export class MobileDevice implements Robot {
 			fullArgs.push("--quality", `${options.quality}`);
 		}
 
+		if (options?.clip !== undefined) {
+			const { x, y, width, height } = options.clip;
+			fullArgs.push("--clip", `${Math.round(x)},${Math.round(y)},${Math.round(width)},${Math.round(height)}`);
+		}
+
 		if (options?.maxSize !== undefined) {
 			fullArgs.push("--max-size", `${options.maxSize}`);
 		}
