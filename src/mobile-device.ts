@@ -1,5 +1,5 @@
 import { Mobilecli } from "./mobilecli";
-import { ActionableError, Button, FoldPosture, ForegroundApp, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
+import { ActionableError, Button, FoldPosture, ForegroundApp, GesturePoint, InstalledApp, Orientation, Robot, ScreenElement, ScreenSize, ScreenshotOptions, SwipeDirection } from "./robot";
 
 interface InstalledAppsResponse {
 	status: "ok",
@@ -103,6 +103,15 @@ const flattenUIElement = (element: UIElementResponse): ScreenElement[] => {
 	}
 
 	return [screenElement, ...element.children.flatMap(child => flattenUIElement(child))];
+};
+
+// mobilecli rejects fractional coordinates ("x and y must be integers")
+const formatGesturePoint = (point: GesturePoint): string => {
+	if ("ref" in point) {
+		return point.ref;
+	}
+
+	return `${Math.round(point.x)},${Math.round(point.y)}`;
 };
 
 export class MobileDevice implements Robot {
@@ -278,21 +287,20 @@ export class MobileDevice implements Robot {
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
-		// TODO: should move into mobilecli itself as "io doubletap"
-		await this.tap(x, y);
-		await this.tap(x, y);
+		this.runCommand(["io", "doubletap", `${Math.round(x)},${Math.round(y)}`]);
 	}
 
 	public async doubleTapByRef(ref: string): Promise<void> {
-		// resolve the ref once: two "io tap @ref" calls would each dump the ui again and miss the double-tap window
-		const elements = await this.getElementsOnScreen();
-		const element = elements.find(candidate => candidate.ref === ref);
-		if (!element) {
-			throw new ActionableError(`Element ${ref} was not found on the current screen. Call mobile_list_elements_on_screen again to get fresh refs`);
+		this.runCommand(["io", "doubletap", ref]);
+	}
+
+	public async drag(from: GesturePoint, to: GesturePoint, hold?: number): Promise<void> {
+		const args = ["io", "drag", `${formatGesturePoint(from)},${formatGesturePoint(to)}`];
+		if (hold) {
+			args.push("--hold", `${Math.round(hold)}`);
 		}
 
-		const { x, y, width, height } = element.rect;
-		await this.doubleTap(x + width / 2, y + height / 2);
+		this.runCommand(args);
 	}
 
 	public async longPress(x: number, y: number, duration: number): Promise<void> {

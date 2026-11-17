@@ -65,6 +65,9 @@ export interface ScreenshotOptions {
 	maxSize?: number;
 }
 
+// a point on screen: either coordinates in pixels, or an element ref from the latest getElementsOnScreen (e.g. "@e5")
+export type GesturePoint = { x: number; y: number } | { ref: string };
+
 export interface Robot {
 	/**
 	 * Get the screen size of the device in pixels.
@@ -184,7 +187,7 @@ export interface Robot {
 	tapByRef?(ref: string): Promise<void>;
 
 	/**
-	 * Tap on a specific coordinate on the screen.
+	 * Double tap on a specific coordinate on the screen.
 	 */
 	doubleTap(x: number, y: number): Promise<void>;
 
@@ -192,6 +195,12 @@ export interface Robot {
 	 * Double tap on the center of an element by its ref from the latest getElementsOnScreen (e.g. "@e5"). mobilecli only.
 	 */
 	doubleTapByRef?(ref: string): Promise<void>;
+
+	/**
+	 * Drag one finger from one point to another. Each point is a coordinate or an element ref. mobilecli only.
+	 * @param hold - How long the finger stays down before it moves, in milliseconds
+	 */
+	drag?(from: GesturePoint, to: GesturePoint, hold?: number): Promise<void>;
 
 	/**
 	 * Long press on a specific coordinate on the screen.
