@@ -15,7 +15,7 @@ interface ToolDefinition {
 	};
 }
 
-const TOOLS_THAT_CANNOT_RUN_IN_A_BATCH = ["mobile_batch_commands", "mobile_take_screenshot"];
+const TOOLS_THAT_CANNOT_RUN_IN_A_BATCH = ["mobile_batch_commands"];
 
 const listToolDefinitions = async (): Promise<ToolDefinition[]> => {
 	process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
@@ -131,6 +131,13 @@ test("lets mobile_take_screenshot clip to a region of the screen", async () => {
 
 	expect(parameterNamesOf(screenshot)).toContain("clip");
 	expect(requiredParametersOf(screenshot)).toEqual(["device"]);
+});
+
+test("has no separate screenshot switch on mobile_batch_commands", async () => {
+	const tools = await listToolDefinitions();
+	const batch = findTool(tools, "mobile_batch_commands");
+
+	expect(parameterNamesOf(batch)).not.toContain("screenshotAtEnd");
 });
 
 test("explains the delay step in mobile_batch_commands without listing it as a tool", async () => {
