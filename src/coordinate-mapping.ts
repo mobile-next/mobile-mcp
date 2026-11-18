@@ -31,19 +31,24 @@ const orientLike = (screen: Dimensions, screenshot: Dimensions): Dimensions => {
  * When the screenshot was clipped to a region, the region's offset is added on
  * top of the scaling.
  *
- * Returns null when either size is unknown, in which case no instruction is
- * better than a wrong one.
+ * Returns null when a size it needs is unknown, in which case no instruction
+ * is better than a wrong one.
  */
 export const describeCoordinateMapping = (screenshot: Dimensions, reportedScreen: Dimensions, clip?: ClipRegion): string | null => {
-	if (!isPositive(screenshot) || !isPositive(reportedScreen)) {
+	if (!isPositive(screenshot)) {
 		return null;
 	}
 
-	// a clipped screenshot shows only a region, so positions in it are offset from the screen's origin
+	// a clipped screenshot shows only a region, so positions in it are offset from the screen's origin.
+	// the region and the screenshot are enough to map it, so the screen size is not needed here
 	if (clip) {
 		const clipX = formatRatio(clip.width / screenshot.width);
 		const clipY = formatRatio(clip.height / screenshot.height);
 		return `Screenshot is ${screenshot.width}x${screenshot.height} and shows the screen region at ${clip.x},${clip.y} sized ${clip.width}x${clip.height}. To tap something you see in this screenshot, multiply its x by ${clipX} and add ${clip.x}, multiply its y by ${clipY} and add ${clip.y}.`;
+	}
+
+	if (!isPositive(reportedScreen)) {
+		return null;
 	}
 
 	const screen = orientLike(reportedScreen, screenshot);
