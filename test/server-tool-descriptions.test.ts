@@ -125,6 +125,14 @@ test("lists every button mobile_press_button accepts on ios", async () => {
 	expect(buttonsListedFor(await buttonDescription(), "iOS").sort()).toEqual([...IOS_BUTTONS].sort());
 });
 
+test("lets mobile_take_screenshot clip to a region of the screen", async () => {
+	const tools = await listToolDefinitions();
+	const screenshot = findTool(tools, "mobile_take_screenshot");
+
+	expect(parameterNamesOf(screenshot)).toContain("clip");
+	expect(requiredParametersOf(screenshot)).toEqual(["device"]);
+});
+
 test("has no separate screenshot switch on mobile_batch_commands", async () => {
 	const tools = await listToolDefinitions();
 	const batch = findTool(tools, "mobile_batch_commands");

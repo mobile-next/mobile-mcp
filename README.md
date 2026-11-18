@@ -121,7 +121,7 @@ How we help to scale mobile automation:
 - **`mobile_clear_app_data`** - Clear an app's data so it starts fresh (Android and iOS Simulator)
 
 ### Screen Interaction
-- **`mobile_take_screenshot`** - Take a screenshot to understand what's on screen
+- **`mobile_take_screenshot`** - Take a screenshot to understand what's on screen, optionally clipped to a region
 - **`mobile_save_screenshot`** - Save a screenshot to a file
 - **`mobile_list_elements_on_screen`** - List UI elements with their coordinates and properties
 - **`mobile_click_on_screen_at_coordinates`** - Click at specific x,y coordinates or on an element by its ref

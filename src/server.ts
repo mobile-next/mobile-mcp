@@ -1038,10 +1038,19 @@ export const createMcpServer = (): McpServer => {
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
 			scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
+			clip: z.object({
+				x: z.number().min(0).describe("Left edge of the region"),
+				y: z.number().min(0).describe("Top edge of the region"),
+				width: z.number().positive().describe("Width of the region"),
+				height: z.number().positive().describe("Height of the region"),
+			}).optional().describe("Only capture this region of the screen, in screen coordinates (the ones used for tapping). Applied before maxSize/scale. Use it to look at one part of the screen in more detail or at a lower cost."),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
-		async ({ device, maxSize, scale }, telemetry) => {
+		async ({ device, maxSize, scale, clip }, telemetry) => {
 			const robot = getRobotFromDevice(device);
+			if (clip !== undefined && !(robot instanceof MobileDevice)) {
+				throw new ActionableError("Clipping a screenshot is not supported in legacy robot mode");
+			}
 
 			// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
 			// maxSize wins over scale (same precedence as mobilecli); the default applies only when neither is given
@@ -1052,6 +1061,10 @@ export const createMcpServer = (): McpServer => {
 				options.scale = scale;
 			} else {
 				options.maxSize = DEFAULT_SCREENSHOT_MAX_SIZE;
+			}
+
+			if (clip !== undefined) {
+				options.clip = clip;
 			}
 
 			const screenshot = await robot.getScreenshot(options);
@@ -1076,7 +1089,7 @@ export const createMcpServer = (): McpServer => {
 			// the screenshot is downscaled (and on ios the screen is in points while pixels are not),
 			// so tell the model how to map what it sees onto tap coordinates. see #29.
 			const screenSize = await robot.getScreenSize();
-			const mapping = describeCoordinateMapping(screenshotSize, screenSize);
+			const mapping = describeCoordinateMapping(screenshotSize, screenSize, clip);
 
 			const screenshot64 = screenshot.toString("base64");
 			trace(`Screenshot taken: ${screenshot.length} bytes, ${screenshotSize.width}x${screenshotSize.height}`);

@@ -51,4 +51,23 @@ test.describe("coordinate mapping", () => {
 	test("returns nothing when the screenshot size is unknown", () => {
 		expect(describeCoordinateMapping({ width: 0, height: 0 }, { width: 1080, height: 2400 })).toBeNull();
 	});
+
+	test("adds the clip offset when the screenshot shows only a region of the screen", () => {
+		const text = describeCoordinateMapping({ width: 432, height: 500 }, { width: 1080, height: 2424 }, { x: 60, y: 740, width: 864, height: 1000 });
+		expect(text).toBe("Screenshot is 432x500 and shows the screen region at 60,740 sized 864x1000. To tap something you see in this screenshot, multiply its x by 2 and add 60, multiply its y by 2 and add 740.");
+	});
+
+	test("multiplies by 1 when a clipped screenshot is not scaled", () => {
+		const text = describeCoordinateMapping({ width: 864, height: 1000 }, { width: 1080, height: 2424 }, { x: 60, y: 740, width: 864, height: 1000 });
+		expect(text).toBe("Screenshot is 864x1000 and shows the screen region at 60,740 sized 864x1000. To tap something you see in this screenshot, multiply its x by 1 and add 60, multiply its y by 1 and add 740.");
+	});
+
+	test("maps a clipped screenshot even when the screen size is unknown", () => {
+		const text = describeCoordinateMapping({ width: 432, height: 500 }, { width: 0, height: 0 }, { x: 60, y: 740, width: 864, height: 1000 });
+		expect(text).toBe("Screenshot is 432x500 and shows the screen region at 60,740 sized 864x1000. To tap something you see in this screenshot, multiply its x by 2 and add 60, multiply its y by 2 and add 740.");
+	});
+
+	test("returns nothing when a clipped screenshot has no size", () => {
+		expect(describeCoordinateMapping({ width: 0, height: 0 }, { width: 1080, height: 2424 }, { x: 60, y: 740, width: 864, height: 1000 })).toBeNull();
+	});
 });
