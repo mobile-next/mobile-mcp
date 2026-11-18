@@ -287,11 +287,12 @@ export class MobileDevice implements Robot {
 	}
 
 	public async doubleTap(x: number, y: number): Promise<void> {
-		this.runCommand(["io", "doubletap", `${Math.round(x)},${Math.round(y)}`]);
+		// parse the response, older mobilecli versions print help and exit 0 on unknown commands
+		this.runJsonCommand<unknown>(["io", "doubletap", `${Math.round(x)},${Math.round(y)}`]);
 	}
 
 	public async doubleTapByRef(ref: string): Promise<void> {
-		this.runCommand(["io", "doubletap", ref]);
+		this.runJsonCommand<unknown>(["io", "doubletap", ref]);
 	}
 
 	public async drag(from: GesturePoint, to: GesturePoint, hold?: number): Promise<void> {
@@ -300,7 +301,7 @@ export class MobileDevice implements Robot {
 			args.push("--hold", `${Math.round(hold)}`);
 		}
 
-		this.runCommand(args);
+		this.runJsonCommand<unknown>(args);
 	}
 
 	public async longPress(x: number, y: number, duration: number): Promise<void> {
