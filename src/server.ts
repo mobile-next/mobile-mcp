@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { ChildProcess } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
@@ -28,6 +29,8 @@ const DEVICE_LOG_TIMEOUT_MS = 30000;
 const DEVICE_LOG_FILTER_PATTERN = /^(pid|process|tag|level|subsystem|category|message)!?=.+$/;
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
+const BATCH_DELAY_STEP = "delay";
+const MAX_BATCH_DELAY_MS = 10000;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
@@ -1322,14 +1325,25 @@ export const createMcpServer = (): McpServer => {
 	// mobile_take_screenshot returns an image, which the text result of a batch cannot carry
 	const batchableToolNames = [...toolCallbacks.keys()].filter(name => name !== "mobile_take_screenshot");
 
+	// a step that only exists inside a batch: waiting is of no use as a tool call of its own
+	toolCallbacks.set(BATCH_DELAY_STEP, {
+		paramsSchema: {
+			milliseconds: z.coerce.number().int().min(1).max(MAX_BATCH_DELAY_MS).describe("How long to wait, in milliseconds"),
+		},
+		callback: async ({ milliseconds }) => {
+			await sleep(milliseconds);
+			return `Waited ${milliseconds}ms`;
+		},
+	});
+
 	tool(
 		"mobile_batch_commands",
 		"Batch Commands",
-		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Tools allowed as steps: ${batchableToolNames.join(", ")}.`,
+		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Tools allowed as steps: ${batchableToolNames.join(", ")}. A step named "${BATCH_DELAY_STEP}" with arguments {"milliseconds": N} (up to ${MAX_BATCH_DELAY_MS}) waits before the next step, e.g. for an animation or a page load to finish before looking at the screen.`,
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			steps: z.array(z.object({
-				name: z.string().describe("Name of a tool allowed as a step, e.g. mobile_click_on_screen_at_coordinates"),
+				name: z.string().describe(`Name of a tool allowed as a step, e.g. mobile_click_on_screen_at_coordinates, or "${BATCH_DELAY_STEP}"`),
 				arguments: z.record(z.string(), z.any()).describe("Arguments for the tool, same as calling it directly"),
 			})).min(1).describe("Tools to run, in order"),
 			stopOnError: z.boolean().optional().describe("Stop at the first failing step. Defaults to true"),

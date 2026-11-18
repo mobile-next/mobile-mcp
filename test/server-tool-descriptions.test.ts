@@ -124,3 +124,12 @@ test("lists every button mobile_press_button accepts on android", async () => {
 test("lists every button mobile_press_button accepts on ios", async () => {
 	expect(buttonsListedFor(await buttonDescription(), "iOS").sort()).toEqual([...IOS_BUTTONS].sort());
 });
+
+test("explains the delay step in mobile_batch_commands without listing it as a tool", async () => {
+	const tools = await listToolDefinitions();
+	const batch = findTool(tools, "mobile_batch_commands");
+
+	expect(batch.description).toContain("delay");
+	expect(batch.description).toContain("milliseconds");
+	expect(tools.map(tool => tool.name)).not.toContain("delay");
+});
