@@ -236,12 +236,18 @@ test.describe("utils", () => {
 		});
 	});
 
-	// a symlink can be planted between validateOutputPath and the write, so the
-	// write itself must refuse to follow a symlink at the final component
+	// a link can be planted at the output path, before or after validateOutputPath,
+	// so the write must replace whatever is there instead of writing through it
 	test.describe("writeOutputFile", () => {
 		test.skip(process.platform === "win32", "creating a symlink needs elevated rights on windows");
 
 		const uniqueTempPath = (name: string): string => path.join(os.tmpdir(), `mobile-mcp-${process.pid}-${Date.now()}-${name}`);
+
+		const expectRegularFileWith = (filePath: string, content: string) => {
+			expect(fs.lstatSync(filePath).isSymbolicLink()).toBe(false);
+			expect(fs.statSync(filePath).nlink).toBe(1);
+			expect(fs.readFileSync(filePath, "utf8")).toBe(content);
+		};
 
 		test("should not write through a symlink planted after the path was validated", () => {
 			const victim = uniqueTempPath("victim.txt");
@@ -251,11 +257,78 @@ test.describe("utils", () => {
 				validateOutputPath(output);
 				fs.symlinkSync(victim, output);
 
-				expect(() => writeOutputFile(output, "OVERWRITTEN")).toThrow();
+				writeOutputFile(output, "OVERWRITTEN");
+
 				expect(fs.readFileSync(victim, "utf8")).toBe("ORIGINAL");
+				expectRegularFileWith(output, "OVERWRITTEN");
 			} finally {
 				fs.rmSync(output, { force: true });
 				fs.rmSync(victim, { force: true });
+			}
+		});
+
+		test("should not write through a hard link at the output path", () => {
+			const victim = uniqueTempPath("victim.txt");
+			const output = uniqueTempPath("shot.png");
+			fs.writeFileSync(victim, "ORIGINAL");
+			fs.linkSync(victim, output);
+			try {
+				validateOutputPath(output);
+
+				writeOutputFile(output, "OVERWRITTEN");
+
+				expect(fs.readFileSync(victim, "utf8")).toBe("ORIGINAL");
+				expectRegularFileWith(output, "OVERWRITTEN");
+			} finally {
+				fs.rmSync(output, { force: true });
+				fs.rmSync(victim, { force: true });
+			}
+		});
+
+		test("should replace an existing output file", () => {
+			const output = uniqueTempPath("existing.log");
+			fs.writeFileSync(output, "OLD CONTENT THAT IS LONGER");
+			try {
+				writeOutputFile(output, "NEW");
+				expectRegularFileWith(output, "NEW");
+			} finally {
+				fs.rmSync(output, { force: true });
+			}
+		});
+
+		const permissionsOf = (filePath: string): number => fs.statSync(filePath).mode & 0o777;
+
+		test("should keep the permissions of the file it replaces", () => {
+			const output = uniqueTempPath("existing-mode.log");
+			fs.writeFileSync(output, "OLD");
+			fs.chmodSync(output, 0o640);
+			try {
+				writeOutputFile(output, "NEW");
+				expect(permissionsOf(output)).toBe(0o640);
+			} finally {
+				fs.rmSync(output, { force: true });
+			}
+		});
+
+		test("should create a new file readable only by its owner", () => {
+			const output = uniqueTempPath("new-mode.log");
+			try {
+				writeOutputFile(output, "NEW");
+				expect(permissionsOf(output)).toBe(0o600);
+			} finally {
+				fs.rmSync(output, { force: true });
+			}
+		});
+
+		test("should leave no partial file behind when the write fails", () => {
+			const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mobile-mcp-"));
+			const output = path.join(dir, "output.log");
+			fs.mkdirSync(output);
+			try {
+				expect(() => writeOutputFile(output, "DATA")).toThrow();
+				expect(fs.readdirSync(dir)).toEqual(["output.log"]);
+			} finally {
+				fs.rmSync(dir, { recursive: true, force: true });
 			}
 		});
 

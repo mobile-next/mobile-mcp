@@ -34,6 +34,18 @@
 
 https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
+## 🚀 快速开始
+
+**快速安装**:自动检测本机上的 MCP 客户端(Claude Code、Codex、Cursor、VS Code、Gemini CLI 等),并让你选择要配置哪些:
+
+```bash
+npx @mobilenext/mobile-mcp@latest install
+```
+
+加上 `--yes` 可不经询问直接配置所有检测到的客户端。
+
+各客户端的手动配置: [安装与配置](#安装与配置)
+
 
 <p align="center">
     <a href="https://github.com/mobile-next/">
@@ -144,7 +156,7 @@ https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
 ## 安装与配置
 
-**标准配置** 适用于大多数工具:
+适用于大多数工具的 **标准配置**:
 
 ```json
 {
@@ -392,6 +404,22 @@ npx @mobilenext/mobile-mcp@latest
 > list available devices
 
 你应当会看到正在运行的模拟器、仿真器以及已连接的设备。如果能看到，说明 Mobile MCP 已正确接入。如果列表为空，请确认已经启动了模拟器或仿真器（参见[前置条件](#前置条件)）—— 需要更多帮助请查看 [wiki](https://github.com/mobile-next/mobile-mcp/wiki)。
+
+### 🧪 把智能体会话变成 CI 测试
+
+在用 Mobile MCP 自动化或测试移动应用？让你的智能体把这段操作流程写成 **[Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=readme&utm_campaign=agent-to-ci)** 测试。这样测试就是确定性的，并能成为你 CI/CD 工作流的一部分。
+
+```ts
+import { test, expect } from '@mobilewright/test';
+
+test('sign in', async ({ screen }) => {
+  await screen.getByLabel('Email').fill('user@example.com');
+  await screen.getByRole('button', { name: 'Sign In' }).tap();
+  await expect(screen.getByText('Welcome back')).toBeVisible();
+});
+```
+
+从 `npm init mobilewright@latest` 开始。[分步指南](docs/mobilewright-ci.md)（英文）介绍了如何从一次智能体会话得到在 GitHub Actions 中运行的测试。
 
 ### ☁️ 扩展规模，使用云设备
 

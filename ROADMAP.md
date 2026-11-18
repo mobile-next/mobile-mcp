@@ -11,7 +11,6 @@ This is a living document of planned and in-progress features. Items are roughly
 | **Flutter UI support** | Dump Flutter widget trees with semantics and element types, so agents see Flutter apps like native ones. | Planned |
 | **Browser support** | Drive the on-device browser, Safari on iOS and Chrome on Android, alongside native apps. | Planned |
 | **Device settings** | Toggle dark mode, override the timezone, and switch wifi and airplane mode to test offline behaviour. | Planned |
-| **Clear app storage** | Clear an app's cache and documents between runs. | Planned |
 
 ## Done Done
 
@@ -19,6 +18,7 @@ Shipped in 2026, most recent first.
 
 | Feature | Description | Date |
 |---|---|---|
+| **Clear app storage** | Clear an app's cache and documents between runs (Android and iOS Simulator). | 2026-10-18 |
 | **Streamable HTTP support** | `--listen` serves MCP Streamable HTTP on `/mcp` (stateless). Replaces deprecated SSE on `/mcp`. | 2026-09-11 |
 | **Device logs** | Read device system logs — syslog, console, and logcat. | 2026-09-08 |
 | **Background daemon for speedup** | A long-lived background process that keeps device connections, agents and tunnels warm between tool calls, so each call skips discovery and setup and returns in milliseconds instead of seconds. | 2026-09-08 |

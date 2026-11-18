@@ -5,10 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { ChildProcess } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 
-import { error, trace } from "./logger";
+import { trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
-import { ActionableError, Dimensions, Robot, ScreenshotOptions } from "./robot";
+import { ActionableError, Dimensions, GesturePoint, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { getJpegDimensions } from "./jpeg";
@@ -17,8 +18,9 @@ import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
 import { validateOutputPath, validateFileExtension, withLowercaseScheme, writeOutputFile, createPrivateOutputPath, finishRecording } from "./utils";
 import { formatElements } from "./format-elements";
+import { shouldSendEvent } from "./telemetry-quota";
 
-type ScreenshotContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
+type ToolContent = { type: "text", text: string } | { type: "image", data: string, mimeType: string };
 
 const ALLOWED_LOG_EXTENSIONS = [".log", ".txt", ".jsonl"];
 const DEFAULT_DEVICE_LOG_ENTRIES = 100;
@@ -27,6 +29,8 @@ const DEVICE_LOG_TIMEOUT_MS = 30000;
 const DEVICE_LOG_FILTER_PATTERN = /^(pid|process|tag|level|subsystem|category|message)!?=.+$/;
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
+const BATCH_DELAY_STEP = "delay";
+const MAX_BATCH_DELAY_MS = 10000;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
@@ -103,6 +107,43 @@ over navigating through the UI. mobile_open_url only accepts http:// and
 https:// URLs unless the server was started with MOBILEMCP_ALLOW_UNSAFE_URLS=1,
 so do not rely on it for app deep links.`;
 
+// the text of a tool response, for places that can only carry text
+const textOf = (response: string | ToolContent[]): string => {
+	if (typeof response === "string") {
+		return response;
+	}
+
+	return response.flatMap(block => block.type === "text" ? [block.text] : []).join("\n");
+};
+
+const imagesOf = (response: string | ToolContent[]): ToolContent[] => {
+	if (typeof response === "string") {
+		return [];
+	}
+
+	return response.filter(block => block.type === "image");
+};
+
+const toGesturePoint = (ref: string | undefined, x: number | undefined, y: number | undefined): GesturePoint | undefined => {
+	if (ref !== undefined) {
+		return { ref };
+	}
+
+	if (x === undefined || y === undefined) {
+		return undefined;
+	}
+
+	return { x, y };
+};
+
+const describeGesturePoint = (point: GesturePoint): string => {
+	if ("ref" in point) {
+		return `element ${point.ref}`;
+	}
+
+	return `coordinates ${point.x}, ${point.y}`;
+};
+
 export const createMcpServer = (): McpServer => {
 
 	const server = new McpServer({
@@ -131,7 +172,8 @@ export const createMcpServer = (): McpServer => {
 		openWorldHint?: boolean;
 	}
 
-	type ToolCallback = (args: any, telemetry: Record<string, string | number>) => Promise<string>;
+	// a callback returns plain text, or content blocks when it has more than text to give back (e.g. an image)
+	type ToolCallback = (args: any, telemetry: Record<string, string | number>) => Promise<string | ToolContent[]>;
 
 	// ponytail: batch calls tool callbacks directly, bypassing mcp transport
 	const toolCallbacks = new Map<string, { callback: ToolCallback; paramsSchema: ZodSchemaShape }>();
@@ -151,8 +193,13 @@ export const createMcpServer = (): McpServer => {
 				const telemetry: Record<string, string | number> = {};
 				const response = await cb(args, telemetry);
 				const duration = +new Date() - start;
-				trace(`=> ${response}`);
 				posthog("tool_invoked", { "ToolName": name, "Duration": duration, ...telemetry }).then();
+				if (typeof response !== "string") {
+					trace(`=> ${response.length} content blocks`);
+					return { content: response };
+				}
+
+				trace(`=> ${response}`);
 				return {
 					content: [{ type: "text", text: response }],
 				};
@@ -177,6 +224,11 @@ export const createMcpServer = (): McpServer => {
 
 	const posthog = async (event: string, properties: Record<string, string | number>) => {
 		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+			return;
+		}
+
+		const toolName = typeof properties.ToolName === "string" ? properties.ToolName : undefined;
+		if (!shouldSendEvent(event, toolName)) {
 			return;
 		}
 
@@ -625,6 +677,26 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_clear_app_data",
+		"Clear App Data",
+		"Clear an app's data, such as its cache, documents, preferences and databases, and stop the app, so the next launch starts as if freshly installed. The app stays installed. Supported on Android devices and emulators and on iOS simulators, not on real iOS devices.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			packageName: z.string().describe("The package name (Android) or bundle id (iOS) of the app to clear"),
+		},
+		{ readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+		async ({ device, packageName }) => {
+			const robot = getRobotFromDevice(device);
+			if (!robot.clearAppData) {
+				throw new ActionableError("Clearing app data is not supported in legacy robot mode");
+			}
+
+			await robot.clearAppData(packageName);
+			return `Cleared app data for ${packageName}`;
+		}
+	);
+
+	tool(
 		"mobile_install_app",
 		"Install App",
 		"Install an app on mobile device",
@@ -739,6 +811,42 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_drag_on_screen",
+		"Drag On Screen",
+		"Drag one finger from one point to another, e.g. to move a slider, reorder a list or drag and drop. Each end is either x,y coordinates or an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			x1: z.coerce.number().min(0).optional().describe("The x coordinate to start the drag from, in pixels. Required unless fromRef is given"),
+			y1: z.coerce.number().min(0).optional().describe("The y coordinate to start the drag from, in pixels. Required unless fromRef is given"),
+			x2: z.coerce.number().min(0).optional().describe("The x coordinate to end the drag at, in pixels. Required unless toRef is given"),
+			y2: z.coerce.number().min(0).optional().describe("The y coordinate to end the drag at, in pixels. Required unless toRef is given"),
+			fromRef: z.string().optional().describe("Element ref to start the drag from, e.g. \"@e5\". Takes precedence over x1,y1"),
+			toRef: z.string().optional().describe("Element ref to end the drag at, e.g. \"@e7\". Takes precedence over x2,y2"),
+			hold: z.coerce.number().min(0).max(10000).optional().describe("How long the finger stays down before it moves, in milliseconds. Use it (e.g. 500) to pick up an item that would otherwise scroll. Defaults to 0"),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+		async ({ device, x1, y1, x2, y2, fromRef, toRef, hold }) => {
+			const from = toGesturePoint(fromRef, x1, y1);
+			if (!from) {
+				throw new ActionableError("Either fromRef or both x1 and y1 must be provided");
+			}
+
+			const to = toGesturePoint(toRef, x2, y2);
+			if (!to) {
+				throw new ActionableError("Either toRef or both x2 and y2 must be provided");
+			}
+
+			const robot = getRobotFromDevice(device);
+			if (!robot.drag) {
+				throw new ActionableError("Dragging is not supported in legacy robot mode");
+			}
+
+			await robot.drag(from, to, hold);
+			return `Dragged from ${describeGesturePoint(from)} to ${describeGesturePoint(to)}`;
+		}
+	);
+
+	tool(
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long Press Screen",
 		"Long press on the screen, either at x,y coordinates or on an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
@@ -774,14 +882,21 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_elements_on_screen",
 		"List Screen Elements",
-		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen or mobile_long_press_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
+		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen, mobile_long_press_on_screen_at_coordinates or mobile_drag_on_screen. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			format: z.enum(["text", "json"]).optional().describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array"),
+			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs"),
 		},
 		{ readOnlyHint: true, openWorldHint: true },
-		async ({ device, format = "text" }) => {
+		async ({ device, format }) => {
 			const robot = getRobotFromDevice(device);
+			if (format === "raw") {
+				if (!robot.getRawUIHierarchy) {
+					throw new ActionableError("Raw UI hierarchy is not supported in legacy robot mode");
+				}
+				return JSON.stringify(await robot.getRawUIHierarchy());
+			}
+
 			const elements = await robot.getElementsOnScreen();
 			return formatElements(elements, format);
 		}
@@ -915,82 +1030,66 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	server.registerTool(
+	tool(
 		"mobile_take_screenshot",
+		"Take Screenshot",
+		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
 		{
-			title: "Take Screenshot",
-			description: "Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. The screenshot is usually smaller than the screen, so when the device reports its screen size the result also states how to convert positions in the screenshot into screen coordinates before tapping. Do not cache this result.",
-			inputSchema: z.object({
-				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-				maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
-				scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
-			}),
-			annotations: {
-				readOnlyHint: true,
-				openWorldHint: true,
-			},
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			maxSize: z.number().int().positive().optional().describe(`Maximum width/height in pixels, keeping aspect ratio. Defaults to ${DEFAULT_SCREENSHOT_MAX_SIZE}.`),
+			scale: z.number().gt(0).max(1).optional().describe("Scale factor (0.0-1.0). Ignored if maxSize is provided."),
 		},
-		async ({ device, maxSize, scale }) => {
-			try {
-				const robot = getRobotFromDevice(device);
+		{ readOnlyHint: true, openWorldHint: true },
+		async ({ device, maxSize, scale }, telemetry) => {
+			const robot = getRobotFromDevice(device);
 
-				// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
-				// maxSize wins over scale (same precedence as mobilecli); the default applies only when neither is given
-				const options: ScreenshotOptions = { format: "jpeg", quality: 75 };
-				if (maxSize !== undefined) {
-					options.maxSize = maxSize;
-				} else if (scale !== undefined) {
-					options.scale = scale;
-				} else {
-					options.maxSize = DEFAULT_SCREENSHOT_MAX_SIZE;
-				}
-
-				const screenshot = await robot.getScreenshot(options);
-
-				const isJpeg = screenshot.length > 2 && screenshot[0] === 0xff && screenshot[1] === 0xd8;
-				let mimeType = "image/jpeg";
-				let screenshotSize: Dimensions;
-				if (isJpeg) {
-					screenshotSize = getJpegDimensions(screenshot);
-				} else {
-					mimeType = "image/png";
-
-					// validate we received a png, will throw exception otherwise
-					const image = new PNG(screenshot);
-					screenshotSize = image.getDimensions();
-				}
-
-				if (screenshotSize.width <= 0 || screenshotSize.height <= 0) {
-					throw new ActionableError("Screenshot is invalid. Please try again.");
-				}
-
-				// the screenshot is downscaled (and on ios the screen is in points while pixels are not),
-				// so tell the model how to map what it sees onto tap coordinates. see #29.
-				const screenSize = await robot.getScreenSize();
-				const mapping = describeCoordinateMapping(screenshotSize, screenSize);
-
-				const screenshot64 = screenshot.toString("base64");
-				trace(`Screenshot taken: ${screenshot.length} bytes, ${screenshotSize.width}x${screenshotSize.height}`);
-				posthog("tool_invoked", {
-					"ToolName": "mobile_take_screenshot",
-					"ScreenshotFilesize": screenshot64.length,
-					"ScreenshotMimeType": mimeType,
-				}).then();
-
-				const content: ScreenshotContent[] = [];
-				if (mapping !== null) {
-					content.push({ type: "text", text: mapping });
-				}
-
-				content.push({ type: "image", data: screenshot64, mimeType });
-				return { content };
-			} catch (err: any) {
-				error(`Error taking screenshot: ${err.message} ${err.stack}`);
-				return {
-					content: [{ type: "text", text: `Error: ${err.message}` }],
-					isError: true,
-				};
+			// mobilecli scales and converts natively; legacy robots ignore the options and return a full-size png
+			// maxSize wins over scale (same precedence as mobilecli); the default applies only when neither is given
+			const options: ScreenshotOptions = { format: "jpeg", quality: 75 };
+			if (maxSize !== undefined) {
+				options.maxSize = maxSize;
+			} else if (scale !== undefined) {
+				options.scale = scale;
+			} else {
+				options.maxSize = DEFAULT_SCREENSHOT_MAX_SIZE;
 			}
+
+			const screenshot = await robot.getScreenshot(options);
+
+			const isJpeg = screenshot.length > 2 && screenshot[0] === 0xff && screenshot[1] === 0xd8;
+			let mimeType = "image/jpeg";
+			let screenshotSize: Dimensions;
+			if (isJpeg) {
+				screenshotSize = getJpegDimensions(screenshot);
+			} else {
+				mimeType = "image/png";
+
+				// validate we received a png, will throw exception otherwise
+				const image = new PNG(screenshot);
+				screenshotSize = image.getDimensions();
+			}
+
+			if (screenshotSize.width <= 0 || screenshotSize.height <= 0) {
+				throw new ActionableError("Screenshot is invalid");
+			}
+
+			// the screenshot is downscaled (and on ios the screen is in points while pixels are not),
+			// so tell the model how to map what it sees onto tap coordinates. see #29.
+			const screenSize = await robot.getScreenSize();
+			const mapping = describeCoordinateMapping(screenshotSize, screenSize);
+
+			const screenshot64 = screenshot.toString("base64");
+			trace(`Screenshot taken: ${screenshot.length} bytes, ${screenshotSize.width}x${screenshotSize.height}`);
+			telemetry.ScreenshotFilesize = screenshot64.length;
+			telemetry.ScreenshotMimeType = mimeType;
+
+			const content: ToolContent[] = [];
+			if (mapping !== null) {
+				content.push({ type: "text", text: mapping });
+			}
+
+			content.push({ type: "image", data: screenshot64, mimeType });
+			return content;
 		}
 	);
 
@@ -1286,17 +1385,27 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
-	// mobile_take_screenshot returns an image, which the text result of a batch cannot carry
-	const batchableToolNames = [...toolCallbacks.keys()].filter(name => name !== "mobile_take_screenshot");
+	const batchableToolNames = [...toolCallbacks.keys()];
+
+	// a step that only exists inside a batch: waiting is of no use as a tool call of its own
+	toolCallbacks.set(BATCH_DELAY_STEP, {
+		paramsSchema: {
+			milliseconds: z.coerce.number().int().min(1).max(MAX_BATCH_DELAY_MS).describe("How long to wait, in milliseconds"),
+		},
+		callback: async ({ milliseconds }) => {
+			await sleep(milliseconds);
+			return `Waited ${milliseconds}ms`;
+		},
+	});
 
 	tool(
 		"mobile_batch_commands",
 		"Batch Commands",
-		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Tools allowed as steps: ${batchableToolNames.join(", ")}.`,
+		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Tools allowed as steps: ${batchableToolNames.join(", ")}. A step named "${BATCH_DELAY_STEP}" with arguments {"milliseconds": N} (up to ${MAX_BATCH_DELAY_MS}) waits before the next step, e.g. for an animation or a page load to finish before looking at the screen.`,
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			steps: z.array(z.object({
-				name: z.string().describe("Name of a tool allowed as a step, e.g. mobile_click_on_screen_at_coordinates"),
+				name: z.string().describe(`Name of a tool allowed as a step, e.g. mobile_click_on_screen_at_coordinates, or "${BATCH_DELAY_STEP}"`),
 				arguments: z.record(z.string(), z.any()).describe("Arguments for the tool, same as calling it directly"),
 			})).min(1).describe("Tools to run, in order"),
 			stopOnError: z.boolean().optional().describe("Stop at the first failing step. Defaults to true"),
@@ -1306,16 +1415,13 @@ export const createMcpServer = (): McpServer => {
 		async ({ device, steps, stopOnError, listElementsAtEnd }, telemetry) => {
 			const shouldStopOnError = stopOnError ?? true;
 			const results: string[] = [];
+			const images: ToolContent[] = [];
 			telemetry.StepCount = steps.length;
 
 			for (let i = 0; i < steps.length; i++) {
 				const step = steps[i];
 				if (step.name === "mobile_batch_commands") {
 					throw new ActionableError("mobile_batch_commands cannot be nested");
-				}
-
-				if (step.name === "mobile_take_screenshot") {
-					throw new ActionableError("mobile_take_screenshot returns an image and cannot be used in a batch, use mobile_save_screenshot instead");
 				}
 
 				const entry = toolCallbacks.get(step.name);
@@ -1326,7 +1432,8 @@ export const createMcpServer = (): McpServer => {
 				try {
 					const args = z.object(entry.paramsSchema).parse({ device, ...step.arguments });
 					const output = await entry.callback(args, {});
-					results.push(`Step ${i + 1} (${step.name}): ${output}`);
+					results.push(`Step ${i + 1} (${step.name}): ${textOf(output)}`);
+					images.push(...imagesOf(output));
 				} catch (error: any) {
 					results.push(`Step ${i + 1} (${step.name}) failed: ${error.message}`);
 					if (shouldStopOnError) {
@@ -1336,10 +1443,21 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			if (listElementsAtEnd) {
-				results.push(await toolCallbacks.get("mobile_list_elements_on_screen")!.callback({ device }, {}));
+				// the steps already ran, so a failed listing must not throw their results away
+				try {
+					results.push(textOf(await toolCallbacks.get("mobile_list_elements_on_screen")!.callback({ device }, {})));
+				} catch (error: any) {
+					results.push(`Listing elements at the end failed: ${error.message}`);
+				}
 			}
 
-			return results.join("\n");
+			const text = results.join("\n");
+			if (images.length === 0) {
+				return text;
+			}
+
+			// images follow the text, in the order their steps ran
+			return [{ type: "text", text }, ...images];
 		}
 	);
 

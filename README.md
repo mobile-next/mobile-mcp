@@ -43,6 +43,18 @@ Run it against devices on your own machine, or against real iOS and Android devi
 
 https://github.com/user-attachments/assets/bb084777-beb3-4930-ae6f-8d3fe694ddde
 
+## 🚀 Quick start
+
+**Quick install** detects the MCP clients on this machine (Claude Code, Codex, Cursor, VS Code, Gemini CLI and more) and lets you pick which ones to configure:
+
+```bash
+npx @mobilenext/mobile-mcp@latest install
+```
+
+Add `--yes` to configure every detected client without asking.
+
+Manual setup per client: [Installation and configuration](#installation-and-configuration)
+
 
 <p align="center">
     <a href="https://github.com/mobile-next/">
@@ -106,6 +118,7 @@ How we help to scale mobile automation:
 - **`mobile_terminate_app`** - Stop and terminate a running app
 - **`mobile_install_app`** - Install an app from file (.apk, .ipa, .app, .zip)
 - **`mobile_uninstall_app`** - Uninstall an app by its package name or bundle ID
+- **`mobile_clear_app_data`** - Clear an app's data so it starts fresh (Android and iOS Simulator)
 
 ### Screen Interaction
 - **`mobile_take_screenshot`** - Take a screenshot to understand what's on screen
@@ -114,6 +127,7 @@ How we help to scale mobile automation:
 - **`mobile_click_on_screen_at_coordinates`** - Click at specific x,y coordinates or on an element by its ref
 - **`mobile_double_tap_on_screen`** - Double-tap at specific coordinates or on an element by its ref
 - **`mobile_long_press_on_screen_at_coordinates`** - Long press at specific coordinates or on an element by its ref
+- **`mobile_drag_on_screen`** - Drag from one point or element ref to another, with an optional hold before moving
 - **`mobile_swipe_on_screen`** - Swipe in any direction (up, down, left, right)
 - **`mobile_start_screen_recording`** - Start recording the device screen to a video file
 - **`mobile_stop_screen_recording`** - Stop the active screen recording and save the video
@@ -127,7 +141,7 @@ How we help to scale mobile automation:
 - **`mobile_get_device_logs`** - Collect live device logs (logcat on Android, unified log on iOS), optionally saved to a file
 - **`mobile_list_crashes`** - List crash reports available on the device
 - **`mobile_get_crash`** - Get the full content of a crash report by its ID
-- **`mobile_batch_commands`** - Run multiple tools in sequence in a single call (e.g. click, type, click), optionally listing screen elements at the end
+- **`mobile_batch_commands`** - Run multiple tools in sequence in a single call (e.g. click, type, click), with optional `delay` steps in between, optionally listing screen elements at the end
 
 ## 🏗️ Mobile MCP Architecture
 
@@ -154,7 +168,7 @@ What you will need to connect MCP with your agent and mobile devices:
 
 ## Installation and configuration
 
-**Standard config** works in most of the tools:
+To configure it by hand, this **standard config** works in most of the tools:
 
 ```json
 {
@@ -365,13 +379,15 @@ Follow the MCP Servers documentation. For example in `~/.config/opencode/opencod
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "mobile-mcp": {
-      "type": "local",
-      "command": [
-        "npx",
-        "@mobilenext/mobile-mcp@latest"
-      ],
-      "enabled": true
+    "servers": {
+      "mobile-mcp": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "@mobilenext/mobile-mcp@latest"
+        ]
+      }
     }
   }
 }
@@ -402,6 +418,22 @@ Once the server is configured, ask your agent to list devices:
 > list available devices
 
 You should get back your running simulators, emulators, and connected devices. If you do, Mobile MCP is wired up correctly. If the list is empty, make sure a simulator or emulator is running (see [Prerequisites](#prerequisites)) — for more help, check the [wiki](https://github.com/mobile-next/mobile-mcp/wiki).
+
+### 🧪 From agent session to CI test
+
+Using Mobile MCP to automate a mobile app, or to test one? Tell your agent to write the flow as a **[Mobilewright](https://mobilewright.dev/?utm_source=mobile-mcp&utm_medium=readme&utm_campaign=agent-to-ci)** test. It becomes deterministic, and part of your CI/CD workflow.
+
+```ts
+import { test, expect } from '@mobilewright/test';
+
+test('sign in', async ({ screen }) => {
+  await screen.getByLabel('Email').fill('user@example.com');
+  await screen.getByRole('button', { name: 'Sign In' }).tap();
+  await expect(screen.getByText('Welcome back')).toBeVisible();
+});
+```
+
+Start with `npm init mobilewright@latest`. The [step-by-step guide](docs/mobilewright-ci.md) goes from an agent session to a test running in GitHub Actions.
 
 ### ☁️ Scale up, use a cloud device
 

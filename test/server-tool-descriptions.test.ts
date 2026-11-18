@@ -15,7 +15,7 @@ interface ToolDefinition {
 	};
 }
 
-const TOOLS_THAT_CANNOT_RUN_IN_A_BATCH = ["mobile_batch_commands", "mobile_take_screenshot"];
+const TOOLS_THAT_CANNOT_RUN_IN_A_BATCH = ["mobile_batch_commands"];
 
 const listToolDefinitions = async (): Promise<ToolDefinition[]> => {
 	process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
@@ -62,7 +62,7 @@ test("only mentions tools that exist", async () => {
 test("names the app with packageName in every app tool", async () => {
 	const tools = await listToolDefinitions();
 
-	for (const name of ["mobile_launch_app", "mobile_terminate_app", "mobile_uninstall_app"]) {
+	for (const name of ["mobile_launch_app", "mobile_terminate_app", "mobile_uninstall_app", "mobile_clear_app_data"]) {
 		expect(requiredParametersOf(findTool(tools, name)), name).toEqual(["device", "packageName"]);
 	}
 });
@@ -123,4 +123,20 @@ test("lists every button mobile_press_button accepts on android", async () => {
 
 test("lists every button mobile_press_button accepts on ios", async () => {
 	expect(buttonsListedFor(await buttonDescription(), "iOS").sort()).toEqual([...IOS_BUTTONS].sort());
+});
+
+test("has no separate screenshot switch on mobile_batch_commands", async () => {
+	const tools = await listToolDefinitions();
+	const batch = findTool(tools, "mobile_batch_commands");
+
+	expect(parameterNamesOf(batch)).not.toContain("screenshotAtEnd");
+});
+
+test("explains the delay step in mobile_batch_commands without listing it as a tool", async () => {
+	const tools = await listToolDefinitions();
+	const batch = findTool(tools, "mobile_batch_commands");
+
+	expect(batch.description).toContain("delay");
+	expect(batch.description).toContain("milliseconds");
+	expect(tools.map(tool => tool.name)).not.toContain("delay");
 });
