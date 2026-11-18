@@ -1443,7 +1443,12 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			if (listElementsAtEnd) {
-				results.push(textOf(await toolCallbacks.get("mobile_list_elements_on_screen")!.callback({ device }, {})));
+				// the steps already ran, so a failed listing must not throw their results away
+				try {
+					results.push(textOf(await toolCallbacks.get("mobile_list_elements_on_screen")!.callback({ device }, {})));
+				} catch (error: any) {
+					results.push(`Listing elements at the end failed: ${error.message}`);
+				}
 			}
 
 			const text = results.join("\n");

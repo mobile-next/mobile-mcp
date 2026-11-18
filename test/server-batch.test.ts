@@ -120,3 +120,15 @@ test("fails a delay step that gives no time", async () => {
 
 	expect(text).toContain("Step 1 (delay) failed");
 });
+
+test("keeps the results of completed steps when the final element listing fails", async () => {
+	const client = await createConnectedClient();
+	const text = await runBatch(client, {
+		device: "no-such-device",
+		listElementsAtEnd: true,
+		steps: [{ name: "delay", arguments: { milliseconds: 1 } }],
+	});
+
+	expect(text).toContain("Step 1 (delay): Waited 1ms");
+	expect(text).toContain('Listing elements at the end failed: Device "no-such-device" not found');
+});
