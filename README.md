@@ -378,13 +378,15 @@ Follow the MCP Servers documentation. For example in `~/.config/opencode/opencod
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "mobile-mcp": {
-      "type": "local",
-      "command": [
-        "npx",
-        "@mobilenext/mobile-mcp@latest"
-      ],
-      "enabled": true
+    "servers": {
+      "mobile-mcp": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "@mobilenext/mobile-mcp@latest"
+        ]
+      }
     }
   }
 }
