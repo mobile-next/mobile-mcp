@@ -68,12 +68,12 @@ export class Simctl implements Robot {
 		trace("Could not start WebDriverAgent in time, giving up");
 	}
 
-	private async wda(): Promise<WebDriverAgent> {
+	private async wda(timeoutMs?: number): Promise<WebDriverAgent> {
 		const wda = new WebDriverAgent("localhost", WDA_PORT);
 
-		if (!(await wda.isRunning())) {
+		if (!(await wda.isRunning(timeoutMs))) {
 			await this.startWda();
-			if (!(await wda.isRunning())) {
+			if (!(await wda.isRunning(timeoutMs))) {
 				throw new ActionableError("WebDriverAgent is not running on simulator, please see https://github.com/mobile-next/mobile-mcp/wiki/");
 			}
 
@@ -266,9 +266,9 @@ export class Simctl implements Robot {
 		return wda.pressButton(button);
 	}
 
-	public async getElementsOnScreen(): Promise<ScreenElement[]> {
-		const wda = await this.wda();
-		return wda.getElementsOnScreen();
+	public async getElementsOnScreen(timeoutMs?: number): Promise<ScreenElement[]> {
+		const wda = await this.wda(timeoutMs);
+		return wda.getElementsOnScreen(timeoutMs);
 	}
 
 	public async setOrientation(orientation: Orientation): Promise<void> {
