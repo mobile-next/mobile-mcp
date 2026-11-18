@@ -112,7 +112,10 @@ test.describe("mobilecli", () => {
 				writeFile(join(store, binaryPackage, binaryName), "");
 
 				const currentPath = join(store, mcp, "@mobilenext", "mobile-mcp", "lib", "mobilecli.js");
-				expect((Mobilecli as any).getMobilecliPath(currentPath)).toBe(join(store, binaryPackage, binaryName));
+				// an empty MOBILECLI_PATH counts as unset, so a developer's own override cannot win here
+				withMobilecliPath("", () => {
+					expect((Mobilecli as any).getMobilecliPath(currentPath)).toBe(join(store, binaryPackage, binaryName));
+				});
 			} finally {
 				rmSync(root, { recursive: true, force: true });
 			}
