@@ -9,7 +9,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import { trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
-import { ActionableError, Dimensions, Robot, ScreenshotOptions } from "./robot";
+import { ActionableError, Dimensions, GesturePoint, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { getJpegDimensions } from "./jpeg";
@@ -122,6 +122,26 @@ const imagesOf = (response: string | ToolContent[]): ToolContent[] => {
 	}
 
 	return response.filter(block => block.type === "image");
+};
+
+const toGesturePoint = (ref: string | undefined, x: number | undefined, y: number | undefined): GesturePoint | undefined => {
+	if (ref !== undefined) {
+		return { ref };
+	}
+
+	if (x === undefined || y === undefined) {
+		return undefined;
+	}
+
+	return { x, y };
+};
+
+const describeGesturePoint = (point: GesturePoint): string => {
+	if ("ref" in point) {
+		return `element ${point.ref}`;
+	}
+
+	return `coordinates ${point.x}, ${point.y}`;
 };
 
 export const createMcpServer = (): McpServer => {
@@ -791,6 +811,42 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_drag_on_screen",
+		"Drag On Screen",
+		"Drag one finger from one point to another, e.g. to move a slider, reorder a list or drag and drop. Each end is either x,y coordinates or an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			x1: z.coerce.number().min(0).optional().describe("The x coordinate to start the drag from, in pixels. Required unless fromRef is given"),
+			y1: z.coerce.number().min(0).optional().describe("The y coordinate to start the drag from, in pixels. Required unless fromRef is given"),
+			x2: z.coerce.number().min(0).optional().describe("The x coordinate to end the drag at, in pixels. Required unless toRef is given"),
+			y2: z.coerce.number().min(0).optional().describe("The y coordinate to end the drag at, in pixels. Required unless toRef is given"),
+			fromRef: z.string().optional().describe("Element ref to start the drag from, e.g. \"@e5\". Takes precedence over x1,y1"),
+			toRef: z.string().optional().describe("Element ref to end the drag at, e.g. \"@e7\". Takes precedence over x2,y2"),
+			hold: z.coerce.number().min(0).max(10000).optional().describe("How long the finger stays down before it moves, in milliseconds. Use it (e.g. 500) to pick up an item that would otherwise scroll. Defaults to 0"),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+		async ({ device, x1, y1, x2, y2, fromRef, toRef, hold }) => {
+			const from = toGesturePoint(fromRef, x1, y1);
+			if (!from) {
+				throw new ActionableError("Either fromRef or both x1 and y1 must be provided");
+			}
+
+			const to = toGesturePoint(toRef, x2, y2);
+			if (!to) {
+				throw new ActionableError("Either toRef or both x2 and y2 must be provided");
+			}
+
+			const robot = getRobotFromDevice(device);
+			if (!robot.drag) {
+				throw new ActionableError("Dragging is not supported in legacy robot mode");
+			}
+
+			await robot.drag(from, to, hold);
+			return `Dragged from ${describeGesturePoint(from)} to ${describeGesturePoint(to)}`;
+		}
+	);
+
+	tool(
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long Press Screen",
 		"Long press on the screen, either at x,y coordinates or on an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
@@ -826,7 +882,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_elements_on_screen",
 		"List Screen Elements",
-		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen or mobile_long_press_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
+		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen, mobile_long_press_on_screen_at_coordinates or mobile_drag_on_screen. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs"),
