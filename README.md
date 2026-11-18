@@ -127,6 +127,7 @@ How we help to scale mobile automation:
 - **`mobile_click_on_screen_at_coordinates`** - Click at specific x,y coordinates or on an element by its ref
 - **`mobile_double_tap_on_screen`** - Double-tap at specific coordinates or on an element by its ref
 - **`mobile_long_press_on_screen_at_coordinates`** - Long press at specific coordinates or on an element by its ref
+- **`mobile_drag_on_screen`** - Drag from one point or element ref to another, with an optional hold before moving
 - **`mobile_swipe_on_screen`** - Swipe in any direction (up, down, left, right)
 - **`mobile_start_screen_recording`** - Start recording the device screen to a video file
 - **`mobile_stop_screen_recording`** - Stop the active screen recording and save the video
@@ -140,7 +141,7 @@ How we help to scale mobile automation:
 - **`mobile_get_device_logs`** - Collect live device logs (logcat on Android, unified log on iOS), optionally saved to a file
 - **`mobile_list_crashes`** - List crash reports available on the device
 - **`mobile_get_crash`** - Get the full content of a crash report by its ID
-- **`mobile_batch_commands`** - Run multiple tools in sequence in a single call (e.g. click, type, click), optionally listing screen elements at the end
+- **`mobile_batch_commands`** - Run multiple tools in sequence in a single call (e.g. click, type, click), with optional `delay` steps in between, optionally listing screen elements at the end
 
 ## 🏗️ Mobile MCP Architecture
 
@@ -378,13 +379,15 @@ Follow the MCP Servers documentation. For example in `~/.config/opencode/opencod
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "mobile-mcp": {
-      "type": "local",
-      "command": [
-        "npx",
-        "@mobilenext/mobile-mcp@latest"
-      ],
-      "enabled": true
+    "servers": {
+      "mobile-mcp": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "@mobilenext/mobile-mcp@latest"
+        ]
+      }
     }
   }
 }

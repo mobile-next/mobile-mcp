@@ -71,3 +71,35 @@ test("validates step arguments against the target tool schema", async () => {
 	expect(text).toContain("Step 1 (mobile_click_on_screen_at_coordinates) failed");
 	expect(text).toContain("x");
 });
+
+const millisecondsTakenBy = async (run: () => Promise<unknown>): Promise<number> => {
+	const start = Date.now();
+	await run();
+	return Date.now() - start;
+};
+
+test("waits for the given time on a delay step", async () => {
+	const client = await createConnectedClient();
+	let text = "";
+
+	const elapsed = await millisecondsTakenBy(async () => {
+		text = await runBatch(client, { device: "nope", steps: [{ name: "delay", arguments: { milliseconds: 200 } }] });
+	});
+
+	expect(text).toContain("Step 1 (delay): Waited 200ms");
+	expect(elapsed).toBeGreaterThanOrEqual(200);
+});
+
+test("fails a delay step that is longer than the allowed maximum", async () => {
+	const client = await createConnectedClient();
+	const text = await runBatch(client, { device: "nope", steps: [{ name: "delay", arguments: { milliseconds: 10001 } }] });
+
+	expect(text).toContain("Step 1 (delay) failed");
+});
+
+test("fails a delay step that gives no time", async () => {
+	const client = await createConnectedClient();
+	const text = await runBatch(client, { device: "nope", steps: [{ name: "delay", arguments: {} }] });
+
+	expect(text).toContain("Step 1 (delay) failed");
+});

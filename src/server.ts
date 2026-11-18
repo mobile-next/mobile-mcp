@@ -5,10 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { ChildProcess } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
-import { ActionableError, Dimensions, Robot, ScreenshotOptions } from "./robot";
+import { ActionableError, Dimensions, GesturePoint, Robot, ScreenshotOptions } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { getJpegDimensions } from "./jpeg";
@@ -28,6 +29,8 @@ const DEVICE_LOG_TIMEOUT_MS = 30000;
 const DEVICE_LOG_FILTER_PATTERN = /^(pid|process|tag|level|subsystem|category|message)!?=.+$/;
 const ALLOWED_SCREENSHOT_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
+const BATCH_DELAY_STEP = "delay";
+const MAX_BATCH_DELAY_MS = 10000;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
 const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
@@ -103,6 +106,26 @@ Prefer mobile_launch_app to open an app, and mobile_open_url to open a web page,
 over navigating through the UI. mobile_open_url only accepts http:// and
 https:// URLs unless the server was started with MOBILEMCP_ALLOW_UNSAFE_URLS=1,
 so do not rely on it for app deep links.`;
+
+const toGesturePoint = (ref: string | undefined, x: number | undefined, y: number | undefined): GesturePoint | undefined => {
+	if (ref !== undefined) {
+		return { ref };
+	}
+
+	if (x === undefined || y === undefined) {
+		return undefined;
+	}
+
+	return { x, y };
+};
+
+const describeGesturePoint = (point: GesturePoint): string => {
+	if ("ref" in point) {
+		return `element ${point.ref}`;
+	}
+
+	return `coordinates ${point.x}, ${point.y}`;
+};
 
 export const createMcpServer = (): McpServer => {
 
@@ -765,6 +788,42 @@ export const createMcpServer = (): McpServer => {
 	);
 
 	tool(
+		"mobile_drag_on_screen",
+		"Drag On Screen",
+		"Drag one finger from one point to another, e.g. to move a slider, reorder a list or drag and drop. Each end is either x,y coordinates or an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
+		{
+			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
+			x1: z.coerce.number().min(0).optional().describe("The x coordinate to start the drag from, in pixels. Required unless fromRef is given"),
+			y1: z.coerce.number().min(0).optional().describe("The y coordinate to start the drag from, in pixels. Required unless fromRef is given"),
+			x2: z.coerce.number().min(0).optional().describe("The x coordinate to end the drag at, in pixels. Required unless toRef is given"),
+			y2: z.coerce.number().min(0).optional().describe("The y coordinate to end the drag at, in pixels. Required unless toRef is given"),
+			fromRef: z.string().optional().describe("Element ref to start the drag from, e.g. \"@e5\". Takes precedence over x1,y1"),
+			toRef: z.string().optional().describe("Element ref to end the drag at, e.g. \"@e7\". Takes precedence over x2,y2"),
+			hold: z.coerce.number().min(0).max(10000).optional().describe("How long the finger stays down before it moves, in milliseconds. Use it (e.g. 500) to pick up an item that would otherwise scroll. Defaults to 0"),
+		},
+		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+		async ({ device, x1, y1, x2, y2, fromRef, toRef, hold }) => {
+			const from = toGesturePoint(fromRef, x1, y1);
+			if (!from) {
+				throw new ActionableError("Either fromRef or both x1 and y1 must be provided");
+			}
+
+			const to = toGesturePoint(toRef, x2, y2);
+			if (!to) {
+				throw new ActionableError("Either toRef or both x2 and y2 must be provided");
+			}
+
+			const robot = getRobotFromDevice(device);
+			if (!robot.drag) {
+				throw new ActionableError("Dragging is not supported in legacy robot mode");
+			}
+
+			await robot.drag(from, to, hold);
+			return `Dragged from ${describeGesturePoint(from)} to ${describeGesturePoint(to)}`;
+		}
+	);
+
+	tool(
 		"mobile_long_press_on_screen_at_coordinates",
 		"Long Press Screen",
 		"Long press on the screen, either at x,y coordinates or on an element by its ref (e.g. \"@e5\") from the latest mobile_list_elements_on_screen result. Prefer ref when the element is listed.",
@@ -800,7 +859,7 @@ export const createMcpServer = (): McpServer => {
 	tool(
 		"mobile_list_elements_on_screen",
 		"List Screen Elements",
-		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen or mobile_long_press_on_screen_at_coordinates. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
+		"List elements on screen with their ref, coordinates, and display text or accessibility label. Use the ref with mobile_click_on_screen_at_coordinates, mobile_double_tap_on_screen, mobile_long_press_on_screen_at_coordinates or mobile_drag_on_screen. Refs and coordinates stay valid as long as the screen does not change; re-list only after navigation or a layout change.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			format: z.enum(["text", "json", "raw"]).default("text").describe("Output format. \"text\" (default) is one compact line per element, \"json\" is a json array, \"raw\" is the unfiltered platform-specific hierarchy as JSON (mobilecli only). Raw nodes may be offscreen and do not have element refs"),
@@ -1335,14 +1394,25 @@ export const createMcpServer = (): McpServer => {
 	// mobile_take_screenshot returns an image, which the text result of a batch cannot carry
 	const batchableToolNames = [...toolCallbacks.keys()].filter(name => name !== "mobile_take_screenshot");
 
+	// a step that only exists inside a batch: waiting is of no use as a tool call of its own
+	toolCallbacks.set(BATCH_DELAY_STEP, {
+		paramsSchema: {
+			milliseconds: z.coerce.number().int().min(1).max(MAX_BATCH_DELAY_MS).describe("How long to wait, in milliseconds"),
+		},
+		callback: async ({ milliseconds }) => {
+			await sleep(milliseconds);
+			return `Waited ${milliseconds}ms`;
+		},
+	});
+
 	tool(
 		"mobile_batch_commands",
 		"Batch Commands",
-		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Tools allowed as steps: ${batchableToolNames.join(", ")}.`,
+		`Run multiple tools in sequence in a single call, e.g. click, type, click, type. Use this to fill forms or perform multi-step flows without round-trips. The device argument is applied to every step unless a step provides its own. Tools allowed as steps: ${batchableToolNames.join(", ")}. A step named "${BATCH_DELAY_STEP}" with arguments {"milliseconds": N} (up to ${MAX_BATCH_DELAY_MS}) waits before the next step, e.g. for an animation or a page load to finish before looking at the screen.`,
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
 			steps: z.array(z.object({
-				name: z.string().describe("Name of a tool allowed as a step, e.g. mobile_click_on_screen_at_coordinates"),
+				name: z.string().describe(`Name of a tool allowed as a step, e.g. mobile_click_on_screen_at_coordinates, or "${BATCH_DELAY_STEP}"`),
 				arguments: z.record(z.string(), z.any()).describe("Arguments for the tool, same as calling it directly"),
 			})).min(1).describe("Tools to run, in order"),
 			stopOnError: z.boolean().optional().describe("Stop at the first failing step. Defaults to true"),

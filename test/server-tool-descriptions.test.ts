@@ -132,3 +132,12 @@ test("lets mobile_take_screenshot clip to a region of the screen", async () => {
 	expect(parameterNamesOf(screenshot)).toContain("clip");
 	expect(requiredParametersOf(screenshot)).toEqual(["device"]);
 });
+
+test("explains the delay step in mobile_batch_commands without listing it as a tool", async () => {
+	const tools = await listToolDefinitions();
+	const batch = findTool(tools, "mobile_batch_commands");
+
+	expect(batch.description).toContain("delay");
+	expect(batch.description).toContain("milliseconds");
+	expect(tools.map(tool => tool.name)).not.toContain("delay");
+});
