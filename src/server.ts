@@ -575,7 +575,8 @@ export const createMcpServer = (): McpServer => {
 		"Reserve a physical device from the remote cloud fleet for exclusive use, returning a device identifier usable with the other mobile_* tools. " +
 		"Unlike local devices, a remote device is a shared and billed resource borrowed for the session - never call this silently. If no local device is available, offer a remote device to the user and call this only after they agree. " +
 		"Requires mobile_login_to_cloud_provider to have been called first; if this fails with an authentication error, call that tool then retry. " +
-		"Use mobile_list_remote_devices first to see which names and versions actually exist in the fleet before filtering by them, and filter only by devices whose availability is \"available\": a \"requires_upgrade\" device is refused on the user's current plan. " +
+		"Use mobile_list_remote_devices first to see which names and versions actually exist in the fleet before filtering by them. " +
+		"Filter only by devices whose availability is \"available\": a \"requires_upgrade\" device is refused on the user's current plan. " +
 		"Release the device with mobile_release_remote_device once the whole task is finished - releasing wipes the device's state, so do not release and reallocate between steps of the same task just to be tidy.",
 		{
 			platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),

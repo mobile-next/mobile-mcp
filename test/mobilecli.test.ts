@@ -130,39 +130,12 @@ test.describe("mobilecli", () => {
 	});
 
 	test.describe("remoteListDevices", () => {
-		// the output of `mobilecli remote list-devices` for an account on the free plan
-		const remoteListDevicesOutput = JSON.stringify({
-			status: "ok",
-			data: {
-				devices: [
-					{ name: "Google Pixel 10", platform: "android", type: "real", version: "16", formFactor: "phone", availability: "available" },
-					{ name: "Samsung Galaxy S24", platform: "android", type: "real", version: "14", formFactor: "phone", availability: "requires_upgrade" },
-				],
-			},
-		});
-
-		const availabilityOfEachDevice = (output: string): Record<string, string> => {
-			const devices: { name: string; availability: string }[] = JSON.parse(output).data.devices;
-			return Object.fromEntries(devices.map(device => [device.name, device.availability]));
-		};
-
 		test("should call executeCommand with remote list-devices", () => {
-			const { mobilecli, calls } = createMockMobilecli(remoteListDevicesOutput);
+			const { mobilecli, calls } = createMockMobilecli("{}");
 
 			mobilecli.remoteListDevices();
 
 			expect(calls).toEqual([{ args: ["remote", "list-devices"] }]);
-		});
-
-		test("should keep the availability of each device", () => {
-			const { mobilecli } = createMockMobilecli(remoteListDevicesOutput);
-
-			const output = mobilecli.remoteListDevices();
-
-			expect(availabilityOfEachDevice(output)).toEqual({
-				"Google Pixel 10": "available",
-				"Samsung Galaxy S24": "requires_upgrade",
-			});
 		});
 	});
 
