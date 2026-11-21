@@ -41,15 +41,32 @@ const pretendMobilecliPrints = (remoteDevicesOutput: string): void => {
 };
 
 const listRemoteDevicesAsTheAgentSeesThem = async (): Promise<RemoteDevice[]> => {
+	const previousTelemetrySetting = process.env.MOBILEMCP_DISABLE_TELEMETRY;
 	process.env.MOBILEMCP_DISABLE_TELEMETRY = "1";
-	const server = createMcpServer();
-	const client = new Client({ name: "remote-devices-test", version: "1.0.0" });
-	const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-	await server.connect(serverTransport);
-	await client.connect(clientTransport);
-	const result = await client.callTool({ name: "mobile_list_remote_devices", arguments: {} });
-	const content = result.content as TextContent[];
-	return JSON.parse(content[0].text).data.devices;
+
+	try {
+		const server = createMcpServer();
+		const client = new Client({ name: "remote-devices-test", version: "1.0.0" });
+		const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+		try {
+			await server.connect(serverTransport);
+			await client.connect(clientTransport);
+
+			const result = await client.callTool({ name: "mobile_list_remote_devices", arguments: {} });
+			const content = result.content as TextContent[];
+			return JSON.parse(content[0].text).data.devices;
+		} finally {
+			await client.close();
+			await server.close();
+		}
+	} finally {
+		if (previousTelemetrySetting === undefined) {
+			delete process.env.MOBILEMCP_DISABLE_TELEMETRY;
+		} else {
+			process.env.MOBILEMCP_DISABLE_TELEMETRY = previousTelemetrySetting;
+		}
+	}
 };
 
 const availabilityByName = (devices: RemoteDevice[]): Record<string, string> =>
