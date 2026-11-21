@@ -16,6 +16,7 @@
 		"platforms": ["darwin"]
 	},
 	"privacy_policies": ["https://mobilenext.ai/privacy"],
+	"tools": [],
 	"server": {
 		"type": "node",
 		"entry_point": "lib/index.js",

@@ -147,11 +147,11 @@ jobs:
     # macos runner (arm64) so sharp bundles darwin-arm64 native libs;
     # the bundle targets macOS Apple Silicon to fit Smithery's 25MB cap
     runs-on: macos-latest
-    needs: [build, unittest, e2e_test]
-    # disabled for now; drop "false &&" to re-enable
-    if: false && github.ref_type == 'tag'
+    # needs publish_npm, which creates the GitHub release the bundle is attached to
+    needs: [publish_npm]
+    if: github.ref_type == 'tag'
     permissions:
-      contents: read
+      contents: write
 
     steps:
     - uses: actions/checkout@v5
@@ -184,6 +184,11 @@ jobs:
         rm -rf node_modules/@img/sharp-wasm32
         npx -y @anthropic-ai/mcpb pack . /tmp/mobile-mcp.mcpb
         ls -lh /tmp/mobile-mcp.mcpb
+
+    - name: Attach mcpb bundle to GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release upload "$GITHUB_REF_NAME" /tmp/mobile-mcp.mcpb --clobber --repo "$GITHUB_REPOSITORY"
 
     - name: Publish to Smithery
       env:
