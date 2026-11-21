@@ -40,6 +40,26 @@ const getGoIosPath = (): string => {
 	return "ios";
 };
 
+const getWdaUrlOverride = (): URL | undefined => {
+	const value = process.env.MOBILEMCP_WDA_URL;
+	if (!value) {
+		return undefined;
+	}
+
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new ActionableError(`MOBILEMCP_WDA_URL is not a valid URL: ${value}`);
+	}
+
+	if (url.protocol !== "http:") {
+		throw new ActionableError(`MOBILEMCP_WDA_URL must be an http:// URL, got: ${value}`);
+	}
+
+	return url;
+};
+
 export class IosRobot implements Robot {
 
 	public constructor(private deviceId: string) {
@@ -76,6 +96,17 @@ export class IosRobot implements Robot {
 	}
 
 	private async wda(): Promise<WebDriverAgent> {
+
+		// talk to an already reachable WebDriverAgent directly, skipping the tunnel and port forward checks
+		const wdaUrl = getWdaUrlOverride();
+		if (wdaUrl) {
+			const wda = new WebDriverAgent(wdaUrl.hostname, parseInt(wdaUrl.port || "80", 10));
+			if (!(await wda.isRunning())) {
+				throw new ActionableError(`WebDriverAgent is not reachable at MOBILEMCP_WDA_URL (${wdaUrl.origin}), please see https://github.com/mobile-next/mobile-mcp/wiki/`);
+			}
+
+			return wda;
+		}
 
 		await this.assertTunnelRunning();
 
