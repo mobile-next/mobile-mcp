@@ -175,14 +175,16 @@ jobs:
         mkdir -p /tmp/mcpb-stage
         cp -r lib package.json package-lock.json manifest.json icon.png /tmp/mcpb-stage/
         cd /tmp/mcpb-stage
-        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
+        # tools is set to [] only for Smithery: without tools, prompts or resources,
+        # `smithery mcp publish` sends nothing to update and gets 400 "No values to set"
+        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;m.tools=m.tools??[];fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
         npm version "$VERSION" --no-git-tag-version
         npm ci --omit=dev --ignore-scripts
         # trim to darwin-arm64: other platforms' mobilecli binaries and the
         # sharp wasm fallback push the bundle past Smithery's 25MB cap
         rm -f node_modules/mobilecli/bin/*windows* node_modules/mobilecli/bin/*linux* node_modules/mobilecli/bin/mobilecli-darwin-amd64
         rm -rf node_modules/@img/sharp-wasm32
-        npx -y @anthropic-ai/mcpb pack . /tmp/mobile-mcp.mcpb
+        npx -y @anthropic-ai/mcpb@2.1.2 pack . /tmp/mobile-mcp.mcpb
         ls -lh /tmp/mobile-mcp.mcpb
 
     - name: Attach mcpb bundle to GitHub release
@@ -194,7 +196,7 @@ jobs:
       env:
         SMITHERY_API_KEY: ${{ secrets.SMITHERY_API_KEY }}
       run: |
-        npx -y @smithery/cli mcp publish /tmp/mobile-mcp.mcpb -n mobile-next/mobile-mcp
+        npx -y @smithery/cli@4.11.1 mcp publish /tmp/mobile-mcp.mcpb -n mobile-next/mobile-mcp
 
   e2e_test:
     runs-on: self-hosted
