@@ -1,3 +1,9 @@
+## [1.0.19](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.19) (2026-11-22)
+* Feat: `mobile_launch_app` passes launch arguments and environment variables to the app ([#523](https://github.com/mobile-next/mobile-mcp/pull/523))
+* Feat: Note device available when listing remote devices ([#569](https://github.com/mobile-next/mobile-mcp/pull/569))
+* Feat: Each release has a Claude Desktop (.mcpb) bundle attached ([#568](https://github.com/mobile-next/mobile-mcp/pull/568))
+* Fix: Bug fixes when installing with pnpm ([#486](https://github.com/mobile-next/mobile-mcp/pull/486)), thanks to [@Cassian433](https://github.com/Cassian433)
+
 ## [1.0.18](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.18) (2026-11-18)
 * Feat: New `mobile_drag_on_screen` tool drags one finger between two points, each given as coordinates or an element ref ([#560](https://github.com/mobile-next/mobile-mcp/pull/560), [#527](https://github.com/mobile-next/mobile-mcp/pull/527)), thanks to [@yishair-investing](https://github.com/yishair-investing)
 * Feat: `mobile_take_screenshot` accepts a `clip` region to capture only part of the screen ([#561](https://github.com/mobile-next/mobile-mcp/pull/561))
