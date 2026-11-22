@@ -143,11 +143,9 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md
         fi
 
-  publish_mcpb:
-    # one bundle per Claude Desktop platform, built and smoke-tested on that platform,
-    # then attached to the GitHub release that publish_npm creates
-    needs: [publish_npm]
-    if: github.ref_type == 'tag'
+  mcpb:
+    # one Claude Desktop bundle per platform, built and smoke-tested on that
+    # platform on every push and pull request; publish_mcpb attaches them on a tag
     strategy:
       fail-fast: false
       matrix:
@@ -159,12 +157,13 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     permissions:
-      contents: write
+      contents: read
     defaults:
       run:
         shell: bash
     env:
       BUNDLE: mobile-mcp-${{ matrix.platform }}.mcpb
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-ci' }}
 
     steps:
     - uses: actions/checkout@v5
@@ -182,15 +181,36 @@ jobs:
         npm run build
 
     - name: Pack mcpb bundle
-      run: scripts/pack-mcpb.sh "$GITHUB_REF_NAME" "${{ matrix.platform }}" "$BUNDLE"
+      run: scripts/pack-mcpb.sh "$VERSION" "${{ matrix.platform }}" "$BUNDLE"
 
     - name: Smoke-test the bundle on this platform
       run: scripts/smoke-test-mcpb.sh "$BUNDLE"
 
-    - name: Attach mcpb bundle to GitHub release
+    - uses: actions/upload-artifact@v4
+      with:
+        name: mcpb-${{ matrix.platform }}
+        path: ${{ env.BUNDLE }}
+        if-no-files-found: error
+        retention-days: 7
+
+  publish_mcpb:
+    # attaches the tested bundles to the GitHub release that publish_npm creates
+    needs: [publish_npm, mcpb]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: mcpb-*
+        merge-multiple: true
+
+    - name: Attach mcpb bundles to GitHub release
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release upload "$GITHUB_REF_NAME" "$BUNDLE" --clobber --repo "$GITHUB_REPOSITORY"
+      run: gh release upload "$GITHUB_REF_NAME" mobile-mcp-darwin.mcpb mobile-mcp-win32.mcpb --clobber --repo "$GITHUB_REPOSITORY"
 
   e2e_test:
     runs-on: self-hosted
