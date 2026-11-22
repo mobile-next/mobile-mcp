@@ -158,6 +158,11 @@ test.describe("utils", () => {
 				expect(() => validateOutputPath(path.join(os.tmpdir(), "mobile-mcp-test-output.png"))).not.toThrow();
 			});
 		});
+
+		test("should accept a filename starting with two dots inside an allowed directory", () => {
+			const target = path.join(os.tmpdir(), "..mobile-mcp-test-output.png");
+			expect(() => validateOutputPath(target)).not.toThrow();
+		});
 	});
 
 	// a symlink as the final path component would redirect a write, so it must be
@@ -229,6 +234,46 @@ test.describe("utils", () => {
 			fs.symlinkSync(path.basename(second), first);
 			try {
 				expect(() => validateOutputPath(first)).toThrow(/too many levels of symbolic links/);
+			} finally {
+				fs.rmSync(second, { force: true });
+				fs.rmSync(first, { force: true });
+			}
+		});
+
+		test("should reject a non-existent subdirectory under a directory symlink pointing outside allowed directories", () => {
+			const dirLink = createSymlink(os.homedir());
+			try {
+				expect(() => validateOutputPath(path.join(dirLink, "mobile-mcp-new-subdir", "escaped.png"))).toThrow();
+			} finally {
+				fs.rmSync(dirLink, { force: true });
+			}
+		});
+
+		test("should reject a file under a dangling directory symlink pointing outside allowed directories", () => {
+			const dirLink = createSymlink(path.join(path.sep, "mobile-mcp-outside", "missing-dir"));
+			try {
+				expect(() => validateOutputPath(path.join(dirLink, "escaped.png"))).toThrow();
+			} finally {
+				fs.rmSync(dirLink, { force: true });
+			}
+		});
+
+		test("should accept a non-existent subdirectory under a directory symlink staying inside allowed directories", () => {
+			const dirLink = createSymlink(os.tmpdir());
+			try {
+				expect(() => validateOutputPath(path.join(dirLink, "mobile-mcp-new-subdir", "inside.png"))).not.toThrow();
+			} finally {
+				fs.rmSync(dirLink, { force: true });
+			}
+		});
+
+		test("should reject a parent directory symlink cycle", () => {
+			const first = createSymlink(path.join(process.cwd(), "mobile-mcp-dir-cycle-placeholder"));
+			const second = createSymlink(path.basename(first));
+			fs.rmSync(first);
+			fs.symlinkSync(path.basename(second), first);
+			try {
+				expect(() => validateOutputPath(path.join(first, "escaped.png"))).toThrow(/too many levels of symbolic links/);
 			} finally {
 				fs.rmSync(second, { force: true });
 				fs.rmSync(first, { force: true });

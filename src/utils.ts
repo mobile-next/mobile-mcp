@@ -85,7 +85,7 @@ function isPathUnderRoot(filePath: string, root: string): boolean {
 		return false;
 	}
 
-	if (relative.startsWith("..")) {
+	if (relative === ".." || relative.startsWith(`..${path.sep}`)) {
 		return false;
 	}
 
@@ -112,42 +112,51 @@ const MAX_SYMLINK_HOPS = 64;
 // write escaped. Follow each hop to its target until a component that either
 // exists as a real file or does not exist at all, and hand that to the root check.
 function resolveWithSymlinks(filePath: string): string {
-	let current = path.resolve(filePath);
+	const initial = path.resolve(filePath);
+	const { root } = path.parse(initial);
+	let current = root;
+	const pending = initial.slice(root.length).split(path.sep).filter(Boolean);
+	let hops = 0;
 
-	// bound the walk so a symlink cycle cannot spin forever
-	for (let hops = 0; hops < MAX_SYMLINK_HOPS; hops++) {
-		const dir = path.dirname(current);
-		const filename = path.basename(current);
-
-		// resolve the containing directory first (it may be a symlink itself,
-		// e.g. /tmp and /var on macOS) so it lines up with the allowed roots
-		let realDir: string;
-		try {
-			realDir = fs.realpathSync(dir);
-		} catch {
-			realDir = dir;
-		}
-
-		const candidate = path.join(realDir, filename);
-
+	// walk each path component from the root so symlinks in any ancestor
+	// (including dangling directory symlinks, parent cycles, and missing nested
+	// subdirectories under a symlinked parent) are resolved before checking roots
+	while (pending.length > 0) {
+		const segment = pending.shift()!;
+		const next = path.join(current, segment);
 		let stat: fs.Stats;
 		try {
-			stat = fs.lstatSync(candidate);
-		} catch {
-			// nothing there yet, it will be created at `candidate`
-			return candidate;
+			stat = fs.lstatSync(next);
+		} catch (error: any) {
+			if (error?.code === "ENOENT" || error?.code === "ENOTDIR" || error?.code === "EACCES") {
+				// nothing exists from this segment onward, so normalize the
+				// remaining segments on top of the resolved prefix
+				return path.resolve(next, ...pending);
+			}
+
+			throw error;
 		}
 
 		if (!stat.isSymbolicLink()) {
-			return candidate;
+			current = next;
+			continue;
 		}
 
-		// follow the link to its target - which may itself be a link, or may not
-		// exist yet (exactly where a write would create the file) - and resolve again
-		current = path.resolve(realDir, fs.readlinkSync(candidate));
+		hops++;
+		if (hops > MAX_SYMLINK_HOPS) {
+			throw new ActionableError(`"${filePath}" has too many levels of symbolic links.`);
+		}
+
+		// follow the link to its target - which may itself be a link or may not
+		// exist yet - and continue resolving from the target's root
+		const target = path.resolve(current, fs.readlinkSync(next));
+		const targetRoot = path.parse(target).root;
+		const targetParts = target.slice(targetRoot.length).split(path.sep).filter(Boolean);
+		current = targetRoot;
+		pending.unshift(...targetParts);
 	}
 
-	throw new ActionableError(`"${filePath}" has too many levels of symbolic links.`);
+	return current;
 }
 
 export function validateOutputPath(filePath: string): void {
