@@ -144,14 +144,29 @@ jobs:
         fi
 
   publish_mcpb:
-    # macos runner (arm64) so npm installs the darwin-arm64 mobilecli binary;
-    # the darwin-amd64 one is added by hand so the bundle runs on every Mac
-    runs-on: macos-latest
-    # needs publish_npm, which creates the GitHub release the bundle is attached to
+    # one bundle per Claude Desktop platform, built and smoke-tested on that platform,
+    # then attached to the GitHub release that publish_npm creates
     needs: [publish_npm]
     if: github.ref_type == 'tag'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin
+            runner: macos-latest
+            mobilecli: darwin-arm64 darwin-amd64
+          - platform: win32
+            runner: windows-latest
+            mobilecli: windows-amd64 windows-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     permissions:
       contents: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUNDLE: mobile-mcp-${{ matrix.platform }}.mcpb
 
     steps:
     - uses: actions/checkout@v5
@@ -168,32 +183,52 @@ jobs:
         npm ci --ignore-scripts
         npm run build
 
-    - name: Pack mcpb bundle (darwin-arm64)
+    # paths stay relative: on Windows, tar reads "D:\..." as a remote host
+    - name: Pack mcpb bundle
       env:
         VERSION: ${{ github.ref_name }}
+        PLATFORM: ${{ matrix.platform }}
+        MOBILECLI: ${{ matrix.mobilecli }}
       run: |
-        mkdir -p /tmp/mcpb-stage
-        cp -r lib package.json package-lock.json manifest.json icon.png /tmp/mcpb-stage/
-        cd /tmp/mcpb-stage
-        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
+        mkdir mcpb-stage
+        cp -r lib package.json package-lock.json manifest.json icon.png mcpb-stage/
+        cd mcpb-stage
+        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;m.compatibility.platforms=[process.env.PLATFORM];fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
         npm version "$VERSION" --no-git-tag-version
-        npm ci --omit=dev --ignore-scripts
-        # npm installs only the host's optional mobilecli binary; add the Intel one
-        # from the lockfile, checked against its integrity hash
-        PKG=node_modules/@mobilenext/mobilecli-darwin-amd64
-        URL=$(node -p "require('./package-lock.json').packages['$PKG'].resolved")
-        INTEGRITY=$(node -p "require('./package-lock.json').packages['$PKG'].integrity")
-        curl -fsSL "$URL" -o /tmp/mobilecli-darwin-amd64.tgz
-        test "$INTEGRITY" = "sha512-$(openssl dgst -sha512 -binary /tmp/mobilecli-darwin-amd64.tgz | base64)"
-        mkdir -p "$PKG"
-        tar -xzf /tmp/mobilecli-darwin-amd64.tgz --strip-components=1 -C "$PKG"
-        npx -y @anthropic-ai/mcpb@2.1.2 pack . /tmp/mobile-mcp.mcpb
-        ls -lh /tmp/mobile-mcp.mcpb
+        # the only optional packages are mobilecli's per-platform binaries; skip them
+        # and add this platform's from the lockfile, checked against its integrity hash
+        npm ci --omit=dev --omit=optional --ignore-scripts
+        for TARGET in $MOBILECLI; do
+          PKG="node_modules/@mobilenext/mobilecli-$TARGET"
+          URL=$(node -p "require('./package-lock.json').packages['$PKG'].resolved")
+          INTEGRITY=$(node -p "require('./package-lock.json').packages['$PKG'].integrity")
+          curl -fsSL "$URL" -o "../$TARGET.tgz"
+          test "$INTEGRITY" = "sha512-$(openssl dgst -sha512 -binary "../$TARGET.tgz" | openssl base64 -A)"
+          mkdir -p "$PKG"
+          tar -xzf "../$TARGET.tgz" --strip-components=1 -C "$PKG"
+        done
+        npx -y @anthropic-ai/mcpb@2.1.2 pack . "../$BUNDLE"
+        ls -lh "../$BUNDLE"
+
+    # the device list call goes through mobilecli, so it fails if the bundle has no
+    # binary for this runner; no device is needed, only a list without an error
+    - name: Smoke-test the bundle on this platform
+      run: |
+        npx -y @anthropic-ai/mcpb@2.1.2 unpack "$BUNDLE" mcpb-unpacked
+        printf '%s\n' \
+          '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0"}}}' \
+          '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+          '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"mobile_list_available_devices","arguments":{}}}' \
+          | node mcpb-unpacked/lib/index.js > smoke-test.out
+        cat smoke-test.out
+        grep -q '"id":2' smoke-test.out
+        grep -q 'devices' smoke-test.out
+        if grep -q '"isError":true' smoke-test.out; then exit 1; fi
 
     - name: Attach mcpb bundle to GitHub release
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release upload "$GITHUB_REF_NAME" /tmp/mobile-mcp.mcpb --clobber --repo "$GITHUB_REPOSITORY"
+      run: gh release upload "$GITHUB_REF_NAME" "$BUNDLE" --clobber --repo "$GITHUB_REPOSITORY"
 
   e2e_test:
     runs-on: self-hosted
