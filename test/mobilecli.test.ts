@@ -129,6 +129,16 @@ test.describe("mobilecli", () => {
 		});
 	});
 
+	test.describe("remoteListDevices", () => {
+		test("should call executeCommand with remote list-devices", () => {
+			const { mobilecli, calls } = createMockMobilecli("{}");
+
+			mobilecli.remoteListDevices();
+
+			expect(calls).toEqual([{ args: ["remote", "list-devices"] }]);
+		});
+	});
+
 	test.describe("executeCommand", () => {
 		test("should return output larger than node's default 1MB maxBuffer", () => {
 			// run node itself as the "mobilecli" binary so the test works on every platform
