@@ -175,9 +175,7 @@ jobs:
         mkdir -p /tmp/mcpb-stage
         cp -r lib package.json package-lock.json manifest.json icon.png /tmp/mcpb-stage/
         cd /tmp/mcpb-stage
-        # tools is set to [] only for Smithery: without tools, prompts or resources,
-        # `smithery mcp publish` sends nothing to update and gets 400 "No values to set"
-        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;m.tools=m.tools??[];fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
+        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
         npm version "$VERSION" --no-git-tag-version
         npm ci --omit=dev --ignore-scripts
         # trim to darwin-arm64: other platforms' mobilecli binaries and the
@@ -191,12 +189,6 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: gh release upload "$GITHUB_REF_NAME" /tmp/mobile-mcp.mcpb --clobber --repo "$GITHUB_REPOSITORY"
-
-    - name: Publish to Smithery
-      env:
-        SMITHERY_API_KEY: ${{ secrets.SMITHERY_API_KEY }}
-      run: |
-        npx -y @smithery/cli@4.11.1 mcp publish /tmp/mobile-mcp.mcpb -n mobile-next/mobile-mcp
 
   e2e_test:
     runs-on: self-hosted
