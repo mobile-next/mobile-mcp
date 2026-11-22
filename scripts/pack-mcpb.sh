@@ -7,7 +7,8 @@
 # Paths stay relative because on Windows, tar reads "D:\..." as a remote host.
 set -euo pipefail
 
-VERSION=$1
+# a "v1.2.3" tag becomes "1.2.3", the same version npm and the release notes use
+VERSION=${1#v}
 PLATFORM=$2
 OUTPUT=$3
 BUILD=mcpb-build
