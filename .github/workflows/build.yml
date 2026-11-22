@@ -186,7 +186,8 @@ jobs:
     - name: Smoke-test the bundle on this platform
       run: scripts/smoke-test-mcpb.sh "$BUNDLE"
 
-    - uses: actions/upload-artifact@v4
+    - name: Upload tested bundle
+      uses: actions/upload-artifact@v4
       with:
         name: mcpb-${{ matrix.platform }}
         path: ${{ env.BUNDLE }}
@@ -202,7 +203,8 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/download-artifact@v4
+    - name: Download tested bundles
+      uses: actions/download-artifact@v4
       with:
         pattern: mcpb-*
         merge-multiple: true
@@ -210,7 +212,7 @@ jobs:
     - name: Attach mcpb bundles to GitHub release
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release upload "$GITHUB_REF_NAME" mobile-mcp-darwin.mcpb mobile-mcp-win32.mcpb --clobber --repo "$GITHUB_REPOSITORY"
+      run: gh release upload "$GITHUB_REF_NAME" mobile-mcp-*.mcpb --clobber --repo "$GITHUB_REPOSITORY"
 
   e2e_test:
     runs-on: self-hosted
