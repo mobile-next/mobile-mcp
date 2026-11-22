@@ -2,8 +2,8 @@ import { Socket } from "node:net";
 import { execFileSync } from "node:child_process";
 
 import { WebDriverAgent } from "./webdriver-agent";
-import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation } from "./robot";
-import { validatePackageName, validateLocale } from "./utils";
+import { ActionableError, Button, InstalledApp, Robot, ScreenSize, SwipeDirection, ScreenElement, Orientation, LaunchAppOptions } from "./robot";
+import { validatePackageName, validateLocale, rejectLaunchArgumentsAndEnvironment } from "./utils";
 
 const WDA_PORT = 8100;
 const IOS_TUNNEL_PORT = 60105;
@@ -138,8 +138,10 @@ export class IosRobot implements Robot {
 			});
 	}
 
-	public async launchApp(packageName: string, locale?: string): Promise<void> {
+	public async launchApp(packageName: string, options: LaunchAppOptions = {}): Promise<void> {
 		validatePackageName(packageName);
+		rejectLaunchArgumentsAndEnvironment(options);
+		const locale = options.locale;
 		await this.assertTunnelRunning();
 		const args = ["launch", packageName];
 		if (locale) {
