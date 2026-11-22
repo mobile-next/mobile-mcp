@@ -154,10 +154,8 @@ jobs:
         include:
           - platform: darwin
             runner: macos-latest
-            mobilecli: darwin-arm64 darwin-amd64
           - platform: win32
             runner: windows-latest
-            mobilecli: windows-amd64 windows-arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     permissions:
@@ -183,47 +181,11 @@ jobs:
         npm ci --ignore-scripts
         npm run build
 
-    # paths stay relative: on Windows, tar reads "D:\..." as a remote host
     - name: Pack mcpb bundle
-      env:
-        VERSION: ${{ github.ref_name }}
-        PLATFORM: ${{ matrix.platform }}
-        MOBILECLI: ${{ matrix.mobilecli }}
-      run: |
-        mkdir mcpb-stage
-        cp -r lib package.json package-lock.json manifest.json icon.png mcpb-stage/
-        cd mcpb-stage
-        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;m.compatibility.platforms=[process.env.PLATFORM];fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
-        npm version "$VERSION" --no-git-tag-version
-        # the only optional packages are mobilecli's per-platform binaries; skip them
-        # and add this platform's from the lockfile, checked against its integrity hash
-        npm ci --omit=dev --omit=optional --ignore-scripts
-        for TARGET in $MOBILECLI; do
-          PKG="node_modules/@mobilenext/mobilecli-$TARGET"
-          URL=$(node -p "require('./package-lock.json').packages['$PKG'].resolved")
-          INTEGRITY=$(node -p "require('./package-lock.json').packages['$PKG'].integrity")
-          curl -fsSL "$URL" -o "../$TARGET.tgz"
-          test "$INTEGRITY" = "sha512-$(openssl dgst -sha512 -binary "../$TARGET.tgz" | openssl base64 -A)"
-          mkdir -p "$PKG"
-          tar -xzf "../$TARGET.tgz" --strip-components=1 -C "$PKG"
-        done
-        npx -y @anthropic-ai/mcpb@2.1.2 pack . "../$BUNDLE"
-        ls -lh "../$BUNDLE"
+      run: scripts/pack-mcpb.sh "$GITHUB_REF_NAME" "${{ matrix.platform }}" "$BUNDLE"
 
-    # the device list call goes through mobilecli, so it fails if the bundle has no
-    # binary for this runner; no device is needed, only a list without an error
     - name: Smoke-test the bundle on this platform
-      run: |
-        npx -y @anthropic-ai/mcpb@2.1.2 unpack "$BUNDLE" mcpb-unpacked
-        printf '%s\n' \
-          '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0"}}}' \
-          '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
-          '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"mobile_list_available_devices","arguments":{}}}' \
-          | node mcpb-unpacked/lib/index.js > smoke-test.out
-        cat smoke-test.out
-        grep -q '"id":2' smoke-test.out
-        grep -q 'devices' smoke-test.out
-        if grep -q '"isError":true' smoke-test.out; then exit 1; fi
+      run: scripts/smoke-test-mcpb.sh "$BUNDLE"
 
     - name: Attach mcpb bundle to GitHub release
       env:
