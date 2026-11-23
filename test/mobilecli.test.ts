@@ -218,4 +218,37 @@ test.describe("mobilecli", () => {
 			expect(status.status).toBe("fail");
 		});
 	});
+
+	test.describe("crashesGet", () => {
+		test("should pass -- before the crash id so leading-dash ids are not parsed as flags", () => {
+			const mobilecli = new Mobilecli();
+			const calls: ExecuteCommandCall[] = [];
+			mobilecli.executeCommandBuffer = function(args: string[]): Buffer {
+				calls.push({ args });
+				return Buffer.from(JSON.stringify({ status: "ok", data: { id: "--help", content: "trace" } }));
+			};
+
+			const response = mobilecli.crashesGet("device-1", "--help");
+
+			expect(calls).toEqual([{ args: ["device", "crashes", "get", "--device", "device-1", "--", "--help"] }]);
+			expect(response.data.id).toBe("--help");
+		});
+
+		test("should treat flag-like crash ids as data when invoking real mobilecli", () => {
+			for (const id of ["--help", "--insecure-storage"]) {
+				let caught: unknown;
+				try {
+					mobilecli.crashesGet("nonexistent-device-574", id);
+				} catch (error) {
+					caught = error;
+				}
+
+				expect(caught).toBeInstanceOf(Error);
+				expect(caught).not.toBeInstanceOf(SyntaxError);
+				const message = (caught as Error).message;
+				expect(message).toContain("device not found");
+				expect(message).not.toContain("accepts 1 arg(s)");
+			}
+		});
+	});
 });
