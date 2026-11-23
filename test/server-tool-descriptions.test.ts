@@ -148,3 +148,13 @@ test("explains the delay step in mobile_batch_commands without listing it as a t
 	expect(batch.description).toContain("milliseconds");
 	expect(tools.map(tool => tool.name)).not.toContain("delay");
 });
+
+test("tells the agent to pick remote devices its plan can reserve", async () => {
+	const tools = await listToolDefinitions();
+
+	for (const name of ["mobile_list_remote_devices", "mobile_allocate_remote_device"]) {
+		const description = findTool(tools, name).description;
+		expect(description, name).toContain("\"available\"");
+		expect(description, name).toContain("\"requires_upgrade\"");
+	}
+});

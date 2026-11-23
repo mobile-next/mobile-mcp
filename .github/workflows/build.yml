@@ -143,15 +143,27 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md
         fi
 
-  publish_mcpb:
-    # macos runner (arm64) so sharp bundles darwin-arm64 native libs;
-    # the bundle targets macOS Apple Silicon to fit Smithery's 25MB cap
-    runs-on: macos-latest
-    needs: [build, unittest, e2e_test]
-    # disabled for now; drop "false &&" to re-enable
-    if: false && github.ref_type == 'tag'
+  mcpb:
+    # one Claude Desktop bundle per platform, built and smoke-tested on that
+    # platform on every push and pull request; publish_mcpb attaches them on a tag
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin
+            runner: macos-latest
+          - platform: win32
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     permissions:
       contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUNDLE: mobile-mcp-${{ matrix.platform }}.mcpb
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-ci' }}
 
     steps:
     - uses: actions/checkout@v5
@@ -168,28 +180,39 @@ jobs:
         npm ci --ignore-scripts
         npm run build
 
-    - name: Pack mcpb bundle (darwin-arm64)
-      env:
-        VERSION: ${{ github.ref_name }}
-      run: |
-        mkdir -p /tmp/mcpb-stage
-        cp -r lib package.json package-lock.json manifest.json icon.png /tmp/mcpb-stage/
-        cd /tmp/mcpb-stage
-        node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json'));m.version=process.env.VERSION;fs.writeFileSync('manifest.json',JSON.stringify(m,null,'\t'))"
-        npm version "$VERSION" --no-git-tag-version
-        npm ci --omit=dev --ignore-scripts
-        # trim to darwin-arm64: other platforms' mobilecli binaries and the
-        # sharp wasm fallback push the bundle past Smithery's 25MB cap
-        rm -f node_modules/mobilecli/bin/*windows* node_modules/mobilecli/bin/*linux* node_modules/mobilecli/bin/mobilecli-darwin-amd64
-        rm -rf node_modules/@img/sharp-wasm32
-        npx -y @anthropic-ai/mcpb pack . /tmp/mobile-mcp.mcpb
-        ls -lh /tmp/mobile-mcp.mcpb
+    - name: Pack mcpb bundle
+      run: scripts/pack-mcpb.sh "$VERSION" "${{ matrix.platform }}" "$BUNDLE"
 
-    - name: Publish to Smithery
+    - name: Smoke-test the bundle on this platform
+      run: scripts/smoke-test-mcpb.sh "$BUNDLE"
+
+    - name: Upload tested bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: mcpb-${{ matrix.platform }}
+        path: ${{ env.BUNDLE }}
+        if-no-files-found: error
+        retention-days: 7
+
+  publish_mcpb:
+    # attaches the tested bundles to the GitHub release that publish_npm creates
+    needs: [publish_npm, mcpb]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download tested bundles
+      uses: actions/download-artifact@v4
+      with:
+        pattern: mcpb-*
+        merge-multiple: true
+
+    - name: Attach mcpb bundles to GitHub release
       env:
-        SMITHERY_API_KEY: ${{ secrets.SMITHERY_API_KEY }}
-      run: |
-        npx -y @smithery/cli mcp publish /tmp/mobile-mcp.mcpb -n mobile-next/mobile-mcp
+        GH_TOKEN: ${{ github.token }}
+      run: gh release upload "$GITHUB_REF_NAME" mobile-mcp-*.mcpb --clobber --repo "$GITHUB_REPOSITORY"
 
   e2e_test:
     runs-on: self-hosted

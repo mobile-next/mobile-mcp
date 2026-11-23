@@ -32,6 +32,9 @@ const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const BATCH_DELAY_STEP = "delay";
 const MAX_BATCH_DELAY_MS = 10000;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
+
+// honors https://consoledonottrack.com as well as our own opt-out
+const isTelemetryDisabled = (): boolean => !!process.env.MOBILEMCP_DISABLE_TELEMETRY || process.env.DO_NOT_TRACK === "1";
 const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
 const NO_LOCAL_DEVICES_HINT =
@@ -223,7 +226,7 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const posthog = async (event: string, properties: Record<string, string | number>) => {
-		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+		if (isTelemetryDisabled()) {
 			return;
 		}
 
@@ -274,7 +277,7 @@ export const createMcpServer = (): McpServer => {
 	// ponytail: scarf.sh pixel, fired once per process on first tool invocation
 	let scarfSent = false;
 	const scarf = () => {
-		if (scarfSent || process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+		if (scarfSent || isTelemetryDisabled()) {
 			return;
 		}
 
@@ -367,7 +370,7 @@ export const createMcpServer = (): McpServer => {
 
 	// ponytail: same tool as @posthog/mcp's reportMissing, without pulling in the sdk
 	// nothing to report to when telemetry is off, so don't advertise the tool at all
-	if (!process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+	if (!isTelemetryDisabled()) {
 		tool(
 			"get_more_tools",
 			"Get More Tools",
@@ -557,6 +560,8 @@ export const createMcpServer = (): McpServer => {
 		"List the catalog of device models (make, platform, OS version) available to reserve from the remote cloud device fleet. " +
 		"This is different from mobile_list_available_devices, which lists real devices and simulators/emulators already connected to this local machine and ready to use immediately at no cost. " +
 		"Remote devices live in a shared cloud fleet: they are not usable until reserved with mobile_allocate_remote_device, and reserving one may be a limited/billed resource. " +
+		"Each device has an availability: \"available\" means the user's current plan can reserve it; \"requires_upgrade\" means it cannot be reserved until the user upgrades their plan. " +
+		"Pick an \"available\" device. If only a \"requires_upgrade\" device fits the task, tell the user that it needs a plan upgrade instead of trying to reserve it. " +
 		"Requires mobile_login_to_cloud_provider to have been called first; if this fails with an authentication error, call that tool then retry.",
 		{},
 		{ readOnlyHint: true, openWorldHint: true },
@@ -574,6 +579,7 @@ export const createMcpServer = (): McpServer => {
 		"Unlike local devices, a remote device is a shared and billed resource borrowed for the session - never call this silently. If no local device is available, offer a remote device to the user and call this only after they agree. " +
 		"Requires mobile_login_to_cloud_provider to have been called first; if this fails with an authentication error, call that tool then retry. " +
 		"Use mobile_list_remote_devices first to see which names and versions actually exist in the fleet before filtering by them. " +
+		"Filter only by devices whose availability is \"available\": a \"requires_upgrade\" device is refused on the user's current plan. " +
 		"Release the device with mobile_release_remote_device once the whole task is finished - releasing wipes the device's state, so do not release and reallocate between steps of the same task just to be tidy.",
 		{
 			platform: z.enum(["ios", "android"]).describe("The platform to allocate a device for"),
@@ -649,13 +655,15 @@ export const createMcpServer = (): McpServer => {
 		"Launch an app on mobile device. Use this to open a specific app. You can find the package name of the app by calling mobile_list_apps.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			packageName: z.string().describe("The package name of the app to launch"),
+			packageName: z.string().describe("The package name (Android) or bundle id (iOS) of the app to launch"),
 			locale: z.string().optional().describe("Comma-separated BCP 47 locale tags to launch the app with (e.g., fr-FR,en-GB)"),
+			arguments: z.array(z.string()).optional().describe("Arguments to launch the app with, one per item. On iOS they are the app's process arguments, like Xcode's Arguments Passed On Launch (e.g., [\"-FeatureX\", \"YES\"]). On Android each item must be key=value and is passed as a string intent extra the app reads from its launch intent (e.g., [\"featureX=true\"])"),
+			environment: z.record(z.string().regex(/^[^=]+$/), z.string()).optional().describe("iOS only. Environment variables set for the app process (e.g., {\"API_URL\": \"https://staging.example.com\"})"),
 		},
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-		async ({ device, packageName, locale }) => {
+		async ({ device, packageName, locale, arguments: launchArguments, environment }) => {
 			const robot = getRobotFromDevice(device);
-			await robot.launchApp(packageName, locale);
+			await robot.launchApp(packageName, { locale, arguments: launchArguments, environment });
 			return `Launched app ${packageName}`;
 		}
 	);

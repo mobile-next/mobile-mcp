@@ -78,6 +78,15 @@ export interface ScreenshotOptions {
 // a point on screen: either coordinates in pixels, or an element ref from the latest getElementsOnScreen (e.g. "@e5")
 export type GesturePoint = { x: number; y: number } | { ref: string };
 
+export interface LaunchAppOptions {
+	/** Comma-separated BCP 47 locale tags */
+	locale?: string;
+	/** Process arguments on iOS, key=value string intent extras on Android */
+	arguments?: string[];
+	/** Environment variables set for the app process, iOS only */
+	environment?: Record<string, string>;
+}
+
 export interface Robot {
 	/**
 	 * Get the screen size of the device in pixels.
@@ -152,7 +161,7 @@ export interface Robot {
 	/**
 	 * Launch an app.
 	 */
-	launchApp(packageName: string, locale?: string): Promise<void>;
+	launchApp(packageName: string, options?: LaunchAppOptions): Promise<void>;
 
 	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this
