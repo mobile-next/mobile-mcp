@@ -153,6 +153,16 @@ test.describe("utils", () => {
 			});
 		});
 
+		test("should accept a filename starting with two dots", () => {
+			const target = path.join(os.tmpdir(), "..mobile-mcp-test-output.png");
+			expect(() => validateOutputPath(target)).not.toThrow();
+		});
+
+		test("should reject a path whose parent directory does not exist", () => {
+			const target = path.join(os.tmpdir(), `mobile-mcp-missing-${process.pid}`, "out.png");
+			expect(() => validateOutputPath(target)).toThrow(/does not exist/);
+		});
+
 		test("should still accept the temp directory when started from the home directory", () => {
 			whileRunningFrom(os.homedir(), () => {
 				expect(() => validateOutputPath(path.join(os.tmpdir(), "mobile-mcp-test-output.png"))).not.toThrow();
@@ -160,79 +170,113 @@ test.describe("utils", () => {
 		});
 	});
 
-	// a symlink as the final path component would redirect a write, so it must be
-	// resolved too, not just the parent directory (see issue #412)
+	// the output path is checked by the directory the OS really resolves it to, and
+	// the write goes to that same resolved path - so nothing the check saw can differ
+	// from where the file lands (see #296, #377, #506, #507, #509 and #572)
 	test.describe("validateOutputPath symlinks", () => {
 		let nameCounter = 0;
-		const createSymlink = (target: string): string => {
-			const link = path.join(process.cwd(), `mobile-mcp-symlink-${process.pid}-${Date.now()}-${nameCounter++}.png`);
+		const uniqueName = (suffix: string): string => `mobile-mcp-symlink-${process.pid}-${Date.now()}-${nameCounter++}${suffix}`;
+
+		const createSymlink = (target: string, suffix = ".png"): string => {
+			const link = path.join(process.cwd(), uniqueName(suffix));
 			fs.rmSync(link, { force: true });
 			fs.symlinkSync(target, link);
 			return link;
 		};
 
+		const createDirectoryOutsideAllowedRoots = (): string => fs.mkdtempSync(path.join(os.homedir(), ".mobile-mcp-outside-"));
+		const createDirectoryInsideTemp = (): string => fs.mkdtempSync(path.join(os.tmpdir(), "mobile-mcp-inside-"));
+		const remove = (...paths: string[]) => paths.forEach(p => fs.rmSync(p, { recursive: true, force: true }));
+
 		// windows needs privileges to create a symlink, so this only runs where the
 		// behaviour it guards can be exercised
 		test.skip(process.platform === "win32", "creating a symlink needs elevated rights on windows");
 
-		test("should reject a final-component symlink whose target is outside the allowed directories", () => {
-			const link = createSymlink(path.join(path.sep, "mobile-mcp-outside", "escaped.png"));
+		test("should return the real location when the parent directory is a symlink into an allowed directory", () => {
+			const inside = createDirectoryInsideTemp();
+			const link = createSymlink(inside, "");
 			try {
-				expect(() => validateOutputPath(link)).toThrow();
+				expect(validateOutputPath(path.join(link, "out.png"))).toBe(path.join(fs.realpathSync(inside), "out.png"));
 			} finally {
-				fs.rmSync(link, { force: true });
+				remove(link, inside);
 			}
 		});
 
-		test("should still accept a final-component symlink whose target stays inside an allowed directory", () => {
-			const link = createSymlink(path.join(os.tmpdir(), "mobile-mcp-symlink-inside.png"));
+		test("should reject a path whose parent directory is a symlink outside the allowed directories", () => {
+			const outside = createDirectoryOutsideAllowedRoots();
+			const link = createSymlink(outside, "");
 			try {
-				expect(() => validateOutputPath(link)).not.toThrow();
+				expect(() => validateOutputPath(path.join(link, "escaped.png"))).toThrow(/not in the list of allowed directories/);
 			} finally {
-				fs.rmSync(link, { force: true });
+				remove(link, outside);
 			}
 		});
 
-		// a single link is not enough: the target of the first link can itself be a
-		// link inside an allowed root that bottoms out somewhere outside it, so the
-		// whole chain has to be followed - stopping at the first hop accepts an
-		// in-root name while the write lands outside it
-		test("should reject a symlink chain whose dangling target is outside the allowed directories", () => {
-			const outside = path.join(path.sep, "mobile-mcp-outside", "escaped.png");
-			const first = createSymlink(outside);
-			const second = createSymlink(path.basename(first));
+		test("should reject a new subdirectory under a symlink that points outside the allowed directories", () => {
+			const outside = createDirectoryOutsideAllowedRoots();
+			const link = createSymlink(outside, "");
 			try {
-				expect(() => validateOutputPath(first)).toThrow();
-				expect(() => validateOutputPath(second)).toThrow();
+				expect(() => validateOutputPath(path.join(link, "new-subdir", "escaped.png"))).toThrow();
 			} finally {
-				fs.rmSync(second, { force: true });
-				fs.rmSync(first, { force: true });
+				remove(link, outside);
 			}
 		});
 
-		test("should still accept a symlink chain whose target stays inside an allowed directory", () => {
-			const first = createSymlink(path.join(os.tmpdir(), "mobile-mcp-chain-inside.png"));
-			const second = createSymlink(path.basename(first));
+		test("should reject a path under a dangling directory symlink", () => {
+			const link = createSymlink(path.join(path.sep, "mobile-mcp-outside", "missing-dir"), "");
 			try {
-				expect(() => validateOutputPath(first)).not.toThrow();
-				expect(() => validateOutputPath(second)).not.toThrow();
+				expect(() => validateOutputPath(path.join(link, "escaped.png"))).toThrow();
 			} finally {
-				fs.rmSync(second, { force: true });
-				fs.rmSync(first, { force: true });
+				remove(link);
 			}
 		});
 
-		test("should reject a symlink cycle", () => {
-			const first = createSymlink(path.join(process.cwd(), "mobile-mcp-cycle-placeholder.png"));
-			const second = createSymlink(path.basename(first));
-			fs.rmSync(first);
+		test("should reject a symlink cycle in the parent directory", () => {
+			const first = path.join(process.cwd(), uniqueName(""));
+			const second = createSymlink(path.basename(first), "");
 			fs.symlinkSync(path.basename(second), first);
 			try {
-				expect(() => validateOutputPath(first)).toThrow(/too many levels of symbolic links/);
+				expect(() => validateOutputPath(path.join(first, "escaped.png"))).toThrow(/too many levels of symbolic links/);
 			} finally {
-				fs.rmSync(second, { force: true });
-				fs.rmSync(first, { force: true });
+				remove(first, second);
 			}
+		});
+
+		// with `pivot` -> <outside>/child, the OS reads `pivot/../exports` as
+		// <outside>/exports; collapsing the `..` first wrongly sees <cwd>/exports
+		test("should reject a .. that climbs out of a symlink pointing outside the allowed directories", () => {
+			const outside = createDirectoryOutsideAllowedRoots();
+			fs.mkdirSync(path.join(outside, "child"));
+			fs.mkdirSync(path.join(outside, "exports"));
+			const pivot = createSymlink(path.join(outside, "child"), "");
+			try {
+				const throughPivot = [pivot, "..", "exports", "out.png"].join(path.sep);
+				expect(() => validateOutputPath(throughPivot)).toThrow(/not in the list of allowed directories/);
+			} finally {
+				remove(pivot, outside);
+			}
+		});
+
+		test("should keep a final-component symlink pointing outside as the destination, so the write replaces the link", () => {
+			const outside = createDirectoryOutsideAllowedRoots();
+			const victim = path.join(outside, "victim.png");
+			fs.writeFileSync(victim, "ORIGINAL");
+			const link = createSymlink(victim);
+			try {
+				const destination = validateOutputPath(link);
+				writeOutputFile(destination, "SCREENSHOT");
+
+				expect(fs.readFileSync(victim, "utf8")).toBe("ORIGINAL");
+				expect(fs.lstatSync(link).isSymbolicLink()).toBe(false);
+				expect(fs.readFileSync(link, "utf8")).toBe("SCREENSHOT");
+			} finally {
+				remove(link, outside);
+			}
+		});
+
+		test("should accept a path through the /tmp symlink on macOS", () => {
+			test.skip(process.platform !== "darwin", "/tmp is a symlink only on macOS");
+			expect(validateOutputPath("/tmp/mobile-mcp-test-output.png")).toBe("/private/tmp/mobile-mcp-test-output.png");
 		});
 	});
 

@@ -85,7 +85,7 @@ function isPathUnderRoot(filePath: string, root: string): boolean {
 		return false;
 	}
 
-	if (relative.startsWith("..")) {
+	if (relative === ".." || relative.startsWith(`..${path.sep}`)) {
 		return false;
 	}
 
@@ -99,59 +99,31 @@ export function validateFileExtension(filePath: string, allowedExtensions: strin
 	}
 }
 
-// windows follows up to 63 reparse points per path, linux 40 and macos 32;
-// anything longer is rejected rather than handed to the write
-const MAX_SYMLINK_HOPS = 64;
-
-// Walk `filePath` to the real location a write would land on, following a
-// symlink in EVERY component - not just the parent directory. Resolving only the
-// parent let a symlink at, or before, the final component redirect the write
-// while the check still saw an in-root path: a single final-component link was
-// covered, but a chain whose intermediate link sits inside an allowed root and
-// whose final target is dangling (the file a write would create) was not, so the
-// write escaped. Follow each hop to its target until a component that either
-// exists as a real file or does not exist at all, and hand that to the root check.
-function resolveWithSymlinks(filePath: string): string {
-	let current = path.resolve(filePath);
-
-	// bound the walk so a symlink cycle cannot spin forever
-	for (let hops = 0; hops < MAX_SYMLINK_HOPS; hops++) {
-		const dir = path.dirname(current);
-		const filename = path.basename(current);
-
-		// resolve the containing directory first (it may be a symlink itself,
-		// e.g. /tmp and /var on macOS) so it lines up with the allowed roots
-		let realDir: string;
-		try {
-			realDir = fs.realpathSync(dir);
-		} catch {
-			realDir = dir;
+// Ask the OS where the parent directory really is, instead of predicting it:
+// realpathSync.native follows every symlink and `..` exactly as the write will
+// (plain realpathSync collapses `..` lexically first, which a symlink can abuse).
+// The final component is kept as-is - writeOutputFile and moveOutputFile rename
+// over it, so a link there is replaced rather than followed.
+function resolveOutputPath(filePath: string): string {
+	const dir = path.dirname(filePath);
+	let realDir: string;
+	try {
+		realDir = fs.realpathSync.native(dir);
+	} catch (error: any) {
+		if (error.code === "ELOOP") {
+			throw new ActionableError(`"${filePath}" has too many levels of symbolic links.`);
 		}
 
-		const candidate = path.join(realDir, filename);
-
-		let stat: fs.Stats;
-		try {
-			stat = fs.lstatSync(candidate);
-		} catch {
-			// nothing there yet, it will be created at `candidate`
-			return candidate;
-		}
-
-		if (!stat.isSymbolicLink()) {
-			return candidate;
-		}
-
-		// follow the link to its target - which may itself be a link, or may not
-		// exist yet (exactly where a write would create the file) - and resolve again
-		current = path.resolve(realDir, fs.readlinkSync(candidate));
+		throw new ActionableError(`"${dir}" does not exist or is not a directory.`);
 	}
 
-	throw new ActionableError(`"${filePath}" has too many levels of symbolic links.`);
+	return path.join(realDir, path.basename(filePath));
 }
 
-export function validateOutputPath(filePath: string): void {
-	const resolved = resolveWithSymlinks(filePath);
+// returns the resolved path; write to it, not to `filePath`, so the file lands
+// exactly where it was checked
+export function validateOutputPath(filePath: string): string {
+	const resolved = resolveOutputPath(filePath);
 	const allowedRoots = getAllowedRoots();
 	const isWindows = process.platform === "win32";
 
@@ -169,6 +141,8 @@ export function validateOutputPath(filePath: string): void {
 			`"${dir}" is not in the list of allowed directories. Allowed directories: ${allowedRoots.join(", ")}.`
 		);
 	}
+
+	return resolved;
 }
 
 // a sibling of `to` with an unguessable name, created with O_EXCL ("wx"), so a
@@ -243,8 +217,7 @@ export function finishRecording(recordingPath: string, outputPath: string): stri
 	}
 
 	try {
-		validateOutputPath(outputPath);
-		moveOutputFile(recordingPath, outputPath);
+		moveOutputFile(recordingPath, validateOutputPath(outputPath));
 	} catch (error: any) {
 		// keep the private directory, the recording is still in it
 		return error.message;
