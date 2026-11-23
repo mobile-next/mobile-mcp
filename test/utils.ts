@@ -163,6 +163,13 @@ test.describe("utils", () => {
 			const target = path.join(os.tmpdir(), "..mobile-mcp-test-output.png");
 			expect(() => validateOutputPath(target)).not.toThrow();
 		});
+
+		test("should resolve Windows drive-relative paths against the drive working directory", () => {
+			test.skip(process.platform !== "win32", "drive-relative paths are Windows-specific");
+			const drive = path.parse(process.cwd()).root.slice(0, 2);
+			expect(() => validateOutputPath(`${drive}..\\mobile-mcp-escaped.png`)).toThrow();
+			expect(() => validateOutputPath(`${drive}mobile-mcp-in-cwd.png`)).not.toThrow();
+		});
 	});
 
 	// a symlink as the final path component would redirect a write, so it must be

@@ -111,27 +111,46 @@ const MAX_SYMLINK_HOPS = 64;
 // whose final target is dangling (the file a write would create) was not, so the
 // write escaped. Follow each hop to its target until a component that either
 // exists as a real file or does not exist at all, and hand that to the root check.
+const WINDOWS_DRIVE_RELATIVE = /^[A-Za-z]:(?![\\/])/;
+
 function splitPathSegments(relativePath: string): string[] {
 	const separator = path.sep === "\\" ? /[\\/]+/ : "/";
 	return relativePath.split(separator).filter(Boolean);
 }
 
-function resolveWithSymlinks(filePath: string): string {
-	let current: string;
-	let pending: string[];
-	if (path.isAbsolute(filePath)) {
-		const { root } = path.parse(filePath);
-		current = (process.platform === "win32" && (root === "\\" || root === "/"))
-			? path.parse(process.cwd()).root
-			: root;
-		pending = splitPathSegments(filePath.slice(root.length));
-	} else {
-		const cwd = process.cwd();
-		const { root } = path.parse(cwd);
-		current = root;
-		pending = [...splitPathSegments(cwd.slice(root.length)), ...splitPathSegments(filePath)];
+function decomposePath(rawPath: string, fallbackBase: string): { root: string; segments: string[] } {
+	if (process.platform === "win32" && WINDOWS_DRIVE_RELATIVE.test(rawPath)) {
+		// resolve only the drive's current working directory, keeping raw `..` segments intact
+		const driveBase = path.resolve(rawPath.slice(0, 2));
+		const { root } = path.parse(driveBase);
+		return {
+			root,
+			segments: [...splitPathSegments(driveBase.slice(root.length)), ...splitPathSegments(rawPath.slice(2))],
+		};
 	}
 
+	if (path.isAbsolute(rawPath)) {
+		const { root } = path.parse(rawPath);
+		const resolvedRoot = (process.platform === "win32" && (root === "\\" || root === "/"))
+			? path.parse(fallbackBase).root
+			: root;
+		return {
+			root: resolvedRoot,
+			segments: splitPathSegments(rawPath.slice(root.length)),
+		};
+	}
+
+	const { root } = path.parse(fallbackBase);
+	return {
+		root,
+		segments: [...splitPathSegments(fallbackBase.slice(root.length)), ...splitPathSegments(rawPath)],
+	};
+}
+
+function resolveWithSymlinks(filePath: string): string {
+	const initial = decomposePath(filePath, process.cwd());
+	let current = initial.root;
+	const pending = [...initial.segments];
 	let hops = 0;
 
 	// walk each raw path component in OS order so every symlink ancestor is
@@ -179,12 +198,10 @@ function resolveWithSymlinks(filePath: string): string {
 
 		// follow the raw symlink target without lexically collapsing `..` first
 		const rawTarget = fs.readlinkSync(next);
-		if (path.isAbsolute(rawTarget)) {
-			const targetRoot = path.parse(rawTarget).root;
-			current = (process.platform === "win32" && (targetRoot === "\\" || targetRoot === "/"))
-				? path.parse(current).root
-				: targetRoot;
-			pending.unshift(...splitPathSegments(rawTarget.slice(targetRoot.length)));
+		if (path.isAbsolute(rawTarget) || (process.platform === "win32" && WINDOWS_DRIVE_RELATIVE.test(rawTarget))) {
+			const decomposed = decomposePath(rawTarget, current);
+			current = decomposed.root;
+			pending.unshift(...decomposed.segments);
 		} else {
 			pending.unshift(...splitPathSegments(rawTarget));
 		}
