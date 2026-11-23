@@ -547,6 +547,7 @@ Gmail to contacts "team@example.com".
 |---|---|---|
 | `MOBILEMCP_AUTH` | Require a Bearer token on the Streamable HTTP server (`--listen`) — every request must then send `Authorization: Bearer <token>`. | `MOBILEMCP_AUTH=my-secret-token` |
 | `MOBILEMCP_DISABLE_TELEMETRY` | Disable anonymous usage telemetry. | `MOBILEMCP_DISABLE_TELEMETRY=1` |
+| `DO_NOT_TRACK` | Standard [Console Do Not Track](https://consoledonottrack.com) opt-out; same effect as `MOBILEMCP_DISABLE_TELEMETRY`. | `DO_NOT_TRACK=1` |
 | `MOBILEMCP_ALLOW_UNSAFE_URLS` | Allow `mobile_open_url` to open non-standard URL schemes (blocked by default). | `MOBILEMCP_ALLOW_UNSAFE_URLS=1` |
 | `MOBILEMCP_LEGACY_ROBOT` | Use the legacy platform-specific robots for Android devices and physical iOS devices. iOS simulators continue to use `mobilecli`. | `MOBILEMCP_LEGACY_ROBOT=1` |
 
@@ -561,7 +562,7 @@ Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and 
 
 ### Telemetry
 
-Mobile MCP collects anonymous usage telemetry via PostHog and Scarf. To disable it, set the `MOBILEMCP_DISABLE_TELEMETRY` environment variable:
+Mobile MCP collects anonymous usage telemetry via PostHog and Scarf. To disable it, set the `MOBILEMCP_DISABLE_TELEMETRY` (or the standard `DO_NOT_TRACK=1`) environment variable:
 
 ```bash
 MOBILEMCP_DISABLE_TELEMETRY=1 npx @mobilenext/mobile-mcp@latest

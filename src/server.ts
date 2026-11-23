@@ -32,6 +32,9 @@ const DEFAULT_SCREENSHOT_MAX_SIZE = 1024;
 const BATCH_DELAY_STEP = "delay";
 const MAX_BATCH_DELAY_MS = 10000;
 const ALLOWED_RECORDING_EXTENSIONS = [".mp4"];
+
+// honors https://consoledonottrack.com as well as our own opt-out
+const isTelemetryDisabled = (): boolean => !!process.env.MOBILEMCP_DISABLE_TELEMETRY || process.env.DO_NOT_TRACK === "1";
 const ALLOWED_APP_EXTENSIONS = [".apk", ".ipa", ".zip", ".app"];
 const LOGIN_PROMPT_TIMEOUT_MS = 15000;
 const NO_LOCAL_DEVICES_HINT =
@@ -223,7 +226,7 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	const posthog = async (event: string, properties: Record<string, string | number>) => {
-		if (process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+		if (isTelemetryDisabled()) {
 			return;
 		}
 
@@ -274,7 +277,7 @@ export const createMcpServer = (): McpServer => {
 	// ponytail: scarf.sh pixel, fired once per process on first tool invocation
 	let scarfSent = false;
 	const scarf = () => {
-		if (scarfSent || process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+		if (scarfSent || isTelemetryDisabled()) {
 			return;
 		}
 
@@ -367,7 +370,7 @@ export const createMcpServer = (): McpServer => {
 
 	// ponytail: same tool as @posthog/mcp's reportMissing, without pulling in the sdk
 	// nothing to report to when telemetry is off, so don't advertise the tool at all
-	if (!process.env.MOBILEMCP_DISABLE_TELEMETRY) {
+	if (!isTelemetryDisabled()) {
 		tool(
 			"get_more_tools",
 			"Get More Tools",
