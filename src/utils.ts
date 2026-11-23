@@ -111,23 +111,53 @@ const MAX_SYMLINK_HOPS = 64;
 // whose final target is dangling (the file a write would create) was not, so the
 // write escaped. Follow each hop to its target until a component that either
 // exists as a real file or does not exist at all, and hand that to the root check.
+function splitPathSegments(relativePath: string): string[] {
+	const separator = path.sep === "\\" ? /[\\/]+/ : "/";
+	return relativePath.split(separator).filter(Boolean);
+}
+
 function resolveWithSymlinks(filePath: string): string {
-	const initial = path.resolve(filePath);
-	const { root } = path.parse(initial);
-	let current = root;
-	const pending = initial.slice(root.length).split(path.sep).filter(Boolean);
+	let current: string;
+	let pending: string[];
+	if (path.isAbsolute(filePath)) {
+		const { root } = path.parse(filePath);
+		current = (process.platform === "win32" && (root === "\\" || root === "/"))
+			? path.parse(process.cwd()).root
+			: root;
+		pending = splitPathSegments(filePath.slice(root.length));
+	} else {
+		const cwd = process.cwd();
+		const { root } = path.parse(cwd);
+		current = root;
+		pending = [...splitPathSegments(cwd.slice(root.length)), ...splitPathSegments(filePath)];
+	}
+
 	let hops = 0;
 
-	// walk each path component from the root so symlinks in any ancestor
-	// (including dangling directory symlinks, parent cycles, and missing nested
-	// subdirectories under a symlinked parent) are resolved before checking roots
+	// walk each raw path component in OS order so every symlink ancestor is
+	// resolved before any following `..` segment is applied
 	while (pending.length > 0) {
 		const segment = pending.shift()!;
+		if (segment === ".") {
+			continue;
+		}
+
+		if (segment === "..") {
+			current = path.dirname(current);
+			continue;
+		}
+
 		const next = path.join(current, segment);
 		let stat: fs.Stats;
 		try {
 			stat = fs.lstatSync(next);
 		} catch (error: any) {
+			if (error?.code === "ENOENT" && pending.includes("..")) {
+				// keep walking when a later `..` could ascend back into an existing directory
+				current = next;
+				continue;
+			}
+
 			if (error?.code === "ENOENT" || error?.code === "ENOTDIR" || error?.code === "EACCES") {
 				// nothing exists from this segment onward, so normalize the
 				// remaining segments on top of the resolved prefix
@@ -147,13 +177,17 @@ function resolveWithSymlinks(filePath: string): string {
 			throw new ActionableError(`"${filePath}" has too many levels of symbolic links.`);
 		}
 
-		// follow the link to its target - which may itself be a link or may not
-		// exist yet - and continue resolving from the target's root
-		const target = path.resolve(current, fs.readlinkSync(next));
-		const targetRoot = path.parse(target).root;
-		const targetParts = target.slice(targetRoot.length).split(path.sep).filter(Boolean);
-		current = targetRoot;
-		pending.unshift(...targetParts);
+		// follow the raw symlink target without lexically collapsing `..` first
+		const rawTarget = fs.readlinkSync(next);
+		if (path.isAbsolute(rawTarget)) {
+			const targetRoot = path.parse(rawTarget).root;
+			current = (process.platform === "win32" && (targetRoot === "\\" || targetRoot === "/"))
+				? path.parse(current).root
+				: targetRoot;
+			pending.unshift(...splitPathSegments(rawTarget.slice(targetRoot.length)));
+		} else {
+			pending.unshift(...splitPathSegments(rawTarget));
+		}
 	}
 
 	return current;

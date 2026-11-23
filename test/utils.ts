@@ -279,6 +279,39 @@ test.describe("utils", () => {
 				fs.rmSync(first, { force: true });
 			}
 		});
+
+		test("should reject symlink targets whose .. follows a symlink pointing outside allowed directories", () => {
+			const outsideBase = fs.mkdtempSync(path.join(os.homedir(), ".mobile-mcp-pivot-test-"));
+			const childDir = path.join(outsideBase, "child");
+			const exportsDir = path.join(outsideBase, "exports");
+			fs.mkdirSync(childDir);
+			fs.mkdirSync(exportsDir);
+
+			const pivot = createSymlink(childDir);
+			const absLink = createSymlink(`${pivot}${path.sep}..${path.sep}exports`);
+			const relLink = createSymlink(`${path.basename(pivot)}${path.sep}..${path.sep}exports`);
+			try {
+				expect(() => validateOutputPath(path.join(absLink, "out.png"))).toThrow();
+				expect(() => validateOutputPath(path.join(relLink, "out.png"))).toThrow();
+				expect(() => validateOutputPath(`${pivot}${path.sep}..${path.sep}exports${path.sep}out.png`)).toThrow();
+			} finally {
+				fs.rmSync(relLink, { force: true });
+				fs.rmSync(absLink, { force: true });
+				fs.rmSync(pivot, { force: true });
+				fs.rmSync(outsideBase, { recursive: true, force: true });
+			}
+		});
+
+		test("should accept a direct symlink into an allowed directory", () => {
+			const allowedSubdir = fs.mkdtempSync(path.join(os.tmpdir(), "mobile-mcp-allowed-"));
+			const link = createSymlink(allowedSubdir);
+			try {
+				expect(() => validateOutputPath(path.join(link, "out.png"))).not.toThrow();
+			} finally {
+				fs.rmSync(link, { force: true });
+				fs.rmSync(allowedSubdir, { recursive: true, force: true });
+			}
+		});
 	});
 
 	// a link can be planted at the output path, before or after validateOutputPath,
