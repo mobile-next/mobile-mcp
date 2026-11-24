@@ -1020,7 +1020,7 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 		async ({ device, saveTo, maxSize, scale }) => {
 			validateFileExtension(saveTo, ALLOWED_SCREENSHOT_EXTENSIONS, "save_screenshot");
-			validateOutputPath(saveTo);
+			const destination = validateOutputPath(saveTo);
 
 			const robot = getRobotFromDevice(device);
 
@@ -1033,7 +1033,7 @@ export const createMcpServer = (): McpServer => {
 				throw new ActionableError("This device only supports png screenshots, save to a .png file instead.");
 			}
 
-			writeOutputFile(saveTo, screenshot);
+			writeOutputFile(destination, screenshot);
 			return `Screenshot saved to: ${saveTo}`;
 		}
 	);
@@ -1232,8 +1232,9 @@ export const createMcpServer = (): McpServer => {
 		async ({ device, limit, filter, saveTo }) => {
 			if (saveTo) {
 				validateFileExtension(saveTo, ALLOWED_LOG_EXTENSIONS, "get_device_logs");
-				validateOutputPath(saveTo);
 			}
+
+			const destination = saveTo ? validateOutputPath(saveTo) : undefined;
 
 			const robot = getRobotFromDevice(device);
 			if (!robot.getLogs) {
@@ -1241,11 +1242,11 @@ export const createMcpServer = (): McpServer => {
 			}
 
 			const logs = await robot.getLogs(limit, filter, DEVICE_LOG_TIMEOUT_MS);
-			if (!saveTo) {
+			if (!destination) {
 				return logs || "No log entries received";
 			}
 
-			writeOutputFile(saveTo, logs + "\n");
+			writeOutputFile(destination, logs + "\n");
 			const lineCount = logs ? logs.split("\n").length : 0;
 			return `Saved ${lineCount} log entries to: ${saveTo}`;
 		}
