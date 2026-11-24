@@ -1,3 +1,8 @@
+## [1.0.20](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.20) (2026-11-24)
+* Feat: Setting standard `DO_NOT_TRACK=1` disables telemetry (previous env variables work as well) ([#577](https://github.com/mobile-next/mobile-mcp/pull/577))
+* Fix: Output paths are validated by their real parent directory, and files are written to that path ([#578](https://github.com/mobile-next/mobile-mcp/pull/578), [#572](https://github.com/mobile-next/mobile-mcp/pull/572)), thanks to [@FFXFF1](https://github.com/FFXFF1)
+* Chore: Upgrade mobilewright to 0.0.72 ([#579](https://github.com/mobile-next/mobile-mcp/pull/579))
+
 ## [1.0.19](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.19) (2026-11-22)
 * Feat: `mobile_launch_app` passes launch arguments and environment variables to the app ([#523](https://github.com/mobile-next/mobile-mcp/pull/523))
 * Feat: Note device available when listing remote devices ([#569](https://github.com/mobile-next/mobile-mcp/pull/569))
