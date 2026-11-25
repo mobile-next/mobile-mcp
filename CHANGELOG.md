@@ -1,3 +1,6 @@
+## Unreleased
+* Feat: Taps, swipes, typing, button presses, `mobile_open_url` and `mobile_launch_app` wait for the screen to settle and report what changed: nothing, new content, a new screen, a dialog, or a scroll, plus what received the touch, the typed field's value and a short diff of elements. Turn it off with `feedback: false` or `MOBILEMCP_ACTION_FEEDBACK=0` ([#535](https://github.com/mobile-next/mobile-mcp/pull/535))
+
 ## [1.0.20](https://github.com/mobile-next/mobile-mcp/releases/tag/1.0.20) (2026-11-24)
 * Feat: Setting standard `DO_NOT_TRACK=1` disables telemetry (previous env variables work as well) ([#577](https://github.com/mobile-next/mobile-mcp/pull/577))
 * Fix: Output paths are validated by their real parent directory, and files are written to that path ([#578](https://github.com/mobile-next/mobile-mcp/pull/578), [#572](https://github.com/mobile-next/mobile-mcp/pull/572)), thanks to [@FFXFF1](https://github.com/FFXFF1)
